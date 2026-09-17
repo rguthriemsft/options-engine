@@ -1,6 +1,6 @@
 @OptionsEngine.Api_HostAddress = http://localhost:0
 
-GET {{OptionsEngine.Api_HostAddress}}/weatherforecast/
+GET {{OptionsEngine.Api_HostAddress}}/health
 Accept: application/json
 
 ###

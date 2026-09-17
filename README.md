@@ -6,14 +6,18 @@ V1 uses SQLite, EF Core, an ASP.NET Core Minimal API, and a future Excel present
 
 ## Architecture
 
-The Phase 1 solution uses a dependency flow toward the core:
+The Phase 1 solution keeps the domain and strategy core independent from infrastructure:
 
 ```text
-API (composition root) -> Application -> Domain / Strategy / MarketData
-                         -> Infrastructure -> Domain
+OptionsEngine.Api (composition root)
+├── OptionsEngine.Application
+│   ├── OptionsEngine.Domain
+│   ├── OptionsEngine.Strategy ──> OptionsEngine.Domain
+│   └── OptionsEngine.MarketData
+└── OptionsEngine.Infrastructure ──> OptionsEngine.Domain
 ```
 
-`OptionsEngine.Domain` contains provider- and persistence-independent account, holding, and tax-lot models. `OptionsEngine.Infrastructure` owns EF Core and SQLite. The other layers are intentionally empty foundations until their specified phases.
+`OptionsEngine.Domain` contains provider- and persistence-independent account, holding, and tax-lot models. `OptionsEngine.Strategy` depends only on Domain and remains infrastructure-independent. `OptionsEngine.MarketData` defines market-data abstractions and provider boundaries; provider-specific types do not enter Domain or Strategy. `OptionsEngine.Application` orchestrates Domain, Strategy, and MarketData. `OptionsEngine.Infrastructure` owns EF Core, SQLite, and other infrastructure concerns. The API composes Application and Infrastructure. The layers that have no Phase 1 behavior are intentionally empty foundations.
 
 ## Prerequisites and setup
 
