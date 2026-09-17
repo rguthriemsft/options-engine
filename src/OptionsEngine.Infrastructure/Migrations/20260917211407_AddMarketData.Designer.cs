@@ -11,7 +11,7 @@ using OptionsEngine.Infrastructure.Persistence;
 namespace OptionsEngine.Infrastructure.Migrations
 {
     [DbContext(typeof(OptionsEngineDbContext))]
-    [Migration("20260917205147_AddMarketData")]
+    [Migration("20260917211407_AddMarketData")]
     partial class AddMarketData
     {
         /// <inheritdoc />
