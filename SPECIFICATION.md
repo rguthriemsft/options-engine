@@ -652,6 +652,12 @@ RealizedVolatility
     StandardPeriod = 30
     AnnualizationTradingDays = 252
 
+ImpliedVolatility
+    TargetDteCalendarDays = 30
+    MaxAtmStrikeDistanceRatio = 0.05
+    HistoricalLookbackValidObservations = 252
+    MinimumHistoricalValidObservations = 126
+
 Resistance
     SwingWindow = 3
     LookbackTradingDays = 120
@@ -974,57 +980,68 @@ A legitimate realized volatility of zero shall remain distinguishable from unava
 
 ## 12.10 Implied Volatility Context
 
-Phase 3 shall derive provider-independent underlying-level implied-volatility context from normalized option observations captured by the market-data layer.
+Phase 3 derives provider-independent IV30, IVRank, and IVPercentile from normalized contract-level implied volatility captured by Phase 2. Phase 4 consumes these values and does not reconstruct them from provider-specific option data.
 
-At minimum, the Phase 3 market-context model shall support:
+### IV30
 
-```text
-IV30
-IVRank
-IVPercentile
-```
+V1 IV30 is constant-30-calendar-day ATM implied volatility derived from normalized provider-supplied contract IV.
 
-These values are market observations consumed by later strategy engines. They are not themselves CCOS scores.
-
-The ownership boundary is:
-
-```text
-Normalized option observations
-        |
-        v
-Phase 3 implied-volatility context
-        |
-        +-- IV30
-        +-- IVRank
-        +-- IVPercentile
-        |
-        v
-Phase 4 CCOS volatility component
-```
-
-Phase 4 shall consume these values and shall not independently reconstruct them from provider-specific option data.
-
-The precise V1 calculation methodology for `IV30`, `IVRank`, and `IVPercentile` must be explicitly specified before implementation.
-
-The methodology shall define at least:
+For AsOfDate:
+- DTE is calendar days to expiration.
+- Use positive-DTE expirations available as of the calculation.
+- Select the strike nearest the associated underlying price; equal-distance ties select the lower strike.
+- Require abs(Strike - UnderlyingPrice) / UnderlyingPrice <= MaxAtmStrikeDistanceRatio. Default is 0.05 (5%) and is configurable.
+- Require both call and put IV at the selected strike. V1 applies no liquidity, volume, open-interest, or bid/ask filter.
+- ExpirationIV = (CallIV + PutIV) / 2.
+- An exact 30-DTE expiration supplies IV30 directly.
+- Otherwise linearly interpolate between the qualifying expirations nearest below and above 30 DTE:
 
 ```text
-Eligible option contracts
-ATM or strike-selection methodology
-Call/put treatment
-Expiration selection
-Interpolation methodology
-30-day constant-maturity semantics
-Historical lookback
-IV Rank semantics
-IV Percentile semantics
-Minimum required observations
-Missing-data behavior
+IV30 = IVNear
+     + ((30 - DteNear) / (DteFar - DteNear))
+       * (IVFar - IVNear)
 ```
 
-Until those rules are approved, implementation of `IV30`, `IVRank`, and `IVPercentile` is blocked. Codex or another implementation agent shall not infer or invent these rules.
+V1 does not extrapolate. IV30 is unavailable if 30 DTE cannot be bracketed. IV uses double decimal-ratio representation, so 0.30 means 30%.
 
-Missing implied-volatility context shall remain explicitly unavailable and shall not be represented as zero.
+Historical IV30 uses the latest eligible option-chain observation available on AsOfDate. Later snapshots must never backfill or alter an earlier result. Phase 3 consumes normalized provider IV and does not invert an option-pricing model to recalculate contract IV.
+
+Missing IV30 is explicitly unavailable with a reason. Zero, RV30, one-sided IV, and extrapolated IV are not substitutes.
+
+### IV Rank and IV Percentile
+
+Both metrics use the most recent 252 valid IV30 observations through and including current AsOfDate. At least 126 valid observations are required. Missing observations are ignored and never treated as zero.
+
+```text
+IVRank =
+((CurrentIV30 - MinIV30) / (MaxIV30 - MinIV30)) * 100
+```
+
+If MaxIV30 equals MinIV30, IV Rank is unavailable.
+
+```text
+IVPercentile =
+100 * (
+    count(valid IV30 observations strictly below CurrentIV30)
+    / count(valid IV30 observations in lookback)
+)
+```
+
+Current IV30 is included in the denominator. Values equal to current IV30 are not counted as below it.
+
+If current IV30 is unavailable or fewer than 126 valid observations exist, the applicable historical IV context is unavailable. Future observations must not change historical results.
+
+Approved defaults:
+
+```text
+TargetDteCalendarDays = 30
+MaxAtmStrikeDistanceRatio = 0.05
+HistoricalLookbackValidObservations = 252
+MinimumHistoricalValidObservations = 126
+```
+
+Material IV parameters are strongly typed and versioned through ConfigurationVersion. Material algorithm changes require IndicatorCalculationVersion review. Deterministic fixed-data reference fixtures shall lock this methodology.
+
 
 ## 12.11 Resistance Detection
 
@@ -3792,7 +3809,7 @@ Read-only indicator API
 
 Phase 3 shall produce deterministic, provider-independent indicator observations suitable for direct consumption by later strategy engines.
 
-Implementation of IV30, IVRank, and IVPercentile is contingent upon approval of their detailed V1 calculation methodology. The implementation phase shall not infer these formulas from provider behavior or common industry conventions.
+The V1 IV30, IVRank, and IVPercentile methodology is approved in Section 12.10 and shall be implemented exactly as specified. Changes require explicit specification and calculation-version review.
 
 Phase 3 shall not implement CCOS or other recommendation logic.
 
