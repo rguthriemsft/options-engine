@@ -1635,25 +1635,22 @@ Release build shall contain zero warnings and zero errors unless an explicitly d
 
 # 58. Database Migration
 
-If Phase 3 persists indicator snapshots or configuration records, create a new EF Core migration.
+# 58. Database Migration
+
+Phase 3 shall persist indicator snapshots and shall create a new EF Core migration for the required Phase 3 schema.
 
 The Phase 1 and Phase 2 migrations must remain unchanged.
 
 Verify:
 
-```text
 Empty DB -> Phase 1 -> Phase 2 -> Phase 3
-```
 
 and:
 
-```text
 Populated Phase 2 DB -> Phase 3
-```
 
 Existing:
 
-```text
 Account
 Holding
 TaxLot
@@ -1662,11 +1659,10 @@ MarketQuoteSnapshots
 OptionContractSnapshots
 OptionExpirationCaches
 HistoricalPriceCoverages
-```
 
 must remain intact.
 
-Add automated migration/data-preservation coverage where practical.
+Add automated migration/data-preservation coverage.
 
 Verify no pending EF model changes remain.
 
@@ -1692,12 +1688,15 @@ Phase 3 is complete when:
 - [ ] Historical as-of calculations cannot use future observations.
 - [ ] Look-ahead-bias tests pass.
 - [ ] Indicator snapshots are reproducible/versioned.
-- [ ] Persistence is implemented if required by the approved design.
+- [ ] Indicator snapshot persistence is implemented.
+- [ ] Phase 3 EF migration is implemented.
+- [ ] Clean-database migration verification passes.
+- [ ] Populated Phase 2 -> Phase 3 migration/data-preservation verification passes.
+- [ ] No pending EF model changes remain.
 - [ ] Read-only indicator API is implemented.
 - [ ] Deterministic unit tests cover mathematical boundaries.
 - [ ] Application orchestration tests pass.
 - [ ] API integration tests pass.
-- [ ] Migration verification passes if schema changes are introduced.
 - [ ] Documentation is updated.
 - [ ] Release build succeeds with zero warnings/errors.
 - [ ] All automated tests pass.
