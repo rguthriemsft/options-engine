@@ -1,0 +1,15 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+  <ItemGroup>
+    <ProjectReference Include="..\OptionsEngine.Domain\OptionsEngine.Domain.csproj" />
+    <ProjectReference Include="..\OptionsEngine.Strategy\OptionsEngine.Strategy.csproj" />
+    <ProjectReference Include="..\OptionsEngine.MarketData\OptionsEngine.MarketData.csproj" />
+  </ItemGroup>
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+  </PropertyGroup>
+
+</Project>

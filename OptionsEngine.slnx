@@ -1,0 +1,17 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/OptionsEngine.Api/OptionsEngine.Api.csproj" />
+    <Project Path="src/OptionsEngine.Application/OptionsEngine.Application.csproj" />
+    <Project Path="src/OptionsEngine.Domain/OptionsEngine.Domain.csproj" />
+    <Project Path="src/OptionsEngine.Infrastructure/OptionsEngine.Infrastructure.csproj" />
+    <Project Path="src/OptionsEngine.MarketData/OptionsEngine.MarketData.csproj" />
+    <Project Path="src/OptionsEngine.Strategy/OptionsEngine.Strategy.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/OptionsEngine.Api.Tests/OptionsEngine.Api.Tests.csproj" />
+    <Project Path="tests/OptionsEngine.Domain.Tests/OptionsEngine.Domain.Tests.csproj" />
+    <Project Path="tests/OptionsEngine.Infrastructure.Tests/OptionsEngine.Infrastructure.Tests.csproj" />
+    <Project Path="tests/OptionsEngine.MarketData.Tests/OptionsEngine.MarketData.Tests.csproj" />
+    <Project Path="tests/OptionsEngine.Strategy.Tests/OptionsEngine.Strategy.Tests.csproj" />
+  </Folder>
+</Solution>

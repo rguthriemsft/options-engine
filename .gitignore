@@ -11,6 +11,11 @@
 *.sln.docstates
 *.env
 
+# Local SQLite databases and EF Core design-time artifacts.
+*.db
+*.db-shm
+*.db-wal
+
 # User-specific files (MonoDevelop/Xamarin Studio)
 *.userprefs
 
