@@ -39,6 +39,14 @@ public sealed class TradierMarketDataProviderTests
         var provider = Create(new StubHandler(_ => Json("{\"expirations\":{\"date\":[\"2026-02-20\",\"2026-01-17\",\"2026-01-17\"]}}")));
         var dates = await provider.GetOptionExpirationsAsync("MSFT"); Assert.Equal([new DateOnly(2026, 1, 17), new DateOnly(2026, 2, 20)], dates);
     }
+    [Fact]
+    public async Task RateLimitExpiryUsesUnixEpochMilliseconds()
+    {
+        const long expiryMilliseconds = 1760000000000;
+        var handler = new StubHandler(_ => { var response = Json("{\"quotes\":{\"quote\":{\"symbol\":\"MSFT\",\"trade_date\":1760000000000}}}"); response.Headers.Add("X-Ratelimit-Expiry", expiryMilliseconds.ToString()); return response; });
+        var provider = Create(handler); await provider.GetQuoteAsync("MSFT");
+        Assert.Equal(DateTimeOffset.FromUnixTimeMilliseconds(expiryMilliseconds), provider.LastRateLimit!.Expiry);
+    }
     private static TradierMarketDataProvider Create(StubHandler handler) => new(new HttpClient(handler) { BaseAddress = new Uri("https://api.tradier.com/v1/") }, new TradierOptions { AccessToken = "token" }, NullLogger<TradierMarketDataProvider>.Instance);
     private static HttpResponseMessage Json(string content) => new(HttpStatusCode.OK) { Content = new StringContent(content, Encoding.UTF8, "application/json") };
     private sealed class StubHandler(Func<HttpRequestMessage, HttpResponseMessage> response) : HttpMessageHandler { public int Calls { get; private set; } public System.Net.Http.Headers.AuthenticationHeaderValue? Authorization { get; private set; } public string PathAndQuery { get; private set; } = ""; protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken) { Calls++; Authorization = request.Headers.Authorization; PathAndQuery = request.RequestUri!.PathAndQuery.TrimStart('/'); return Task.FromResult(response(request)); } }

@@ -208,6 +208,38 @@ namespace OptionsEngine.Infrastructure.Migrations
                     b.ToTable("HistoricalPriceBars", (string)null);
                 });
 
+            modelBuilder.Entity("OptionsEngine.Infrastructure.Persistence.HistoricalPriceCoverageEntity", b =>
+                {
+                    b.Property<long>("HistoricalPriceCoverageId")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("INTEGER");
+
+                    b.Property<DateOnly>("EndDate")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("Provider")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("TEXT");
+
+                    b.Property<DateTimeOffset>("RetrievedAt")
+                        .HasColumnType("TEXT");
+
+                    b.Property<DateOnly>("StartDate")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("Symbol")
+                        .IsRequired()
+                        .HasMaxLength(32)
+                        .HasColumnType("TEXT");
+
+                    b.HasKey("HistoricalPriceCoverageId");
+
+                    b.HasIndex("Symbol", "Provider", "StartDate", "EndDate");
+
+                    b.ToTable("HistoricalPriceCoverages", (string)null);
+                });
+
             modelBuilder.Entity("OptionsEngine.Infrastructure.Persistence.MarketQuoteSnapshotEntity", b =>
                 {
                     b.Property<long>("MarketQuoteSnapshotId")
@@ -257,6 +289,9 @@ namespace OptionsEngine.Infrastructure.Migrations
 
                     b.Property<DateTimeOffset>("Timestamp")
                         .HasColumnType("TEXT");
+
+                    b.Property<long>("TimestampUtcTicks")
+                        .HasColumnType("INTEGER");
 
                     b.Property<long?>("Volume")
                         .HasColumnType("INTEGER");
@@ -325,6 +360,9 @@ namespace OptionsEngine.Infrastructure.Migrations
 
                     b.Property<DateTimeOffset>("Timestamp")
                         .HasColumnType("TEXT");
+
+                    b.Property<long>("TimestampUtcTicks")
+                        .HasColumnType("INTEGER");
 
                     b.Property<decimal?>("UnderlyingPrice")
                         .HasPrecision(18, 6)

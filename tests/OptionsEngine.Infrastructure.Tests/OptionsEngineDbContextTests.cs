@@ -61,8 +61,8 @@ public sealed class OptionsEngineDbContextTests : IAsyncLifetime
         await cache.SaveQuoteAsync(new("MSFT", first, 500m, null, null, null, null, null, null, null, "Tradier", null));
         await cache.SaveQuoteAsync(new("MSFT", first.AddMinutes(1), 501m, null, null, null, null, null, null, null, "Tradier", null));
         var bar = new HistoricalBar("MSFT", new DateOnly(2026, 1, 2), 1m, 2m, 1m, 2m, null, "Tradier");
-        await cache.UpsertHistoricalBarsAsync([bar], first);
-        await cache.UpsertHistoricalBarsAsync([bar with { Close = 3m }], first.AddHours(1));
+        await cache.UpsertHistoricalBarsAsync([bar], bar.Date, bar.Date, first);
+        await cache.UpsertHistoricalBarsAsync([bar with { Close = 3m }], bar.Date, bar.Date, first.AddHours(1));
         var chain = new OptionChain("MSFT", new DateOnly(2026, 1, 17), first, [new("MSFT260117C00500000", "MSFT", first, new DateOnly(2026, 1, 17), 500m, OptionType.Call, null, null, null, null, null, null, null, null, null, null, null, "Tradier")], "Tradier");
         await cache.SaveOptionChainAsync(chain); await cache.SaveOptionChainAsync(chain with { Timestamp = first.AddMinutes(1), Contracts = [chain.Contracts[0] with { Timestamp = first.AddMinutes(1), Delta = 0d }] });
         Assert.Equal(2, await context.MarketQuoteSnapshots.CountAsync()); Assert.Equal(1, await context.HistoricalPriceBars.CountAsync()); Assert.Equal(3m, (await context.HistoricalPriceBars.SingleAsync()).Close); Assert.Equal(2, await context.OptionContractSnapshots.CountAsync()); Assert.Null((await context.OptionContractSnapshots.ToListAsync()).OrderBy(x => x.Timestamp).First().Delta);

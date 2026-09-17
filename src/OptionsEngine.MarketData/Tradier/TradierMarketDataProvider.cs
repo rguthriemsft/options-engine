@@ -15,6 +15,7 @@ public sealed class TradierMarketDataProvider(HttpClient httpClient, TradierOpti
     private readonly TradierOptions options = options;
     private readonly ILogger<TradierMarketDataProvider> logger = logger;
     public RateLimitMetadata? LastRateLimit { get; private set; }
+    string IMarketDataProvider.ProviderName => ProviderName;
 
     public async Task<MarketQuote> GetQuoteAsync(string symbol, CancellationToken cancellationToken = default)
     {
@@ -101,7 +102,7 @@ public sealed class TradierMarketDataProvider(HttpClient httpClient, TradierOpti
         catch (Exception ex) when (ex is FormatException or InvalidOperationException) { throw Malformed("Tradier returned an invalid option contract.", ex); }
     }
     private static MarketDataException Translate(HttpStatusCode code) => code switch { HttpStatusCode.Unauthorized or HttpStatusCode.Forbidden => new(MarketDataFailureKind.AuthenticationFailure, "Tradier authentication failed.", (int)code), HttpStatusCode.TooManyRequests => new(MarketDataFailureKind.RateLimited, "Tradier rate limit was exceeded.", 429), HttpStatusCode.BadRequest => new(MarketDataFailureKind.InvalidRequest, "Tradier rejected the market-data request.", 400), HttpStatusCode.NotFound => new(MarketDataFailureKind.InvalidSymbol, "Tradier did not find the requested symbol.", 404), _ => new(MarketDataFailureKind.ProviderUnavailable, "Tradier market data is unavailable.", (int)code) };
-    private static RateLimitMetadata ParseRateLimit(HttpResponseMessage response) => new(Int(response, "X-Ratelimit-Allowed"), Int(response, "X-Ratelimit-Used"), Int(response, "X-Ratelimit-Available"), DateTimeOffset.TryParse(Header(response, "X-Ratelimit-Expiry"), out var expiry) ? expiry : null);
+    private static RateLimitMetadata ParseRateLimit(HttpResponseMessage response) => new(Int(response, "X-Ratelimit-Allowed"), Int(response, "X-Ratelimit-Used"), Int(response, "X-Ratelimit-Available"), long.TryParse(Header(response, "X-Ratelimit-Expiry"), out var expiry) ? DateTimeOffset.FromUnixTimeMilliseconds(expiry) : null);
     private static string? Header(HttpResponseMessage r, string n) => r.Headers.TryGetValues(n, out var v) ? v.FirstOrDefault() : null; private static int? Int(HttpResponseMessage r, string n) => int.TryParse(Header(r, n), out var v) ? v : null;
     private static string NormalizeSymbol(string symbol) { var value = symbol.Trim().ToUpperInvariant(); if (string.IsNullOrWhiteSpace(value) || value.Any(char.IsWhiteSpace)) throw new MarketDataException(MarketDataFailureKind.InvalidSymbol, "A non-empty market symbol is required."); return value; }
     private static string RequiredString(JsonElement e, string n) => String(e, n) ?? throw new InvalidOperationException($"Required field '{n}' is missing."); private static string? String(JsonElement e, string n) => e.ValueKind == JsonValueKind.Object && e.TryGetProperty(n, out var p) && p.ValueKind != JsonValueKind.Null ? p.GetString() : null;

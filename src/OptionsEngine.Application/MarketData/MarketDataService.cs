@@ -11,30 +11,29 @@ public sealed class MarketDataService(IMarketDataProvider provider, IMarketDataC
     private readonly IMarketDataCache cache = cache;
     private readonly MarketDataCacheOptions cacheOptions = cacheOptions;
     private readonly ILogger<MarketDataService> logger = logger;
-    private const string Provider = "Tradier";
 
     public async Task<MarketQuote> GetQuoteAsync(string symbol, CancellationToken cancellationToken = default)
     {
-        var normalized = Normalize(symbol); var cached = await cache.GetLatestQuoteAsync(normalized, Provider, cancellationToken);
+        var normalized = Normalize(symbol); var cached = await cache.GetLatestQuoteAsync(normalized, provider.ProviderName, cancellationToken);
         if (cached is not null && DateTimeOffset.UtcNow - cached.Timestamp <= cacheOptions.QuoteFreshness) { logger.LogInformation("Market cache hit for quote {Symbol}", normalized); return cached; }
         var quote = await provider.GetQuoteAsync(normalized, cancellationToken); await cache.SaveQuoteAsync(quote, cancellationToken); return quote;
     }
     public async Task<IReadOnlyList<HistoricalBar>> GetHistoricalPricesAsync(string symbol, DateOnly start, DateOnly end, CancellationToken cancellationToken = default)
     {
         if (start > end) throw new MarketDataException(MarketDataFailureKind.InvalidRequest, "Start date must be on or before end date.");
-        var normalized = Normalize(symbol); var cached = await cache.GetHistoricalBarsAsync(normalized, start, end, Provider, cancellationToken);
-        if (cached is not null && DateTimeOffset.UtcNow - cached.RetrievedAt <= cacheOptions.HistoricalBarsFreshness) return cached.Value;
-        var bars = await provider.GetHistoricalPricesAsync(normalized, start, end, cancellationToken); await cache.UpsertHistoricalBarsAsync(bars, DateTimeOffset.UtcNow, cancellationToken); return bars;
+        var normalized = Normalize(symbol); var cached = await cache.GetHistoricalBarsAsync(normalized, start, end, provider.ProviderName, cancellationToken);
+        if (cached is not null && cached.CoverageStart <= start && cached.CoverageEnd >= end && DateTimeOffset.UtcNow - cached.RetrievedAt <= cacheOptions.HistoricalBarsFreshness) return cached.Value;
+        var bars = await provider.GetHistoricalPricesAsync(normalized, start, end, cancellationToken); await cache.UpsertHistoricalBarsAsync(bars, start, end, DateTimeOffset.UtcNow, cancellationToken); return bars;
     }
     public async Task<IReadOnlyList<DateOnly>> GetOptionExpirationsAsync(string symbol, CancellationToken cancellationToken = default)
     {
-        var normalized = Normalize(symbol); var cached = await cache.GetExpirationsAsync(normalized, Provider, cancellationToken);
+        var normalized = Normalize(symbol); var cached = await cache.GetExpirationsAsync(normalized, provider.ProviderName, cancellationToken);
         if (cached is not null && DateTimeOffset.UtcNow - cached.RetrievedAt <= cacheOptions.OptionExpirationsFreshness) return cached.Value;
-        var dates = await provider.GetOptionExpirationsAsync(normalized, cancellationToken); await cache.SaveExpirationsAsync(normalized, Provider, DateTimeOffset.UtcNow, dates, cancellationToken); return dates;
+        var dates = await provider.GetOptionExpirationsAsync(normalized, cancellationToken); await cache.SaveExpirationsAsync(normalized, provider.ProviderName, DateTimeOffset.UtcNow, dates, cancellationToken); return dates;
     }
     public async Task<OptionChain> GetOptionChainAsync(string symbol, DateOnly expiration, CancellationToken cancellationToken = default)
     {
-        var normalized = Normalize(symbol); var cached = await cache.GetLatestOptionChainAsync(normalized, expiration, Provider, cancellationToken);
+        var normalized = Normalize(symbol); var cached = await cache.GetLatestOptionChainAsync(normalized, expiration, provider.ProviderName, cancellationToken);
         if (cached is not null && DateTimeOffset.UtcNow - cached.Timestamp <= cacheOptions.OptionChainFreshness) return cached;
         var chain = await provider.GetOptionChainAsync(normalized, expiration, cancellationToken); await cache.SaveOptionChainAsync(chain, cancellationToken); return chain;
     }
