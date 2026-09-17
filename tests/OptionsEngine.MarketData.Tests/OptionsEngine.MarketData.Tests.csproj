@@ -17,6 +17,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\..\src\OptionsEngine.MarketData\OptionsEngine.MarketData.csproj" />
+    <ProjectReference Include="..\..\src\OptionsEngine.Application\OptionsEngine.Application.csproj" />
   </ItemGroup>
 
 </Project>
