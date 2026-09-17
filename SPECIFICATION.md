@@ -14,7 +14,7 @@
 
 # 1\. Purpose
 
-The Covered Call Decision Support System &#40;CCDSS&#41; is a see quantitative decision\-support platform for managing covered\-call strategies across stocks and ETFs\.
+The Covered Call Decision Support System &#40;CCDSS&#41; is a quantitative decision\-support platform for managing covered\-call strategies across stocks and ETFs\.
 
 The system shall identify favorable covered\-call opportunities, rank option contracts, determine appropriate position size, monitor open positions for assignment risk, recommend defensive rolls, track complete covered\-call campaigns, and measure strategy performance against a buy\-and\-hold benchmark\.
 
