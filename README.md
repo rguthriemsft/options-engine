@@ -17,7 +17,7 @@ OptionsEngine.Api (composition root)
 └── OptionsEngine.Infrastructure ──> OptionsEngine.Domain
 ```
 
-`OptionsEngine.Domain` contains provider- and persistence-independent account, holding, and tax-lot models. `OptionsEngine.Strategy` depends only on Domain and remains infrastructure-independent. `OptionsEngine.MarketData` defines market-data abstractions and provider boundaries; provider-specific types do not enter Domain or Strategy. `OptionsEngine.Application` orchestrates Domain, Strategy, and MarketData. `OptionsEngine.Infrastructure` owns EF Core, SQLite, and other infrastructure concerns. The API composes Application and Infrastructure. The layers that have no Phase 1 behavior are intentionally empty foundations.
+`OptionsEngine.Domain` contains provider- and persistence-independent account, holding, and tax-lot models. `OptionsEngine.Strategy` depends only on Domain and remains infrastructure-independent. `OptionsEngine.MarketData` owns normalized market-data records and `IMarketDataProvider`; its Tradier adapter maps production HTTP payloads at the boundary. `OptionsEngine.Application` orchestrates the provider abstraction and SQLite cache. `OptionsEngine.Infrastructure` owns EF Core/SQLite snapshot persistence. The API composes these layers.
 
 ## Prerequisites and setup
 
@@ -54,9 +54,22 @@ dotnet ef database update --project src/OptionsEngine.Infrastructure --startup-p
 
 SQLite runtime files are ignored by Git.
 
-## Secrets
+## Tradier market-data token
 
-Phase 1 requires no provider credentials. Future local development secrets should use .NET User Secrets or environment variables; do not add credentials to `appsettings.json`, the workbook, or source control.
+Phase 2 uses only the Tradier **production** market-data API. Configure a personal production access token locally; it is never stored in appsettings or source control:
+
+```bash
+dotnet user-secrets set "Tradier:AccessToken" "YOUR_PRODUCTION_TOKEN" --project src/OptionsEngine.Api
+```
+
+`Tradier__AccessToken` is also supported for environment-based configuration. See [docs/TRADIER.md](docs/TRADIER.md) for the endpoint, cache, persistence, and security details. Sandbox, account access, and trading endpoints are not implemented.
+
+## Market-data endpoints
+
+- `GET /api/market/{symbol}/quote`
+- `GET /api/market/{symbol}/history?start=YYYY-MM-DD&end=YYYY-MM-DD`
+- `GET /api/market/{symbol}/options/expirations`
+- `GET /api/market/{symbol}/options?expiration=YYYY-MM-DD`
 
 ## Phase 1 assumptions
 

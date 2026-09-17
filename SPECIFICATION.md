@@ -1713,19 +1713,43 @@ Provider APIs shall be asynchronous and cancellation\-aware\.
 
 # 58\. Tradier Integration
 
+Tradier shall be the V1 market-data provider.
+
+V1 shall integrate exclusively with the Tradier production market-data API.
+
+Tradier sandbox integration is explicitly out of scope.
+
 `TradierMarketDataProvider` shall be responsible for:
 
 - authentication;
 - HTTP communication;
-- rate\-limit handling;
+- rate-limit handling;
 - provider DTO deserialization;
 - retries where appropriate;
 - error translation;
-- mapping Tradier data to domain objects\.
+- mapping Tradier data to normalized provider-independent models.
 
-Tradier\-specific objects shall remain inside the MarketData/Infrastructure boundary\.
+Tradier-specific objects shall remain inside the MarketData/Infrastructure boundary.
 
-Secrets shall not be stored in source control\.
+Strategy and domain code shall never depend upon Tradier-specific DTOs or APIs.
+
+Tradier authentication shall use a personal API access token supplied through secure application configuration.
+
+Secrets shall not be stored in source control.
+
+Automated tests shall not require access to the live Tradier API.
+
+Provider integration tests shall use mocked HTTP responses and sanitized production-shaped Tradier response fixtures.
+
+A limited set of explicitly invoked read-only production smoke tests may be supported for development verification, but they shall:
+
+- be disabled by default;
+- require explicit developer configuration;
+- never execute during normal automated testing or CI;
+- never access brokerage positions or accounts;
+- never submit, modify, or cancel orders.
+
+The architecture shall continue to preserve the `IMarketDataProvider` abstraction so additional providers can be introduced later without changing strategy engines\.
 
 ---
 
@@ -1757,23 +1781,291 @@ Cache freshness shall be configurable by data type\.
 
 ---
 
-# 60\. Historical Snapshot Strategy
+# 60. Historical Market Data and Snapshot Strategy
 
-Whenever a live option chain is retrieved, the normalized chain shall be persisted\.
+The system shall persist sufficient historical market data to:
 
-Over time this creates proprietary historical observations containing:
+- reproduce historical recommendations;
+- analyze strategy decisions;
+- evaluate strategy performance;
+- perform future backtesting;
+- compare executed and unexecuted recommendations;
+- perform parameter sensitivity analysis;
+- evaluate alternative contract-selection rules.
+
+SQLite shall serve as both the V1 operational database and the V1 historical market-data store.
+
+Historical market observations shall preserve the provider and observation time necessary to establish where and when the data originated.
+
+## 60.1 Historical Underlying Price Data
+
+The system shall persist historical daily OHLCV price bars for supported underlying securities.
+
+Each historical daily bar shall preserve at minimum:
 
 ```text
-option prices
-bid/ask
-IV
-Greeks
-volume
-open interest
-underlying price
+Symbol
+Trading Date
+Open
+High
+Low
+Close
+Volume
+Provider
 ```
 
-This dataset shall later support strategy validation\.
+The initial system should maintain at least two years of daily price history when available from the market-data provider.
+
+Historical daily bars shall be idempotent.
+
+A logical historical daily observation is identified by:
+
+```text
+Symbol
+Trading Date
+Provider
+```
+
+Repeated retrieval of the same historical bar must not create uncontrolled duplicate records.
+
+The persistence layer may update an existing daily bar when the provider returns corrected or more complete data, provided the behavior is deterministic.
+
+Historical price data must not be assumed to be dividend-adjusted unless that characteristic is explicitly known from the provider data.
+
+## 60.2 Quote Snapshots
+
+Current underlying quotes shall be persisted as timestamped market observations where useful for recommendation reproducibility and auditing.
+
+A quote observation shall preserve at minimum:
+
+```text
+Symbol
+Observation Timestamp
+Provider
+Available Quote Values
+```
+
+New quote observations shall not silently overwrite historical quote observations required to reproduce previous recommendations.
+
+Cached quotes must preserve their original observation timestamp.
+
+Returning a cached quote must not cause the system to represent the cached data as newly observed market data.
+
+## 60.3 Option-Chain Snapshots
+
+Option-chain snapshots shall be treated as append-only historical market observations.
+
+Each option-chain retrieval may contain many individual option contract observations.
+
+The system shall retain these observations across time for:
+
+- recommendation reconstruction;
+- strategy research;
+- contract-selection analysis;
+- assignment-risk research;
+- roll analysis;
+- backtesting;
+- future statistical analysis.
+
+The OCC option symbol identifies an option contract.
+
+It does not uniquely identify a market observation.
+
+A persisted option observation shall therefore be uniquely distinguishable by at least:
+
+```text
+Option Contract
+Provider
+Observation Timestamp
+```
+
+Multiple observations of the same option contract at different times must coexist.
+
+A new option-chain retrieval must not overwrite the previous observation of the same OCC option contract.
+
+Each option contract snapshot shall preserve at minimum:
+
+```text
+Underlying Symbol
+OCC Option Symbol
+Observation Timestamp
+Expiration
+Strike
+Option Type
+Bid
+Ask
+Last
+Volume
+Open Interest
+Implied Volatility
+Delta
+Gamma
+Theta
+Vega
+Underlying Price
+Provider
+```
+
+Fields unavailable from the provider shall remain explicitly unavailable.
+
+Missing financial values shall never be silently converted to zero.
+
+In particular:
+
+```text
+Missing Delta != Delta of 0
+
+Missing Implied Volatility != Implied Volatility of 0
+
+Missing Open Interest != Open Interest of 0
+```
+
+This distinction must survive normalization, persistence, and API serialization where relevant.
+
+## 60.4 Historical Option Dataset
+
+The accumulated option snapshots shall form the application's own historical options research dataset.
+
+This dataset is considered a long-term system asset.
+
+Option snapshots shall therefore be retained even after:
+
+- an option expires;
+- the underlying recommendation is no longer active;
+- a campaign closes;
+- a recommendation was never executed.
+
+Historical option observations shall not depend upon the continued availability of the same historical information from the external provider.
+
+This enables future research such as:
+
+```text
+Delta bucket performance
+DTE bucket performance
+Premium efficiency
+Strike-distance analysis
+Expected-move analysis
+Contract Score validation
+DRS validation
+Roll candidate analysis
+Parameter sensitivity
+Counterfactual contract selection
+```
+
+No such strategy research is required during Phase 2; Phase 2 is responsible only for collecting and preserving the data required to support it later.
+
+## 60.5 Normalized Data
+
+Historical persistence shall store normalized provider-independent market-data models.
+
+Provider-specific DTOs shall not become the authoritative historical data model.
+
+The normalized historical representation must permit additional market-data providers to be introduced later without requiring strategy engines to understand provider-specific response formats.
+
+Provider identity shall nevertheless be retained on observations for provenance and auditing.
+
+## 60.6 Raw Provider Responses
+
+Raw provider-response retention is optional in V1.
+
+If raw responses are retained, they shall:
+
+- be stored separately from normalized market observations;
+- contain no authentication tokens or authorization headers;
+- not be required for normal strategy execution;
+- be configurable so storage can be disabled.
+
+Failure to retain raw responses shall not prevent implementation of normalized historical persistence.
+
+Normalized historical observations are mandatory.
+
+## 60.7 Data Freshness and Caching
+
+Market-data freshness requirements shall vary by data type.
+
+The system shall support configurable freshness policies for at least:
+
+```text
+Underlying Quotes
+Historical Daily Bars
+Option Expirations
+Option Chains
+```
+
+SQLite may serve as the V1 market-data cache.
+
+When cached data remains within its configured freshness period, the application may use it without requesting the provider again.
+
+When cached data is stale or absent, the application should refresh it from the configured market-data provider.
+
+Caching shall never alter the observation timestamp of the underlying market data.
+
+The system must be able to distinguish:
+
+```text
+Time data was observed
+```
+
+from:
+
+```text
+Time cached data was retrieved by the application
+```
+
+where that distinction affects reproducibility or data freshness.
+
+## 60.8 Recommendation Reproducibility
+
+Historical market-data retention shall support reconstruction of the market context used to generate a recommendation.
+
+A recommendation shall eventually be traceable to the relevant:
+
+```text
+Underlying market observation
+Historical price data
+Option contract observations
+Calculated indicators
+Strategy version
+Configuration version
+Recommendation timestamp
+```
+
+The persistence design shall not require historical recommendations to be recalculated using current market observations.
+
+## 60.9 Retention
+
+The following records shall be treated as long-term historical data:
+
+```text
+Daily Historical Price Bars
+Option Contract Snapshots
+Recommendation Inputs
+Recommendations
+Daily Position Snapshots
+Transactions
+Campaigns
+Configuration Versions
+```
+
+Quote snapshots may use a more selective retention policy in the future if storage volume becomes significant, provided recommendation reproducibility is preserved.
+
+Option contract snapshots shall be retained for research unless an explicit future data-retention policy supersedes this requirement.
+
+## 60.10 V1 Storage Strategy
+
+SQLite is sufficient for V1.
+
+The persistence architecture shall avoid unnecessary coupling to SQLite-specific behavior so that a larger database system such as PostgreSQL can be introduced later if historical market-data volume requires it.
+
+Database optimization shall initially prioritize:
+
+1. correctness;
+2. historical reproducibility;
+3. deterministic persistence;
+4. efficient symbol/date queries;
+5. reasonable storage efficiency.
+
+Premature implementation of a specialized time-series database, data lake, distributed cache, or warehouse is out of scope for V1.
 
 ---
 
@@ -2422,13 +2714,16 @@ V1 is successful when the user can:
 Build:
 
 ```text
-Solution structure
-Domain models
-Configuration model
-SQLite
-EF migrations
-Logging
-Testing infrastructure
+Tradier production API authentication
+Quotes
+Price history
+Expirations
+Option chains
+Greeks/IV mapping
+Rate-limit handling
+Caching
+Historical snapshot persistence
+Mocked provider test fixtures
 ```
 
 ## Phase 2 — Tradier Data
