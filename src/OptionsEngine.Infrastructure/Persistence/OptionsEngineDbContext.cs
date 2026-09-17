@@ -9,6 +9,10 @@ public sealed class OptionsEngineDbContext(DbContextOptions<OptionsEngineDbConte
     public DbSet<Account> Accounts => Set<Account>();
     public DbSet<Holding> Holdings => Set<Holding>();
     public DbSet<TaxLot> TaxLots => Set<TaxLot>();
+    public DbSet<MarketQuoteSnapshotEntity> MarketQuoteSnapshots => Set<MarketQuoteSnapshotEntity>();
+    public DbSet<HistoricalPriceBarEntity> HistoricalPriceBars => Set<HistoricalPriceBarEntity>();
+    public DbSet<OptionContractSnapshotEntity> OptionContractSnapshots => Set<OptionContractSnapshotEntity>();
+    public DbSet<OptionExpirationCacheEntity> OptionExpirationCaches => Set<OptionExpirationCacheEntity>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -52,5 +56,9 @@ public sealed class OptionsEngineDbContext(DbContextOptions<OptionsEngineDbConte
             entity.Property(taxLot => taxLot.TotalCostBasis).HasPrecision(18, 4);
             entity.Property(taxLot => taxLot.HoldingPeriodClassification).HasConversion<string>().HasMaxLength(32).IsRequired();
         });
+        modelBuilder.Entity<MarketQuoteSnapshotEntity>(entity => { entity.ToTable("MarketQuoteSnapshots"); entity.HasKey(x => x.MarketQuoteSnapshotId); entity.Property(x => x.Symbol).HasMaxLength(32).IsRequired(); entity.Property(x => x.Provider).HasMaxLength(64).IsRequired(); entity.Property(x => x.Last).HasPrecision(18, 6); entity.Property(x => x.Bid).HasPrecision(18, 6); entity.Property(x => x.Ask).HasPrecision(18, 6); entity.Property(x => x.Open).HasPrecision(18, 6); entity.Property(x => x.High).HasPrecision(18, 6); entity.Property(x => x.Low).HasPrecision(18, 6); entity.Property(x => x.PreviousClose).HasPrecision(18, 6); entity.HasIndex(x => new { x.Symbol, x.Provider, x.Timestamp }); });
+        modelBuilder.Entity<HistoricalPriceBarEntity>(entity => { entity.ToTable("HistoricalPriceBars"); entity.HasKey(x => x.HistoricalPriceBarId); entity.Property(x => x.Symbol).HasMaxLength(32).IsRequired(); entity.Property(x => x.Provider).HasMaxLength(64).IsRequired(); entity.Property(x => x.Open).HasPrecision(18, 6); entity.Property(x => x.High).HasPrecision(18, 6); entity.Property(x => x.Low).HasPrecision(18, 6); entity.Property(x => x.Close).HasPrecision(18, 6); entity.HasIndex(x => new { x.Symbol, x.Date, x.Provider }).IsUnique(); entity.HasIndex(x => new { x.Symbol, x.Provider, x.Date }); });
+        modelBuilder.Entity<OptionContractSnapshotEntity>(entity => { entity.ToTable("OptionContractSnapshots"); entity.HasKey(x => x.OptionContractSnapshotId); entity.Property(x => x.OptionSymbol).HasMaxLength(64).IsRequired(); entity.Property(x => x.UnderlyingSymbol).HasMaxLength(32).IsRequired(); entity.Property(x => x.Provider).HasMaxLength(64).IsRequired(); entity.Property(x => x.Strike).HasPrecision(18, 6); entity.Property(x => x.Bid).HasPrecision(18, 6); entity.Property(x => x.Ask).HasPrecision(18, 6); entity.Property(x => x.Last).HasPrecision(18, 6); entity.Property(x => x.UnderlyingPrice).HasPrecision(18, 6); entity.Property(x => x.OptionType).HasConversion<string>().HasMaxLength(8); entity.HasIndex(x => new { x.UnderlyingSymbol, x.Provider, x.Timestamp }); entity.HasIndex(x => new { x.OptionSymbol, x.Provider, x.Timestamp }); });
+        modelBuilder.Entity<OptionExpirationCacheEntity>(entity => { entity.ToTable("OptionExpirationCaches"); entity.HasKey(x => x.OptionExpirationCacheId); entity.Property(x => x.Symbol).HasMaxLength(32).IsRequired(); entity.Property(x => x.Provider).HasMaxLength(64).IsRequired(); entity.Property(x => x.ExpirationsJson).IsRequired(); entity.HasIndex(x => new { x.Symbol, x.Provider, x.RetrievedAt }); });
     }
 }
