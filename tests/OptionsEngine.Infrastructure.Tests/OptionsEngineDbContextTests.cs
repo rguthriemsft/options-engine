@@ -69,6 +69,21 @@ public sealed class OptionsEngineDbContextTests : IAsyncLifetime
     }
 
     [Fact]
+    public async Task PopulatedPhase1DatabaseUpgradesWithoutLosingPortfolioData()
+    {
+        var account = new Account("Preserve", Broker.Fidelity, AccountType.Taxable, false);
+        var holding = CreateHolding(account, "MSFT");
+        var lot = new TaxLot(holding, new DateOnly(2020, 1, 2), 100m, 10m, 1000m, HoldingPeriodClassification.LongTerm);
+        var accountId = account.AccountId; var holdingId = holding.HoldingId; var lotId = lot.TaxLotId;
+        await using (var phase1 = CreateContext()) { await phase1.Database.MigrateAsync("20260917184555_InitialCreate"); phase1.AddRange(account, holding, lot); await phase1.SaveChangesAsync(); }
+        await using (var upgrade = CreateContext()) { await upgrade.Database.MigrateAsync(); }
+        await using var verify = CreateContext();
+        var persisted = await verify.Accounts.Include(x => x.Holdings).ThenInclude(x => x.TaxLots).SingleAsync(x => x.AccountId == accountId);
+        var persistedHolding = Assert.Single(persisted.Holdings); var persistedLot = Assert.Single(persistedHolding.TaxLots);
+        Assert.Equal("Preserve", persisted.Name); Assert.Equal(holdingId, persistedHolding.HoldingId); Assert.Equal("MSFT", persistedHolding.Symbol); Assert.Equal(lotId, persistedLot.TaxLotId); Assert.Equal(1000m, persistedLot.TotalCostBasis); Assert.Equal(0, await verify.HistoricalPriceCoverages.CountAsync());
+    }
+
+    [Fact]
     public void RelationshipsUseRestrictiveDeleteBehavior()
     {
         using var context = CreateContext();

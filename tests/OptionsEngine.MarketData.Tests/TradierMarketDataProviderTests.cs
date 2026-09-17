@@ -66,6 +66,17 @@ public sealed class TradierMarketDataProviderTests
     {
         var exception = await Assert.ThrowsAsync<MarketDataException>(() => Create(new StubHandler(_ => Json("{"))).GetQuoteAsync("MSFT")); Assert.Equal(MarketDataFailureKind.MalformedProviderResponse, exception.Kind);
     }
+    [Fact]
+    public async Task NetworkFailureRetriesThenSucceeds()
+    {
+        var calls = 0; var handler = new StubHandler(_ => { if (++calls == 1) throw new HttpRequestException("transient"); return Json("{\"quotes\":{\"quote\":{\"symbol\":\"MSFT\"}}}"); });
+        Assert.Equal("MSFT", (await Create(handler).GetQuoteAsync("MSFT")).Symbol); Assert.Equal(2, handler.Calls);
+    }
+    [Fact]
+    public async Task CancellationPropagates()
+    {
+        using var source = new CancellationTokenSource(); source.Cancel(); await Assert.ThrowsAnyAsync<OperationCanceledException>(() => Create(new StubHandler(_ => Json("{}"))).GetQuoteAsync("MSFT", source.Token));
+    }
     private static readonly DateOnly Start = new(2026, 1, 1); private static readonly DateOnly End = new(2026, 1, 3);
     [Fact]
     public async Task RateLimitExpiryUsesUnixEpochMilliseconds()
@@ -77,5 +88,5 @@ public sealed class TradierMarketDataProviderTests
     }
     private static TradierMarketDataProvider Create(StubHandler handler) => new(new HttpClient(handler) { BaseAddress = new Uri("https://api.tradier.com/v1/") }, new TradierOptions { AccessToken = "token" }, NullLogger<TradierMarketDataProvider>.Instance);
     private static HttpResponseMessage Json(string content) => new(HttpStatusCode.OK) { Content = new StringContent(content, Encoding.UTF8, "application/json") };
-    private sealed class StubHandler(Func<HttpRequestMessage, HttpResponseMessage> response) : HttpMessageHandler { public int Calls { get; private set; } public System.Net.Http.Headers.AuthenticationHeaderValue? Authorization { get; private set; } public string PathAndQuery { get; private set; } = ""; protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken) { Calls++; Authorization = request.Headers.Authorization; PathAndQuery = request.RequestUri!.PathAndQuery.TrimStart('/'); return Task.FromResult(response(request)); } }
+    private sealed class StubHandler(Func<HttpRequestMessage, HttpResponseMessage> response) : HttpMessageHandler { public int Calls { get; private set; } public System.Net.Http.Headers.AuthenticationHeaderValue? Authorization { get; private set; } public string PathAndQuery { get; private set; } = ""; protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken) { cancellationToken.ThrowIfCancellationRequested(); Calls++; Authorization = request.Headers.Authorization; PathAndQuery = request.RequestUri!.PathAndQuery.TrimStart('/'); return Task.FromResult(response(request)); } }
 }
