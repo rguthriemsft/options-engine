@@ -515,7 +515,8 @@ ResistancePrice
 DistanceToResistance
 DistanceToResistancePercent
 ResistanceTouchCount
-ResistanceStrength
+ResistanceLastTouchDate
+ResistanceAgeTradingDays
 
 MarketRegime
 SectorRegime
@@ -971,7 +972,61 @@ Realized volatility shall use decimal-ratio representation:
 
 A legitimate realized volatility of zero shall remain distinguishable from unavailable volatility.
 
-## 12.10 Resistance Detection
+## 12.10 Implied Volatility Context
+
+Phase 3 shall derive provider-independent underlying-level implied-volatility context from normalized option observations captured by the market-data layer.
+
+At minimum, the Phase 3 market-context model shall support:
+
+```text
+IV30
+IVRank
+IVPercentile
+```
+
+These values are market observations consumed by later strategy engines. They are not themselves CCOS scores.
+
+The ownership boundary is:
+
+```text
+Normalized option observations
+        |
+        v
+Phase 3 implied-volatility context
+        |
+        +-- IV30
+        +-- IVRank
+        +-- IVPercentile
+        |
+        v
+Phase 4 CCOS volatility component
+```
+
+Phase 4 shall consume these values and shall not independently reconstruct them from provider-specific option data.
+
+The precise V1 calculation methodology for `IV30`, `IVRank`, and `IVPercentile` must be explicitly specified before implementation.
+
+The methodology shall define at least:
+
+```text
+Eligible option contracts
+ATM or strike-selection methodology
+Call/put treatment
+Expiration selection
+Interpolation methodology
+30-day constant-maturity semantics
+Historical lookback
+IV Rank semantics
+IV Percentile semantics
+Minimum required observations
+Missing-data behavior
+```
+
+Until those rules are approved, implementation of `IV30`, `IVRank`, and `IVPercentile` is blocked. Codex or another implementation agent shall not infer or invent these rules.
+
+Missing implied-volatility context shall remain explicitly unavailable and shall not be represented as zero.
+
+## 12.11 Resistance Detection
 
 Resistance detection answers:
 
@@ -1049,7 +1104,7 @@ If no qualified resistance exists above the current price:
 ResistancePrice = unavailable
 ```
 
-The system shall not fabricate a resistance level.
+The system shall not fabricate a resistance level. The applicable resistance fields shall remain unavailable; sentinel values shall not be used.
 
 ### Resistance Metrics
 
@@ -1066,21 +1121,20 @@ DistanceToResistance / CurrentClose
 
 ResistanceTouchCount
 
-ResistanceStrength
+ResistanceLastTouchDate
+
+ResistanceAgeTradingDays
 ```
 
-Resistance strength shall be derived from objective structural characteristics including:
+ResistanceLastTouchDate shall be the trading date of the most recent confirmed swing-high observation belonging to the selected resistance cluster.
 
-```text
-Confirmed touch count
-Recency
-```
+ResistanceAgeTradingDays shall be the number of actual trading observations between the most recent confirmed touch and the snapshot AsOfDate. Calendar-day subtraction shall not be used.
 
-The exact normalized resistance-strength representation shall be configurable and deterministic.
+Phase 3 shall expose objective structural evidence rather than a strategy-oriented resistance-strength score.
 
-Phase 3 shall not translate resistance into CCOS points.
+Phase 4 may use `DistanceToResistancePercent`, `ResistanceTouchCount`, `ResistanceAgeTradingDays`, and other approved structural inputs when calculating the Resistance/Structure component of CCOS. Phase 3 shall not determine the CCOS interpretation of those observations.
 
-## 12.11 Market Regime
+## 12.12 Market Regime
 
 Market regime provides broad directional market context.
 
@@ -1162,7 +1216,7 @@ MarketRegime = INSUFFICIENT_DATA
 
 Phase 3 shall classify the regime but shall not assign CCOS points to it.
 
-## 12.12 Sector Regime
+## 12.13 Sector Regime
 
 Sector regime shall use the same deterministic classification algorithm as market regime.
 
@@ -1221,7 +1275,7 @@ SectorRegime = NEUTRAL
 
 Phase 4 may determine how the two classifications contribute to CCOS.
 
-## 12.13 Indicator Calculation Version
+## 12.14 Indicator Calculation Version
 
 Indicator algorithms shall have an explicit calculation version.
 
@@ -1251,7 +1305,7 @@ Historical indicator snapshots produced under different calculation versions may
 
 Recalculating a current indicator must not silently rewrite a historical result generated under a different calculation version.
 
-## 12.14 Indicator Snapshot Persistence
+## 12.15 Indicator Snapshot Persistence
 
 Calculated indicator snapshots shall be retained when necessary for recommendation reproducibility, auditing, historical research, and future backtesting.
 
@@ -1270,7 +1324,7 @@ Historical snapshots shall remain traceable to the normalized market observation
 
 The persistence design shall support multiple calculation or configuration versions without destroying prior historical results.
 
-## 12.15 Numerical Precision
+## 12.16 Numerical Precision
 
 Prices and monetary values shall follow the repository's monetary precision rules.
 
@@ -1282,7 +1336,7 @@ Floating-point calculations shall be validated using appropriate numerical toler
 
 Persisted indicator precision shall be sufficient to reproduce downstream scoring and classification decisions.
 
-## 12.16 Indicator Libraries
+## 12.17 Indicator Libraries
 
 A mature external .NET technical-analysis library may be used where it materially reduces implementation risk.
 
@@ -1296,7 +1350,7 @@ If an external library is used:
 
 If library behavior conflicts with this specification, this specification wins.
 
-## 12.17 Phase Boundary
+## 12.18 Phase Boundary
 
 Phase 3 calculates market facts and classifications.
 
@@ -1625,6 +1679,10 @@ MACD periods
 ATR period
 Realized-volatility periods
 Volatility annualization days
+IV30 calculation parameters
+IV historical lookback
+IV Rank parameters
+IV Percentile parameters
 Resistance swing window
 Resistance lookback
 Resistance clustering
@@ -1633,6 +1691,8 @@ Regime SMA periods
 Regime slope lookback
 Sector benchmark mappings
 ```
+
+IV30 calculation parameters, IV historical lookback, IV Rank parameters, and IV Percentile parameters become required once the V1 implied-volatility methodology is approved. No defaults are approved before that methodology is specified.
 
 Indicator algorithm identity shall be represented separately from configuration values.
 
@@ -3713,6 +3773,11 @@ ATR percent
 RV20
 RV30
 
+Underlying implied-volatility context:
+    IV30
+    IVRank
+    IVPercentile
+
 Resistance detection
 
 Market regime
@@ -3726,6 +3791,8 @@ Read-only indicator API
 ```
 
 Phase 3 shall produce deterministic, provider-independent indicator observations suitable for direct consumption by later strategy engines.
+
+Implementation of IV30, IVRank, and IVPercentile is contingent upon approval of their detailed V1 calculation methodology. The implementation phase shall not infer these formulas from provider behavior or common industry conventions.
 
 Phase 3 shall not implement CCOS or other recommendation logic.
 

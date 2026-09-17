@@ -14,8 +14,9 @@ Phase 3 shall implement:
 4. Moving Average Convergence Divergence (MACD).
 5. Average True Range (ATR).
 6. Realized volatility.
-7. Resistance detection.
-8. Market and sector regime classification.
+7. Implied-volatility context.
+8. Resistance detection.
+9. Market and sector regime classification.
 
 `SPECIFICATION.md` remains the authoritative product specification.
 
@@ -89,6 +90,10 @@ Bollinger Bands
 MACD
 ATR
 Realized Volatility
+Implied Volatility Context:
+    IV30
+    IVRank
+    IVPercentile
 Resistance Detection
 Market Regime
 Sector Regime
@@ -287,9 +292,16 @@ AtrPercent
 RealizedVolatility20
 RealizedVolatility30
 
+IV30
+IVRank
+IVPercentile
+
 NearestResistance
+ResistanceDistance
 ResistanceDistancePercent
-ResistanceStrength
+ResistanceTouchCount
+ResistanceLastTouchDate
+ResistanceAgeTradingDays
 
 MarketRegime
 SectorRegime
@@ -341,6 +353,8 @@ RealizedVolatility:
 ```
 
 Resistance and regime parameters shall also be configurable once their algorithms are defined below.
+
+IV30 calculation parameters, IV historical lookback, IV Rank parameters, and IV Percentile parameters shall become required once the V1 implied-volatility methodology is approved. No values are approved before then.
 
 No important numerical threshold shall be buried as an unexplained magic constant.
 
@@ -740,6 +754,38 @@ Partial-window realized volatility shall not be emitted.
 
 ---
 
+## Implied Volatility Context
+
+Phase 3 owns provider-independent underlying-level implied-volatility context derived from normalized option observations captured by Phase 2.
+
+```text
+Phase 2
+    Captures normalized option observations,
+    including contract-level implied volatility.
+
+Phase 3
+    Derives normalized underlying-level volatility context:
+        IV30
+        IVRank
+        IVPercentile
+
+Phase 4
+    Consumes those normalized volatility observations
+    when calculating CCOS.
+```
+
+Phase 4 shall not independently reconstruct IV30, IVRank, or IVPercentile from provider data.
+
+### DESIGN REQUIRED BEFORE IMPLEMENTATION
+
+The V1 methodology for IV30, IVRank, and IVPercentile is not yet approved. It must specify eligible option contracts, ATM or strike selection, call/put treatment, expiration selection, interpolation, 30-day constant-maturity semantics, historical lookback, IV Rank and IV Percentile semantics, minimum observations, and missing-data behavior.
+
+No IV calculation formula, provider convention, or common industry convention may be inferred or used until that methodology is approved and incorporated into `SPECIFICATION.md`.
+
+Missing implied-volatility context shall remain explicitly unavailable and shall not be represented as zero.
+
+---
+
 # 22. Resistance Detection Objective
 
 Resistance detection answers:
@@ -816,18 +862,11 @@ Step 5 — Candidate eligibility.
 
 The primary resistance level shall normally be the nearest qualified resistance level above the current closing price.
 
-Step 6 — Strength.
+Step 6 — Structural evidence.
 
-Resistance strength shall be based on objective characteristics including:
+Expose the confirmed touch count, the trading date of the most recent confirmed swing-high observation in the selected cluster, and the number of actual trading observations from that touch through the snapshot as-of date.
 
-```text
-Number of confirmed touches
-Recency
-```
-
-Strength shall be represented separately from the resistance price.
-
-Do not combine resistance strength into CCOS during Phase 3.
+Phase 3 shall expose objective structural evidence rather than a strategy-oriented resistance-strength score. Phase 4 may determine how approved resistance evidence contributes to CCOS.
 
 ---
 
@@ -840,7 +879,8 @@ NearestResistance
 ResistanceDistance
 ResistanceDistancePercent
 ResistanceTouchCount
-ResistanceStrength
+ResistanceLastTouchDate
+ResistanceAgeTradingDays
 ```
 
 Calculate:
@@ -859,7 +899,11 @@ If no qualified resistance exists:
 NearestResistance = unavailable
 ```
 
-Do not fabricate a resistance level.
+Do not fabricate a resistance level. The applicable resistance fields shall remain unavailable; do not use sentinel values.
+
+ResistanceLastTouchDate is the trading date of the most recent confirmed swing-high observation belonging to the selected resistance cluster.
+
+ResistanceAgeTradingDays is the number of actual trading observations between that touch and the snapshot AsOfDate. Weekends and non-observation dates shall not increase the age.
 
 ---
 
@@ -1412,6 +1456,12 @@ Clustered levels
 Distinct levels
 Nearest qualified resistance selected
 Resistance touch count
+Most recent touch selected from a multi-touch cluster
+ResistanceLastTouchDate
+ResistanceAgeTradingDays
+Trading-day age ignores weekends and non-observation dates
+Historical as-of calculation produces correct resistance age
+Future observations do not alter resistance touch date or age
 No resistance
 ATR unavailable
 Historical as-of calculation
@@ -1678,6 +1728,8 @@ Phase 3 is complete when:
 - [ ] MACD 12/26/9 is implemented.
 - [ ] ATR14 with Wilder smoothing is implemented.
 - [ ] RV20 and RV30 annualized realized volatility are implemented.
+- [ ] The V1 IV30, IVRank, and IVPercentile methodology has been explicitly approved and incorporated into SPECIFICATION.md before implementation of implied-volatility context begins.
+- [ ] IV30, IVRank, and IVPercentile are implemented only after their approved V1 methodology is available.
 - [ ] Deterministic resistance detection is implemented.
 - [ ] Market regime classification is implemented.
 - [ ] Sector regime classification is implemented.
