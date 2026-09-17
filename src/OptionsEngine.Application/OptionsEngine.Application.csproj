@@ -1,0 +1,9 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+  <ItemGroup>
+    <ProjectReference Include="..\OptionsEngine.Domain\OptionsEngine.Domain.csproj" />
+    <ProjectReference Include="..\OptionsEngine.Strategy\OptionsEngine.Strategy.csproj" />
+    <ProjectReference Include="..\OptionsEngine.MarketData\OptionsEngine.MarketData.csproj" />
+  </ItemGroup>
+
+</Project>

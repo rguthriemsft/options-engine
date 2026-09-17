@@ -1,0 +1,7 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+  <ItemGroup>
+    <ProjectReference Include="..\OptionsEngine.Domain\OptionsEngine.Domain.csproj" />
+  </ItemGroup>
+
+</Project>
