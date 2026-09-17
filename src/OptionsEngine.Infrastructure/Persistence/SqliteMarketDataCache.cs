@@ -12,7 +12,7 @@ public sealed class SqliteMarketDataCache(OptionsEngineDbContext db) : IMarketDa
     public async Task<HistoricalBarsCacheEntry?> GetHistoricalBarsAsync(string symbol, DateOnly start, DateOnly end, string provider, CancellationToken cancellationToken = default)
     {
         var rows = await db.HistoricalPriceBars.AsNoTracking().Where(x => x.Symbol == symbol && x.Provider == provider && x.Date >= start && x.Date <= end).OrderBy(x => x.Date).ToListAsync(cancellationToken);
-        var coverage = await db.HistoricalPriceCoverages.AsNoTracking().Where(x => x.Symbol == symbol && x.Provider == provider && x.StartDate <= start && x.EndDate >= end).OrderByDescending(x => x.RetrievedAt).FirstOrDefaultAsync(cancellationToken);
+        var coverage = await db.HistoricalPriceCoverages.AsNoTracking().Where(x => x.Symbol == symbol && x.Provider == provider && x.StartDate <= start && x.EndDate >= end).OrderByDescending(x => x.HistoricalPriceCoverageId).FirstOrDefaultAsync(cancellationToken);
         return coverage is null ? null : new(rows.Select(ToModel).ToArray(), coverage.StartDate, coverage.EndDate, coverage.RetrievedAt);
     }
     public async Task UpsertHistoricalBarsAsync(IReadOnlyList<HistoricalBar> bars, DateOnly requestedStart, DateOnly requestedEnd, DateTimeOffset retrievedAt, CancellationToken cancellationToken = default)

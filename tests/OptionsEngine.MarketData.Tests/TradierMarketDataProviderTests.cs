@@ -40,6 +40,34 @@ public sealed class TradierMarketDataProviderTests
         var dates = await provider.GetOptionExpirationsAsync("MSFT"); Assert.Equal([new DateOnly(2026, 1, 17), new DateOnly(2026, 2, 20)], dates);
     }
     [Fact]
+    public async Task HistoricalRequestNormalizesDailyOhlcv()
+    {
+        var handler = new StubHandler(_ => Json("{\"history\":{\"day\":[{\"date\":\"2026-01-02\",\"open\":1.1,\"high\":2.2,\"low\":1.0,\"close\":2.0,\"volume\":42}]}}")); var provider = Create(handler);
+        var bars = await provider.GetHistoricalPricesAsync("msft", new DateOnly(2026, 1, 1), new DateOnly(2026, 1, 3));
+        Assert.Single(bars); Assert.Equal(2.2m, bars[0].High); Assert.Equal(42, bars[0].Volume); Assert.Contains("markets/history?symbol=MSFT&interval=daily&start=2026-01-01&end=2026-01-03", handler.PathAndQuery);
+    }
+    [Fact]
+    public async Task IncompleteHistoricalBarIsMalformed()
+    {
+        var exception = await Assert.ThrowsAsync<MarketDataException>(() => Create(new StubHandler(_ => Json("{\"history\":{\"day\":{\"date\":\"2026-01-02\"}}}"))).GetHistoricalPricesAsync("MSFT", Start, End)); Assert.Equal(MarketDataFailureKind.MalformedProviderResponse, exception.Kind);
+    }
+    [Fact]
+    public async Task NotFoundTranslatesToInvalidSymbol()
+    {
+        var exception = await Assert.ThrowsAsync<MarketDataException>(() => Create(new StubHandler(_ => new(HttpStatusCode.NotFound))).GetQuoteAsync("BAD")); Assert.Equal(MarketDataFailureKind.InvalidSymbol, exception.Kind);
+    }
+    [Fact]
+    public async Task ServerFailureRetriesOnceThenSucceeds()
+    {
+        var calls = 0; var handler = new StubHandler(_ => ++calls == 1 ? new(HttpStatusCode.ServiceUnavailable) : Json("{\"quotes\":{\"quote\":{\"symbol\":\"MSFT\"}}}")); var quote = await Create(handler).GetQuoteAsync("MSFT"); Assert.Equal("MSFT", quote.Symbol); Assert.Equal(2, handler.Calls);
+    }
+    [Fact]
+    public async Task MalformedJsonIsTranslated()
+    {
+        var exception = await Assert.ThrowsAsync<MarketDataException>(() => Create(new StubHandler(_ => Json("{"))).GetQuoteAsync("MSFT")); Assert.Equal(MarketDataFailureKind.MalformedProviderResponse, exception.Kind);
+    }
+    private static readonly DateOnly Start = new(2026, 1, 1); private static readonly DateOnly End = new(2026, 1, 3);
+    [Fact]
     public async Task RateLimitExpiryUsesUnixEpochMilliseconds()
     {
         const long expiryMilliseconds = 1760000000000;
