@@ -15,12 +15,15 @@ public sealed class CoreTechnicalIndicatorCalculator : IIndicatorCalculator
             .ToArray();
 
         var sma = new SimpleMovingAverageIndicatorCalculator().Calculate(request);
-        var closes = TrailingCompleteSegment(observations, x => x.Close).Select(x => (double)x.Close!.Value).ToArray();
-        var rsi = CalculateRsi(closes, request.Configuration.RelativeStrengthIndex.Period);
-        var bollinger = CalculateBollinger(closes, request.Configuration.BollingerBands);
-        var macd = CalculateMacd(closes, request.Configuration.Macd);
-        var atr = CalculateAtr(TrailingCompleteOhlcSegment(observations), request.Configuration.AverageTrueRange.Period);
-        var volatility = CalculateVolatility(closes, request.Configuration.RealizedVolatility);
+        // Wilder and EMA values depend on their initial seed and every subsequent observation.
+        // An incomplete history cannot be restarted at a later complete segment.
+        var completeHistory = CompleteCloses(observations, 0, observations.Length);
+        var rsi = CalculateRsi(completeHistory ?? [], request.Configuration.RelativeStrengthIndex.Period);
+        var bollingerCloses = CompleteCloses(observations, Math.Max(0, observations.Length - request.Configuration.BollingerBands.Period), observations.Length);
+        var bollinger = CalculateBollinger(bollingerCloses ?? [], request.Configuration.BollingerBands);
+        var macd = CalculateMacd(completeHistory ?? [], request.Configuration.Macd);
+        var atr = CalculateAtr(observations, request.Configuration.AverageTrueRange.Period);
+        var volatility = CalculateVolatility(observations, request.Configuration.RealizedVolatility);
 
         return sma with
         {
@@ -51,29 +54,15 @@ public sealed class CoreTechnicalIndicatorCalculator : IIndicatorCalculator
         request.Configuration.Validate();
     }
 
-    private static IReadOnlyList<IndicatorPriceObservation> TrailingCompleteSegment(
-        IReadOnlyList<IndicatorPriceObservation> observations,
-        Func<IndicatorPriceObservation, decimal?> requiredValue)
+    private static double[]? CompleteCloses(IReadOnlyList<IndicatorPriceObservation> observations, int start, int end)
     {
-        var first = observations.Count;
-        for (var index = observations.Count - 1; index >= 0; index--)
+        var closes = new double[end - start];
+        for (var index = start; index < end; index++)
         {
-            if (!requiredValue(observations[index]).HasValue) break;
-            first = index;
+            if (observations[index].Close is not { } close) return null;
+            closes[index - start] = (double)close;
         }
-        return observations.Skip(first).ToArray();
-    }
-
-    private static IReadOnlyList<IndicatorPriceObservation> TrailingCompleteOhlcSegment(IReadOnlyList<IndicatorPriceObservation> observations)
-    {
-        var first = observations.Count;
-        for (var index = observations.Count - 1; index >= 0; index--)
-        {
-            var observation = observations[index];
-            if (!observation.High.HasValue || !observation.Low.HasValue || !observation.Close.HasValue) break;
-            first = index;
-        }
-        return observations.Skip(first).ToArray();
+        return closes;
     }
 
     private static IndicatorValue<double> CalculateRsi(IReadOnlyList<double> closes, int period)
@@ -161,6 +150,8 @@ public sealed class CoreTechnicalIndicatorCalculator : IIndicatorCalculator
     private static (IndicatorValue<double> Value, IndicatorValue<double> Percent) CalculateAtr(IReadOnlyList<IndicatorPriceObservation> observations, int period)
     {
         if (observations.Count < period + 1) return (IndicatorValue<double>.InsufficientData(), IndicatorValue<double>.InsufficientData());
+        if (observations[0].Close is null || observations.Skip(1).Any(x => x.Close is null || x.High is null || x.Low is null))
+            return (IndicatorValue<double>.InsufficientData(), IndicatorValue<double>.InsufficientData());
         var trueRanges = new double[observations.Count - 1];
         for (var index = 1; index < observations.Count; index++)
         {
@@ -176,13 +167,14 @@ public sealed class CoreTechnicalIndicatorCalculator : IIndicatorCalculator
         return (IndicatorValue<double>.Available(atr), close == 0 ? IndicatorValue<double>.InsufficientData() : IndicatorValue<double>.Available(atr / (double)close));
     }
 
-    private static (IndicatorValue<double> Short, IndicatorValue<double> Standard) CalculateVolatility(IReadOnlyList<double> closes, RealizedVolatilityConfiguration configuration) =>
-        (CalculateVolatility(closes, configuration.ShortPeriod, configuration.AnnualizationTradingDays), CalculateVolatility(closes, configuration.StandardPeriod, configuration.AnnualizationTradingDays));
+    private static (IndicatorValue<double> Short, IndicatorValue<double> Standard) CalculateVolatility(IReadOnlyList<IndicatorPriceObservation> observations, RealizedVolatilityConfiguration configuration) =>
+        (CalculateVolatility(observations, configuration.ShortPeriod, configuration.AnnualizationTradingDays), CalculateVolatility(observations, configuration.StandardPeriod, configuration.AnnualizationTradingDays));
 
-    private static IndicatorValue<double> CalculateVolatility(IReadOnlyList<double> closes, int period, int annualizationTradingDays)
+    private static IndicatorValue<double> CalculateVolatility(IReadOnlyList<IndicatorPriceObservation> observations, int period, int annualizationTradingDays)
     {
-        if (closes.Count < period + 1) return IndicatorValue<double>.InsufficientData();
-        var window = closes.Skip(closes.Count - period - 1).ToArray();
+        if (observations.Count < period + 1) return IndicatorValue<double>.InsufficientData();
+        var window = CompleteCloses(observations, observations.Count - period - 1, observations.Count);
+        if (window is null) return IndicatorValue<double>.InsufficientData();
         if (window.Any(close => close <= 0)) return IndicatorValue<double>.InsufficientData();
         var returns = Enumerable.Range(1, period).Select(index => Math.Log(window[index] / window[index - 1])).ToArray();
         var mean = returns.Average();

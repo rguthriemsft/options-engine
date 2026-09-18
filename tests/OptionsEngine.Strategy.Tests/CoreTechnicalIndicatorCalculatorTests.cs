@@ -198,6 +198,95 @@ public sealed class CoreTechnicalIndicatorCalculatorTests
         AssertUnavailable(snapshot.RealizedVolatility20);
     }
 
+    [Theory]
+    [InlineData(60, false)] // First observation in the last 20.
+    [InlineData(59, true)]  // Immediately outside the last 20.
+    [InlineData(5, true)]   // Substantially earlier.
+    public void BollingerUsesExactlyTheLastTwentyTradingObservations(int missingIndex, bool available)
+    {
+        var observations = Bars(Enumerable.Range(1, 80).Select(x => (decimal)x)).ToArray();
+        observations[missingIndex] = observations[missingIndex] with { Close = null };
+
+        var snapshot = Calculate(observations);
+
+        if (available)
+        {
+            AssertClose(70.5, snapshot.BollingerMiddle.Value);
+            Assert.Equal(IndicatorValueStatus.Available, snapshot.BollingerPercentB.Status);
+        }
+        else
+        {
+            AssertUnavailable(snapshot.BollingerMiddle);
+            AssertUnavailable(snapshot.BollingerUpper);
+            AssertUnavailable(snapshot.BollingerLower);
+            AssertUnavailable(snapshot.BollingerPercentB);
+            AssertUnavailable(snapshot.BollingerBandwidth);
+        }
+    }
+
+    [Theory]
+    [InlineData(59, false, false)] // First close required for RV20.
+    [InlineData(58, true, false)]  // Immediately outside RV20, inside RV30.
+    [InlineData(49, true, false)]  // First close required for RV30.
+    [InlineData(48, true, true)]   // Immediately outside RV30.
+    [InlineData(5, true, true)]    // Substantially earlier.
+    public void RealizedVolatilityUsesOnlyItsLastNPlusOneCloses(int missingIndex, bool rv20Available, bool rv30Available)
+    {
+        var observations = Bars(Enumerable.Repeat(100m, 80)).ToArray();
+        observations[missingIndex] = observations[missingIndex] with { Close = null };
+
+        var snapshot = Calculate(observations);
+
+        if (rv20Available) AssertClose(0, snapshot.RealizedVolatility20.Value);
+        else AssertUnavailable(snapshot.RealizedVolatility20);
+        if (rv30Available) AssertClose(0, snapshot.RealizedVolatility30.Value);
+        else AssertUnavailable(snapshot.RealizedVolatility30);
+    }
+
+    [Theory]
+    [InlineData(65)] // After the initial recursive seed.
+    [InlineData(25)] // At the slow EMA seed boundary.
+    [InlineData(5)]  // Substantially earlier in the initialization history.
+    public void MissingHistoricalCloseDoesNotReseedRsiOrMacd(int missingIndex)
+    {
+        var observations = Bars(Enumerable.Range(1, 80).Select(x => (decimal)x)).ToArray();
+        observations[missingIndex] = observations[missingIndex] with { Close = null };
+
+        var snapshot = Calculate(observations);
+
+        AssertUnavailable(snapshot.Rsi14);
+        AssertUnavailable(snapshot.Macd);
+        AssertUnavailable(snapshot.MacdSignal);
+        AssertUnavailable(snapshot.MacdHistogram);
+    }
+
+    [Theory]
+    [InlineData(65)] // After the initial ATR seed.
+    [InlineData(14)] // At the initial ATR seed boundary.
+    [InlineData(5)]  // Substantially earlier in the True Range history.
+    public void MissingHistoricalHighDoesNotReseedWilderAtr(int missingIndex)
+    {
+        var observations = Bars(Enumerable.Range(1, 80).Select(x => (decimal)x)).ToArray();
+        observations[missingIndex] = observations[missingIndex] with { High = null };
+
+        var snapshot = Calculate(observations);
+
+        AssertUnavailable(snapshot.Atr14);
+        AssertUnavailable(snapshot.AtrPercent);
+    }
+
+    [Fact]
+    public void FirstObservationHighAndLowAreOutsideAtrTrueRangeHistory()
+    {
+        var observations = Bars(Enumerable.Range(1, 80).Select(x => (decimal)x)).ToArray();
+        observations[0] = observations[0] with { High = null, Low = null };
+
+        var snapshot = Calculate(observations);
+
+        Assert.Equal(IndicatorValueStatus.Available, snapshot.Atr14.Status);
+        Assert.Equal(IndicatorValueStatus.Available, snapshot.AtrPercent.Status);
+    }
+
     [Fact]
     public void RejectsInvalidCoreIndicatorConfiguration()
     {
