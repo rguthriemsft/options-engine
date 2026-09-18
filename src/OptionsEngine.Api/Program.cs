@@ -1,7 +1,5 @@
 using Microsoft.AspNetCore.Diagnostics.HealthChecks;
 using Microsoft.EntityFrameworkCore;
-using System.Text.Json.Serialization;
-using System.Text.Json;
 using OptionsEngine.Api.Health;
 using OptionsEngine.Api.Indicators;
 using OptionsEngine.Infrastructure.Persistence;
@@ -14,12 +12,6 @@ using OptionsEngine.MarketData.Tradier;
 using OptionsEngine.Strategy.Indicators;
 
 var builder = WebApplication.CreateBuilder(args);
-builder.Services.ConfigureHttpJsonOptions(options =>
-{
-    options.SerializerOptions.Converters.Add(new JsonStringEnumConverter(null, allowIntegerValues: false));
-    options.SerializerOptions.Converters.Add(new ConfigurationVersionHttpJsonConverter());
-    options.SerializerOptions.Converters.Add(new IndicatorCalculationVersionHttpJsonConverter());
-});
 
 var connectionString = builder.Configuration.GetConnectionString("OptionsEngine")
     ?? throw new InvalidOperationException("Connection string 'OptionsEngine' is required.");

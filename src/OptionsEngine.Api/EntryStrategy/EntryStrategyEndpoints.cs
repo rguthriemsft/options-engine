@@ -1,5 +1,3 @@
-using System.Text.Json;
-using System.Text.Json.Serialization;
 using OptionsEngine.Application.EntryStrategy;
 using OptionsEngine.MarketData.Models;
 using OptionsEngine.Strategy.EntryStrategy;
@@ -63,6 +61,61 @@ public static class EntryStrategyEndpoints
     }
 }
 
+public sealed record HoldingResponse(Guid HoldingId, string Symbol, string AssetType, string AssignmentSensitivity,
+    string TaxSensitivity, double MaximumInitialDelta, double PreferredDeltaMinimum, double PreferredDeltaMaximum,
+    double MinimumCcos, double MinimumContractScore, decimal MinimumPremium, double MinimumAnnualizedYield)
+{
+    public static HoldingResponse From(HoldingContext x) => new(x.HoldingId, x.Symbol, x.AssetType.ToString(), x.AssignmentSensitivity.ToString(), x.TaxSensitivity.ToString(), x.MaximumInitialDelta, x.PreferredDeltaMinimum, x.PreferredDeltaMaximum, x.MinimumCcos, x.MinimumContractScore, x.MinimumPremium, x.MinimumAnnualizedYield);
+}
+public sealed record IndicatorValueResponse<T>(T? Value, string Status) where T : struct
+{
+    public static IndicatorValueResponse<T> From(IndicatorValue<T> x) => new(x.Value, x.Status.ToString());
+}
+public sealed record IndicatorResponse(string Symbol, DateOnly AsOfDate, IndicatorValueResponse<double> Iv30,
+    IndicatorValueResponse<double> IvRank, IndicatorValueResponse<double> IvPercentile, IndicatorValueResponse<double> RealizedVolatility30,
+    IndicatorValueResponse<double> Rsi14, IndicatorValueResponse<double> BollingerPercentB, IndicatorValueResponse<double> BollingerBandwidth,
+    IndicatorValueResponse<decimal> Sma20, IndicatorValueResponse<decimal> Sma50, IndicatorValueResponse<decimal> Sma200,
+    IndicatorValueResponse<double> MacdHistogram, IndicatorValueResponse<decimal> ResistancePrice,
+    IndicatorValueResponse<double> DistanceToResistancePercent, IndicatorValueResponse<int> ResistanceTouchCount,
+    IndicatorValueResponse<int> ResistanceAgeTradingDays, string? ResistanceUnavailableReason, string MarketRegime, string SectorRegime,
+    string IndicatorCalculationVersion, int ConfigurationVersion, DateTimeOffset IndicatorCalculatedAtUtc)
+{
+    public static IndicatorResponse From(IndicatorContext x) => new(x.Symbol, x.AsOfDate, IndicatorValueResponse<double>.From(x.Iv30), IndicatorValueResponse<double>.From(x.IvRank), IndicatorValueResponse<double>.From(x.IvPercentile), IndicatorValueResponse<double>.From(x.RealizedVolatility30), IndicatorValueResponse<double>.From(x.Rsi14), IndicatorValueResponse<double>.From(x.BollingerPercentB), IndicatorValueResponse<double>.From(x.BollingerBandwidth), IndicatorValueResponse<decimal>.From(x.Sma20), IndicatorValueResponse<decimal>.From(x.Sma50), IndicatorValueResponse<decimal>.From(x.Sma200), IndicatorValueResponse<double>.From(x.MacdHistogram), IndicatorValueResponse<decimal>.From(x.ResistancePrice), IndicatorValueResponse<double>.From(x.DistanceToResistancePercent), IndicatorValueResponse<int>.From(x.ResistanceTouchCount), IndicatorValueResponse<int>.From(x.ResistanceAgeTradingDays), x.ResistanceUnavailableReason?.ToString(), x.MarketRegime.ToString(), x.SectorRegime.ToString(), x.IndicatorCalculationVersion.Value, x.ConfigurationVersion.Value, x.IndicatorCalculatedAtUtc);
+}
+public sealed record EarningsResponse(string Status, DateOnly? NextEarningsDate)
+{
+    public static EarningsResponse From(EarningsContext x) => new(x.Status.ToString(), x.NextEarningsDate);
+}
+public sealed record ScoreInputResponse(string Code, string Status, string? Value)
+{
+    public static ScoreInputResponse From(ScoreInput x) => new(x.Code, x.Status.ToString(), x.Value);
+}
+public sealed record ScoreComponentResponse(string Code, string Name, string Status, double? Score, double MaximumScore, IReadOnlyList<ScoreInputResponse> Inputs, IReadOnlyList<string> MissingInputs, string Explanation)
+{
+    public static ScoreComponentResponse From(ScoreComponentResult x) => new(x.Code.ToString(), x.Name, x.Status.ToString(), x.Score, x.MaximumScore, x.Inputs.Select(ScoreInputResponse.From).ToArray(), x.MissingInputs.Select(y => y.ToString()).ToArray(), x.Explanation);
+}
+public sealed record ScoreResponse(string Status, double? Score, double MaximumScore, string? Classification, double ConfiguredMinimum, bool? MeetsConfiguredMinimum, IReadOnlyList<ScoreComponentResponse> Components, IReadOnlyList<string> MissingInputs, string Explanation)
+{
+    public static ScoreResponse? From(ScoreResult? x) => x is null ? null : new(x.Status.ToString(), x.Score, x.MaximumScore, x.Classification, x.ConfiguredMinimum, x.MeetsConfiguredMinimum, x.Components.Select(ScoreComponentResponse.From).ToArray(), x.MissingInputs.Select(y => y.ToString()).ToArray(), x.Explanation);
+}
+public sealed record GateResponse(string Code, string Status, string? ReasonCode, IReadOnlyList<ScoreInputResponse> Inputs, IReadOnlyList<string> MissingInputs, string Explanation)
+{
+    public static GateResponse From(GateResult x) => new(x.Code.ToString(), x.Status.ToString(), x.ReasonCode?.ToString(), x.Inputs.Select(ScoreInputResponse.From).ToArray(), x.MissingInputs.Select(y => y.ToString()).ToArray(), x.Explanation);
+}
+public sealed record OptionResponse(string OptionSymbol, string UnderlyingSymbol, DateTimeOffset ObservationTimestampUtc, DateOnly Expiration, decimal Strike, string OptionType, decimal? Bid, decimal? Ask, decimal? Last, long? Volume, long? OpenInterest, double? ImpliedVolatility, double? Delta, double? Theta, decimal? UnderlyingPrice, string Provider)
+{
+    public static OptionResponse From(OptionContractContext x) => new(x.OptionSymbol, x.UnderlyingSymbol, x.ObservationTimestampUtc, x.Expiration, x.Strike, x.OptionType.ToString(), x.Bid, x.Ask, x.Last, x.Volume, x.OpenInterest, x.ImpliedVolatility, x.Delta, x.Theta, x.UnderlyingPrice, x.Provider);
+    public static OptionResponse From(OptionContractSnapshot x) => new(x.OptionSymbol, x.UnderlyingSymbol, x.Timestamp, x.Expiration, x.Strike, x.OptionType.ToString(), x.Bid, x.Ask, x.Last, x.Volume, x.OpenInterest, x.ImpliedVolatility, x.Delta, x.Theta, x.UnderlyingPrice, x.Provider);
+}
+public sealed record OptionChainResponse(string UnderlyingSymbol, DateOnly Expiration, DateTimeOffset ObservationTimestampUtc, string Provider, IReadOnlyList<OptionResponse> Contracts)
+{
+    public static OptionChainResponse From(OptionChain x) => new(x.UnderlyingSymbol, x.Expiration, x.Timestamp, x.Provider, x.Contracts.Select(OptionResponse.From).ToArray());
+}
+public sealed record ContractResponse(OptionResponse Contract, ContractDerivedMetrics DerivedMetrics, IReadOnlyList<GateResponse> Gates, bool HardGateEligible, ScoreResponse? ContractScore, int? Rank, bool EntryAcceptable, IReadOnlyList<string> MissingInputs, IReadOnlyList<string> Explanations)
+{
+    public static ContractResponse From(ContractEvaluation x) => new(OptionResponse.From(x.Contract), x.DerivedMetrics, x.Gates.Select(GateResponse.From).ToArray(), x.HardGateEligible, ScoreResponse.From(x.ContractScore), x.Rank, x.EntryAcceptable, x.MissingInputs.Select(y => y.ToString()).ToArray(), x.Explanations);
+}
+
 public sealed record EntryStrategyEvaluationResponse(
     Guid EntryStrategyEvaluationId,
     Guid HoldingId,
@@ -73,15 +126,15 @@ public sealed record EntryStrategyEvaluationResponse(
     string IndicatorCalculationVersion,
     int ConfigurationVersion,
     string StrategyVersion,
-    HoldingContext Holding,
-    IndicatorContext Indicators,
-    EarningsContext Earnings,
-    EntryStrategyConfiguration Configuration,
-    ScoreResult? Ccos,
-    IReadOnlyList<GateResult> UnderlyingGates,
-    IReadOnlyList<OptionChain> SelectedOptionChains,
-    IReadOnlyList<OptionContractContext> SelectedContracts,
-    IReadOnlyList<ContractEvaluation> Contracts,
+    HoldingResponse Holding,
+    IndicatorResponse Indicators,
+    EarningsResponse Earnings,
+    ConfigurationResponse Configuration,
+    ScoreResponse? Ccos,
+    IReadOnlyList<GateResponse> UnderlyingGates,
+    IReadOnlyList<OptionChainResponse> SelectedOptionChains,
+    IReadOnlyList<OptionResponse> SelectedContracts,
+    IReadOnlyList<ContractResponse> Contracts,
     bool EntryCandidateExists,
     string? PreferredInitialOptionSymbol,
     decimal? PreferredInitialStrike,
@@ -98,13 +151,19 @@ public sealed record EntryStrategyEvaluationResponse(
         return new(evaluation.EntryStrategyEvaluationId, context.Holding.HoldingId, context.Holding.Symbol,
             context.IndicatorAsOfDate, context.EvaluationTimestampUtc, evaluation.CalculatedAtUtc,
             context.Indicators.IndicatorCalculationVersion.Value, context.Configuration.Version.Value,
-            context.StrategyVersion.Value, context.Holding, context.Indicators, context.Earnings,
-            context.Configuration, evaluation.Ccos, evaluation.UnderlyingGates, value.SelectedOptionChains,
-            value.SelectedContracts, evaluation.Contracts, evaluation.EntryCandidateExists,
+            context.StrategyVersion.Value, HoldingResponse.From(context.Holding), IndicatorResponse.From(context.Indicators),
+            EarningsResponse.From(context.Earnings), ConfigurationResponse.From(context.Configuration), ScoreResponse.From(evaluation.Ccos),
+            evaluation.UnderlyingGates.Select(GateResponse.From).ToArray(), value.SelectedOptionChains.Select(OptionChainResponse.From).ToArray(),
+            value.SelectedContracts.Select(OptionResponse.From).ToArray(), evaluation.Contracts.Select(ContractResponse.From).ToArray(), evaluation.EntryCandidateExists,
             evaluation.PreferredInitialOptionSymbol, evaluation.PreferredInitialStrike,
             evaluation.PreferredInitialExpiration, evaluation.PreferredInitialReferencePremium,
             evaluation.DispositionReason, evaluation.MissingInputs, evaluation.Explanations);
     }
+}
+
+public sealed record ConfigurationResponse(int Version, CcosConfiguration Ccos, ContractScoreConfiguration ContractScore, ContractEligibilityConfiguration ContractEligibility)
+{
+    public static ConfigurationResponse From(EntryStrategyConfiguration x) => new(x.Version.Value, x.Ccos, x.ContractScore, x.ContractEligibility);
 }
 
 public sealed record EntryStrategyEvaluationHistoryResponse(
@@ -141,22 +200,4 @@ internal static class ApiErrors
 
     public static IResult Error(int status, string code, string title) =>
         Results.Json(new { type = "about:blank", title, status, code }, statusCode: status);
-}
-
-internal sealed class ConfigurationVersionHttpJsonConverter : JsonConverter<ConfigurationVersion>
-{
-    public override ConfigurationVersion Read(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options) =>
-        new(reader.GetInt32());
-
-    public override void Write(Utf8JsonWriter writer, ConfigurationVersion value, JsonSerializerOptions options) =>
-        writer.WriteNumberValue(value.Value);
-}
-
-internal sealed class IndicatorCalculationVersionHttpJsonConverter : JsonConverter<IndicatorCalculationVersion>
-{
-    public override IndicatorCalculationVersion Read(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options) =>
-        new(reader.GetString() ?? throw new JsonException("Indicator calculation version is required."));
-
-    public override void Write(Utf8JsonWriter writer, IndicatorCalculationVersion value, JsonSerializerOptions options) =>
-        writer.WriteStringValue(value.Value);
 }
