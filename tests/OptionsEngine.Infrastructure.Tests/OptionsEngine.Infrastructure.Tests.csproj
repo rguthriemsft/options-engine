@@ -19,6 +19,8 @@
   <ItemGroup>
     <ProjectReference Include="..\..\src\OptionsEngine.Infrastructure\OptionsEngine.Infrastructure.csproj" />
     <ProjectReference Include="..\..\src\OptionsEngine.Domain\OptionsEngine.Domain.csproj" />
+    <ProjectReference Include="..\..\src\OptionsEngine.Strategy\OptionsEngine.Strategy.csproj" />
+    <ProjectReference Include="..\..\src\OptionsEngine.Application\OptionsEngine.Application.csproj" />
   </ItemGroup>
 
 </Project>

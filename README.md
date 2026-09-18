@@ -6,20 +6,19 @@ V1 uses SQLite, EF Core, an ASP.NET Core Minimal API, and a future Excel present
 
 ## Architecture
 
-The Phase 1 solution keeps the domain and strategy core independent from infrastructure:
+The solution keeps the domain and strategy core independent from infrastructure:
 
 ```text
 OptionsEngine.Api (composition root)
-├── OptionsEngine.Application
-│   ├── OptionsEngine.Domain
-│   ├── OptionsEngine.Strategy ──> OptionsEngine.Domain
-│   └── OptionsEngine.MarketData
-└── OptionsEngine.Infrastructure ──> OptionsEngine.Domain
+├── OptionsEngine.Infrastructure ──> OptionsEngine.Application
+└── OptionsEngine.Application
+    ├── OptionsEngine.Strategy ──> OptionsEngine.Domain
+    └── OptionsEngine.MarketData
 ```
 
 `OptionsEngine.Domain` contains provider- and persistence-independent account, holding, and tax-lot models. `OptionsEngine.Strategy` depends only on Domain and remains infrastructure-independent; its indicator boundary accepts provider-independent daily observations and produces versioned, as-of indicator snapshots. `OptionsEngine.MarketData` owns normalized market-data records and `IMarketDataProvider`; its Tradier adapter maps production HTTP payloads at the boundary. `OptionsEngine.Application` orchestrates the provider abstraction and SQLite cache. `OptionsEngine.Infrastructure` owns EF Core/SQLite snapshot persistence. The API composes these layers.
 
-Phase 3C IV context uses normalized option-chain observations mapped by Application into the pure Strategy calculator. The calculator produces IV30, IV Rank, and IV Percentile using an explicit as-of date, versioned configuration, and version-matched historical IV30 observations. Historical chain retrieval and indicator persistence are not yet exposed by the application.
+Phase 3E adds application orchestration over persisted historical prices and normalized option-chain observations, then stores a canonical indicator snapshot keyed by symbol, as-of date, calculation version, and configuration version. Recalculation updates that same canonical row; version-matched IV30 history supports IV Rank and IV Percentile. Empty observed option chains remain explicit. No Phase 3 indicator HTTP endpoint exists yet.
 
 ## Prerequisites and setup
 

@@ -3,6 +3,7 @@ using Microsoft.EntityFrameworkCore;
 using OptionsEngine.Api.Health;
 using OptionsEngine.Infrastructure.Persistence;
 using OptionsEngine.Application.MarketData;
+using OptionsEngine.Application.Indicators;
 using OptionsEngine.MarketData;
 using OptionsEngine.MarketData.Tradier;
 
@@ -23,6 +24,12 @@ builder.Services.AddHttpClient<TradierMarketDataProvider>(client => client.BaseA
 builder.Services.AddScoped<IMarketDataProvider>(sp => sp.GetRequiredService<TradierMarketDataProvider>());
 builder.Services.AddScoped<IMarketDataCache, SqliteMarketDataCache>();
 builder.Services.AddScoped<MarketDataService>();
+builder.Services.AddSingleton(new IndicatorOrchestrationConfiguration
+{
+    SectorBenchmarks = builder.Configuration.GetSection("Indicators:SectorBenchmarks").Get<Dictionary<string, string>>() ?? new Dictionary<string, string>()
+});
+builder.Services.AddScoped<IIndicatorDataRepository, SqliteIndicatorDataRepository>();
+builder.Services.AddScoped<IndicatorOrchestrationService>();
 builder.Services.AddHealthChecks().AddCheck<DatabaseHealthCheck>("database");
 
 var app = builder.Build();
