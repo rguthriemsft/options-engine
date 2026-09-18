@@ -1259,23 +1259,51 @@ This prevents divergence between research and production calculations.
 
 # 36. API
 
-Expose a read-only Phase 3 API endpoint.
-
-Recommended:
+Expose exactly one V1 Phase 3 indicator HTTP route:
 
 ```http
 GET /api/indicators/{symbol}
-```
-
-Optional historical query:
-
-```http
 GET /api/indicators/{symbol}?asOf=YYYY-MM-DD
 ```
 
-If `asOf` is omitted, use the latest applicable market observation.
+The HTTP surface is read-only (no indicator POST, PUT, PATCH, or DELETE), but
+GET is a calculation/read-through operation, not a passive lookup requiring a
+preexisting `IndicatorSnapshot`. A successful GET shall normalize and validate
+the symbol, resolve `AsOfDate`, use the server's current validated
+`IndicatorConfiguration` and supported `IndicatorCalculationVersion`, invoke
+Application orchestration, calculate/recalculate the canonical snapshot,
+persist it through the approved atomic upsert, and return that result. This
+internal derived-data persistence shall not mutate source market observations.
 
-The response shall expose normalized indicator results and classifications.
+If `asOf` is supplied, use that exact requested date, including a non-trading
+date, and retain it as the returned `AsOfDate`. Only source observations
+eligible through that date may affect the result. If `asOf` is omitted, resolve
+the latest persisted trading-observation date for the requested underlying
+symbol and configured provider at or before the applicable request boundary.
+Use that observation's date as `AsOfDate`; do not simply use the current UTC
+calendar date or invent a trading day. Application/repository code shall
+provide this latest-applicable-date lookup. If there is no applicable
+persisted price observation from which to resolve an omitted `asOf`, return
+`404 Not Found` as historical data unavailable. An explicit historical date
+with insufficient history may still produce a successful snapshot containing
+unavailable individual indicators.
+
+Calculation and configuration versions are server-owned for this V1 route.
+The API/Application composition root shall provide the currently supported
+`IndicatorCalculationVersion` and currently configured, validated
+`IndicatorConfiguration` through configuration/dependency injection; endpoint
+logic shall not hard-code these identities. Missing/invalid server configuration
+shall fail clearly, not select an implicit version. Clients shall not select
+arbitrary versions through query parameters; attempts to supply a calculation
+or configuration version are invalid rather than silently selected or ignored.
+The response shall include both version identifiers. Existing exact-identity
+Application/repository retrieval by
+`Symbol + AsOfDate + IndicatorCalculationVersion + ConfigurationVersion`
+remains internal; no second version-selectable Phase 3 V1 HTTP route is added.
+
+The response shall expose normalized indicator results, classifications,
+availability status/reasons, and legitimate numeric zero without substituting
+zero for unavailable values.
 
 It shall not expose:
 
@@ -1317,22 +1345,27 @@ Conceptually:
   "atrPercent": null,
   "realizedVolatility20": null,
   "realizedVolatility30": null,
+  "iv30": null,
+  "iv30UnavailableReason": "NO_ELIGIBLE_SNAPSHOT",
+  "ivRank": null,
+  "ivPercentile": null,
   "resistance": {
     "price": null,
     "distancePercent": null,
-    "touchCount": null,
-    "strength": null
+    "touchCount": null
   },
   "marketRegime": "INSUFFICIENT_DATA",
   "sectorRegime": null,
-  "calculationVersion": "1.0.0",
+  "indicatorCalculationVersion": "1.0.0",
   "configurationVersion": "..."
 }
 ```
 
 This is conceptual rather than a mandatory serialization shape.
 
-The implementation may use idiomatic API DTOs.
+The implementation may use idiomatic API DTOs. The actual contract must also
+carry explicit availability status for unavailable numeric facts; the `null`
+placeholders above are not sufficient on their own to distinguish all states.
 
 ---
 
@@ -1633,7 +1666,7 @@ No Application test shall require Tradier or internet access.
 
 # 52. API Integration Tests
 
-At minimum:
+At minimum exercise both forms of the single V1 route:
 
 ```text
 GET /api/indicators/MSFT
@@ -1652,6 +1685,30 @@ Invalid asOf handling
 Insufficient-data response behavior
 No provider-specific data leakage
 ```
+
+Deterministic tests shall also prove:
+
+1. Explicit `asOf` calculates, canonically persists, and returns the exact
+   requested `AsOfDate` without requiring a preexisting indicator snapshot.
+2. Omitted `asOf` resolves the latest applicable persisted trading date for
+   the requested symbol/provider; a weekend, holiday, or other non-trading
+   request date does not itself become `AsOfDate`.
+3. Repeating GET for the same canonical identity updates/replaces that one
+   snapshot without creating a duplicate.
+4. GET uses the server's current `IndicatorCalculationVersion` and
+   `IndicatorConfiguration.Version`, and returns both identifiers.
+5. Query attempts to select a calculation or configuration version are
+   rejected as invalid; neither selection nor silent ignoring is allowed.
+6. An explicit historical `asOf` preserves no-look-ahead behavior for
+   underlying prices, option observations, and market/sector benchmarks.
+7. With no applicable persisted underlying trading observation for omitted
+   `asOf`, the API returns `404 Not Found`; it does not use today's date.
+8. An explicit historical date may succeed with unavailable individual
+   indicators, including IV/resistance, without serializing them as zero.
+9. Exact version-selectable persisted retrieval remains available through
+   Application/repository code, not a second Phase 3 V1 HTTP endpoint.
+10. GET may update derived canonical indicator state but does not mutate
+    persisted source market observations.
 
 Tests shall be deterministic and require no API token.
 
@@ -1710,6 +1767,9 @@ Configuration failure
 Insufficient data is an expected domain condition, not necessarily an application exception.
 
 A missing indicator caused by insufficient warm-up shall not produce a fabricated numeric result.
+An omitted-`asOf` indicator GET with no persisted underlying trading
+observation from which to resolve a date returns `404 Not Found`; individual
+unavailable indicators in an otherwise valid snapshot do not make the GET fail.
 
 ---
 

@@ -80,6 +80,29 @@ implementation agent.
     duplicate canonical snapshot rows. Recorded historical
     recommendations must still remain explainable and unchanged.
 
+## Phase 3 V1 Indicator API
+
+-   Expose one GET calculation/read-through route:
+    `/api/indicators/{symbol}` with optional `?asOf=YYYY-MM-DD`.
+-   Read-only describes the HTTP method surface; a successful GET
+    atomically upserts the derived canonical `IndicatorSnapshot` but must
+    not mutate source market observations.
+-   Explicit `asOf` is honored exactly and retains historical
+    no-look-ahead behavior. Without it, resolve the latest applicable
+    persisted underlying trading-observation date for the configured
+    provider at or before the request boundary; do not use today's UTC
+    calendar date as a substitute. No applicable persisted price
+    observation yields `404 Not Found`.
+-   The server owns the currently supported
+    `IndicatorCalculationVersion` and currently configured
+    `IndicatorConfiguration.Version`; client attempts to specify either
+    version through this V1 route are invalid, not silently honored or
+    ignored. Composition-root configuration/DI supplies both, and the
+    response exposes both.
+-   Exact version-selectable snapshot retrieval remains an internal
+    Application/repository capability. A separate HTTP audit/history
+    retrieval route is deferred beyond Phase 3 V1.
+
 ## Phase 3 Indicator Math
 
 -   SMA: arithmetic mean; no partial windows.

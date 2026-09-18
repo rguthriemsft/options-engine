@@ -3151,9 +3151,49 @@ Strategy implementations shall be deterministic given:
 
 The ASP\.NET Core API shall expose a local interface suitable for Excel and future clients\.
 
+## Phase 3 Indicator API
+
+V1 exposes one indicator route: `GET /api/indicators/{symbol}`, optionally with
+`?asOf=YYYY-MM-DD`. This is a read-only HTTP surface: clients do not create,
+update, or delete indicator snapshots through HTTP. GET is nevertheless a
+calculation/read-through operation. On a successful request, the API shall
+normalize and validate the symbol, resolve the as-of date and the server's
+current indicator configuration and calculation version, invoke Application
+indicator orchestration, calculate/recalculate and canonically upsert the
+derived snapshot, and return the resulting normalized `IndicatorSnapshot`.
+This internal derived-data write must not mutate source market observations.
+
+An explicit `asOf` is used exactly as requested, including on non-trading
+calendar dates; the returned snapshot retains that requested `AsOfDate` and
+historical no-look-ahead rules apply. Without `asOf`, Application/Infrastructure
+shall resolve the latest persisted trading-observation date for the requested
+underlying symbol and configured provider at or before the applicable request
+boundary. That persisted trading date, not the current UTC calendar date or a
+fabricated trading day, becomes the returned `AsOfDate`. If no applicable
+persisted price observation exists to resolve an omitted `asOf`, return a
+not-found/unavailable response (`404 Not Found`); do not calculate using today's
+date. An explicit historical `asOf` may still yield a valid snapshot with
+individual indicators unavailable for insufficient history.
+
+`IndicatorCalculationVersion` and `IndicatorConfiguration.Version` are
+server-owned for this V1 calculation endpoint. The composition root shall
+provide the currently supported calculation version and currently configured,
+validated `IndicatorConfiguration` through configuration/dependency injection;
+missing or invalid server configuration must fail clearly, not fall back to an
+implicit version. Endpoint logic shall not hard-code version identities.
+Requests attempting to supply calculation or configuration versions through
+query parameters are invalid rather than silently selecting or ignoring them.
+The response shall expose both version identifiers and preserve available versus
+unavailable indicator values, including the IV30 unavailable reason. The
+existing exact-identity Application/repository retrieval operation remains
+required internally, but V1 exposes no second, version-selectable indicator
+HTTP retrieval route.
+
 Representative endpoints:
 
 ```text
+GET /api/indicators/{symbol}
+
 GET /api/holdings
 
 GET /api/opportunities
