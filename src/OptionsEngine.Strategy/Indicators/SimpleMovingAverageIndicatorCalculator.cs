@@ -15,30 +15,35 @@ public sealed class SimpleMovingAverageIndicatorCalculator : IIndicatorCalculato
         if (request.CalculatedAt.Offset != TimeSpan.Zero) throw new ArgumentException("CalculatedAt must be expressed in UTC.", nameof(request));
         request.Configuration.Validate();
 
-        var closes = request.Observations
+        var observations = request.Observations
             .Where(x => string.Equals(x.Symbol, request.Symbol, StringComparison.OrdinalIgnoreCase))
-            .Where(x => x.TradingDate <= request.AsOfDate && x.Close.HasValue)
+            .Where(x => x.TradingDate <= request.AsOfDate)
             .OrderBy(x => x.TradingDate)
-            .Select(x => x.Close!.Value)
             .ToArray();
 
         return new IndicatorSnapshot(
             request.Symbol,
             request.AsOfDate,
-            CalculateSma(closes, request.Configuration.SimpleMovingAverage.Sma20Period),
-            CalculateSma(closes, request.Configuration.SimpleMovingAverage.Sma50Period),
-            CalculateSma(closes, request.Configuration.SimpleMovingAverage.Sma200Period),
+            CalculateSma(observations, request.Configuration.SimpleMovingAverage.Sma20Period),
+            CalculateSma(observations, request.Configuration.SimpleMovingAverage.Sma50Period),
+            CalculateSma(observations, request.Configuration.SimpleMovingAverage.Sma200Period),
             request.IndicatorCalculationVersion,
             request.Configuration.Version,
             request.CalculatedAt);
     }
 
-    private static IndicatorValue<decimal> CalculateSma(IReadOnlyList<decimal> closes, int period)
+    private static IndicatorValue<decimal> CalculateSma(IReadOnlyList<IndicatorPriceObservation> observations, int period)
     {
-        if (closes.Count < period) return IndicatorValue<decimal>.InsufficientData();
+        if (observations.Count < period) return IndicatorValue<decimal>.InsufficientData();
 
+        var windowStart = observations.Count - period;
         decimal sum = 0;
-        for (var index = closes.Count - period; index < closes.Count; index++) sum += closes[index];
+        for (var index = windowStart; index < observations.Count; index++)
+        {
+            var close = observations[index].Close;
+            if (!close.HasValue) return IndicatorValue<decimal>.InsufficientData();
+            sum += close.Value;
+        }
         return IndicatorValue<decimal>.Available(sum / period);
     }
 }

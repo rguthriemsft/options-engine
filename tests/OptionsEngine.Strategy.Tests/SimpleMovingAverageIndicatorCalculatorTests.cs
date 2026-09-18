@@ -103,15 +103,27 @@ public sealed class SimpleMovingAverageIndicatorCalculatorTests
     }
 
     [Fact]
-    public void IgnoresMissingCloseValuesInsteadOfTreatingThemAsZero()
+    public void MissingCloseInsideTheLastTwentyTradingObservationsMakesSma20Unavailable()
     {
-        var observations = Bars(20).ToList();
+        var observations = Bars(21).ToList();
         observations[^1] = observations[^1] with { Close = null };
 
         var snapshot = Calculate(observations);
 
         Assert.Equal(IndicatorValueStatus.InsufficientData, snapshot.Sma20.Status);
         Assert.Null(snapshot.Sma20.Value);
+    }
+
+    [Fact]
+    public void MissingCloseOutsideTheLastTwentyTradingObservationsDoesNotMakeSma20Unavailable()
+    {
+        var observations = Bars(21).ToList();
+        observations[0] = observations[0] with { Close = null };
+
+        var snapshot = Calculate(observations);
+
+        Assert.Equal(IndicatorValueStatus.Available, snapshot.Sma20.Status);
+        Assert.Equal(11.5m, snapshot.Sma20.Value);
     }
 
     [Fact]
