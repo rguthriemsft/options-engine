@@ -73,6 +73,26 @@ public sealed class IndicatorDataRepositoryTests : IAsyncLifetime
     }
 
     [Fact]
+    public async Task LatestTradingDateLookupHonorsSymbolProviderAndInclusiveBoundary()
+    {
+        await using var db = CreateContext();
+        var cache = new SqliteMarketDataCache(db);
+        var repository = new SqliteIndicatorDataRepository(db);
+        var friday = new DateOnly(2026, 9, 18);
+        var monday = friday.AddDays(3);
+        await cache.UpsertHistoricalBarsAsync(
+            [new HistoricalBar("MSFT", friday, 100m, 101m, 99m, 100m, 1, "Tradier"),
+             new HistoricalBar("MSFT", monday, 101m, 102m, 100m, 101m, 1, "Tradier"),
+             new HistoricalBar("AAPL", friday.AddDays(1), 100m, 101m, 99m, 100m, 1, "Tradier")],
+            friday, monday, CalculatedAt);
+
+        Assert.Equal(friday, await repository.GetLatestPriceObservationDateAsync(" msft ", "Tradier", friday.AddDays(2)));
+        Assert.Equal(monday, await repository.GetLatestPriceObservationDateAsync("MSFT", "Tradier", monday));
+        Assert.Null(await repository.GetLatestPriceObservationDateAsync("MSFT", "Other", monday));
+        Assert.Null(await repository.GetLatestPriceObservationDateAsync("MSFT", "Tradier", friday.AddDays(-1)));
+    }
+
+    [Fact]
     public async Task ExactIdentityRetrievalDoesNotSubstituteFutureOrOtherVersions()
     {
         await using var db = CreateContext();

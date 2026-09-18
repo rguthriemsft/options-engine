@@ -195,7 +195,7 @@ public sealed record IndicatorConfiguration
     public ResistanceConfiguration Resistance { get; init; } = new();
     public RegimeConfiguration Regime { get; init; } = new();
 
-    internal void Validate()
+    public void Validate()
     {
         if (Version.Value < 1) throw new ArgumentOutOfRangeException(nameof(Version), "Configuration version must be positive.");
         SimpleMovingAverage.Validate();

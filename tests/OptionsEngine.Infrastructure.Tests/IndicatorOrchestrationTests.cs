@@ -161,6 +161,10 @@ public sealed class IndicatorOrchestrationTests
         public int SaveCount { get; private set; }
         public CancellationToken LastToken { get; private set; }
 
+        public Task<DateOnly?> GetLatestPriceObservationDateAsync(string symbol, string provider, DateOnly onOrBefore,
+            CancellationToken cancellationToken = default) => Task.FromResult<DateOnly?>(Prices.GetValueOrDefault(symbol)?
+                .Where(x => x.TradingDate <= onOrBefore).Select(x => (DateOnly?)x.TradingDate).Max());
+
         public Task<IReadOnlyList<IndicatorPriceObservation>> GetPricesThroughAsync(string symbol, string provider, DateOnly asOfDate,
             CancellationToken cancellationToken = default)
         {

@@ -280,7 +280,7 @@ Important Phase 2 implementation lessons:
 -   Live production API verification is not part of normal automated
     testing.
 
-### Phase 3 --- Implementation in Progress
+### Phase 3 --- Implemented, Ready for Review
 
 Authoritative documents on branch:
 
@@ -290,9 +290,10 @@ Authoritative documents on branch:
 Phase 3 owns derived market facts and classifications, not strategy
 scoring.
 
-Phase 3A foundation/SMA, Phase 3B core technical indicators, and Phase
-3C IV30/IVRank/IVPercentile are implemented. Phase 3D resistance and
-market/sector regimes are next. Phase 3 calculations include:
+Phase 3A foundation/SMA, 3B core technical indicators, 3C
+IV30/IVRank/IVPercentile, 3D resistance and market/sector regimes, 3E
+canonical persistence/orchestration, and 3F indicator API are implemented.
+Phase 3 calculations include:
 
 -   SMA20 / SMA50 / SMA200
 -   RSI14 using Wilder smoothing
@@ -309,6 +310,23 @@ market/sector regimes are next. Phase 3 calculations include:
 -   calculation versioning
 -   indicator persistence
 -   read-only indicator API
+
+The V1 API has one route, `GET /api/indicators/{symbol}`, with optional
+`?asOf=YYYY-MM-DD`. GET calculates and canonically upserts derived facts
+from persisted observations; it does not fetch or mutate source market
+data. An omitted `asOf` resolves the latest persisted trading date for
+the configured provider at or before the request's UTC date, or returns
+404 when no such observation exists. Version identities are server-owned;
+exact-identity historical retrieval remains internal.
+
+The Phase 3F merge gate passed: Release build had 0 warnings and 0
+errors; the full automated suite had 191 passed, 0 failed, 0 skipped.
+Both empty-database migration and final-Phase-2-to-Phase-3 upgrade
+tests passed; EF reported no pending model changes. These checks use
+deterministic local SQLite and mocked provider data, not live Tradier.
+V1 intentionally has no version-selectable indicator HTTP route,
+immutable recalculation audit history, or provider refresh on indicator
+GET. Historical results require the relevant persisted source data.
 
 Phase 3 explicitly does NOT own:
 
@@ -566,8 +584,8 @@ Start a fresh ChatGPT conversation and attach/reference:
 3.  `docs/acceptance/PHASE-3-INDICATORS.md`;
 4.  optionally `AGENTS.md`.
 
-The next implementation task is Phase 3D resistance detection and
-market/sector regimes. The former resistance-clustering ambiguity is
-resolved by the complete-linkage rule in `SPECIFICATION.md` §12.11 and
-the Phase 3 acceptance checklist. Do not begin Phase 3E as part of
-Phase 3D.
+Phase 3 is ready for review. The next phase is Phase 4 strategy design
+and implementation, subject to resolving its explicitly deferred CCOS
+component formulas before coding them. The resistance-clustering
+decision is already locked in `SPECIFICATION.md` §12.11; do not reopen
+Phase 3 methodology as part of Phase 4 work.

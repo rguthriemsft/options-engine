@@ -1,11 +1,13 @@
 using Microsoft.AspNetCore.Diagnostics.HealthChecks;
 using Microsoft.EntityFrameworkCore;
 using OptionsEngine.Api.Health;
+using OptionsEngine.Api.Indicators;
 using OptionsEngine.Infrastructure.Persistence;
 using OptionsEngine.Application.MarketData;
 using OptionsEngine.Application.Indicators;
 using OptionsEngine.MarketData;
 using OptionsEngine.MarketData.Tradier;
+using OptionsEngine.Strategy.Indicators;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -30,6 +32,10 @@ builder.Services.AddSingleton(new IndicatorOrchestrationConfiguration
 });
 builder.Services.AddScoped<IIndicatorDataRepository, SqliteIndicatorDataRepository>();
 builder.Services.AddScoped<IndicatorOrchestrationService>();
+var (indicatorConfiguration, calculationVersion) = IndicatorApiConfiguration.Load(builder.Configuration);
+builder.Services.AddSingleton(indicatorConfiguration);
+builder.Services.AddSingleton(calculationVersion);
+builder.Services.AddSingleton(TimeProvider.System);
 builder.Services.AddHealthChecks().AddCheck<DatabaseHealthCheck>("database");
 
 var app = builder.Build();
@@ -43,6 +49,7 @@ await using (var scope = app.Services.CreateAsyncScope())
 }
 
 app.MapHealthChecks("/health", new HealthCheckOptions { ResponseWriter = HealthResponseWriter.WriteAsync });
+app.MapIndicatorEndpoints();
 var market = app.MapGroup("/api/market").AddEndpointFilter(async (context, next) =>
 {
     try { return await next(context); }

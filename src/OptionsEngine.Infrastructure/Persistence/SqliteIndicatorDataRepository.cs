@@ -12,6 +12,16 @@ public sealed class SqliteIndicatorDataRepository(OptionsEngineDbContext db) : I
 {
     private static readonly JsonSerializerOptions JsonOptions = new() { Converters = { new ConfigurationVersionJsonConverter() } };
 
+    public Task<DateOnly?> GetLatestPriceObservationDateAsync(string symbol, string provider, DateOnly onOrBefore,
+        CancellationToken cancellationToken = default)
+    {
+        symbol = Normalize(symbol);
+        return db.HistoricalPriceBars.AsNoTracking()
+            .Where(x => x.Symbol == symbol && x.Provider == provider && x.Date <= onOrBefore)
+            .OrderByDescending(x => x.Date).Select(x => (DateOnly?)x.Date)
+            .FirstOrDefaultAsync(cancellationToken);
+    }
+
     public async Task<IReadOnlyList<IndicatorPriceObservation>> GetPricesThroughAsync(string symbol, string provider,
         DateOnly asOfDate, CancellationToken cancellationToken = default)
     {

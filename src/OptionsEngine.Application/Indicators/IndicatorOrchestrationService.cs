@@ -20,6 +20,14 @@ public sealed class IndicatorOrchestrationService(
     private readonly ResistanceIndicatorCalculator _resistance = new();
     private readonly RegimeIndicatorCalculator _regime = new();
 
+    public Task<DateOnly?> ResolveLatestAsOfDateAsync(string symbol, DateOnly onOrBefore,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(symbol);
+        return repository.GetLatestPriceObservationDateAsync(symbol.Trim().ToUpperInvariant(), provider.ProviderName,
+            onOrBefore, cancellationToken);
+    }
+
     public async Task<IndicatorSnapshot> CalculateAndPersistAsync(string symbol, DateOnly asOfDate, IndicatorConfiguration configuration,
         IndicatorCalculationVersion calculationVersion, DateTimeOffset calculatedAt, CancellationToken cancellationToken = default)
     {
