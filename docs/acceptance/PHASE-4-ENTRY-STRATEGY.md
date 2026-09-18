@@ -744,6 +744,10 @@ Acceptance criteria:
 - [ ] Current evaluation uses server time supplied explicitly/injectably.
 - [ ] Historical deterministic orchestration can be tested without current time.
 - [ ] Earnings input is supplied through a provider-independent boundary.
+- [ ] V1 production current evaluation uses validated configuration-backed earnings dates; a provider-backed
+  source is deferred pending an authoritative provider contract or sanitized fixture.
+- [ ] The configured source does not claim to reconstruct historical event knowledge; Phase 4E persists the
+  exact consumed EarningsContext.
 - [ ] V1 orchestration introduces no dividend/material-event strategy rule.
 
 ---

@@ -237,6 +237,10 @@ implementation agent.
 - ETF earnings status is `NotApplicable`.
 - Earnings is a contract-level gate, not a duplicate CCOS gate.
 - Persist the actual EarningsContext status/date used.
+- `IEarningsDateSource` is the Application boundary. V1 production current evaluations use validated
+  configuration-backed dates; this does not reconstruct historically-known event data. Phase 4E persists the
+  consumed context. A Tradier/provider-backed source is deferred pending an authoritative API contract or
+  sanitized captured fixture.
 
 ## Phase 4 Breakout Veto
 

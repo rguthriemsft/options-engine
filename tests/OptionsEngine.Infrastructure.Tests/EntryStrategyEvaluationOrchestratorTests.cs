@@ -71,7 +71,7 @@ public sealed class EntryStrategyEvaluationOrchestratorTests
         var older = Chain(firstExpiration, EvaluationAt.AddMinutes(-10), [Contract("OLD", firstExpiration, EvaluationAt.AddMinutes(-10))]);
         var selectedFirst = Chain(firstExpiration, EvaluationAt.AddMinutes(-5), [Contract("PREFERRED", firstExpiration, EvaluationAt.AddMinutes(-5))]);
         var selectedSecond = Chain(secondExpiration, EvaluationAt.AddMinutes(-2), [Contract("ALTERNATE", secondExpiration, EvaluationAt.AddMinutes(-2)) with { Delta = .20, Strike = 108m, Theta = -.08 }]);
-        fixture.Repository.Chains = [older, selectedSecond, selectedFirst];
+        fixture.MarketData.Chains = [older, selectedSecond, selectedFirst];
         fixture.Earnings.NextDate = new DateOnly(2027, 1, 1);
 
         var bundle = await fixture.Orchestrator.EvaluateAsync(HoldingId, EvaluationAt);
@@ -117,7 +117,7 @@ public sealed class EntryStrategyEvaluationOrchestratorTests
             ResistanceUnavailableReason = ResistanceUnavailableReason.NoQualifiedResistance,
             ResistancePrice = IndicatorValue<decimal>.InsufficientData()
         };
-        fixture.Repository.Chains = [Chain(new DateOnly(2026, 10, 16), EvaluationAt, [Contract("NO_PRICE", new DateOnly(2026, 10, 16), EvaluationAt) with { UnderlyingPrice = null }])];
+        fixture.MarketData.Chains = [Chain(new DateOnly(2026, 10, 16), EvaluationAt, [Contract("NO_PRICE", new DateOnly(2026, 10, 16), EvaluationAt) with { UnderlyingPrice = null }])];
 
         var bundle = await fixture.Orchestrator.EvaluateAsync(HoldingId, EvaluationAt);
 
@@ -136,7 +136,7 @@ public sealed class EntryStrategyEvaluationOrchestratorTests
         var observedAt = EvaluationAt.AddMinutes(-1);
         var source = new OptionContractSnapshot("MSFT-MAP", "MSFT", observedAt, expiration, 105m, OptionType.Call,
             null, 2.2m, 2.1m, 123, null, .3, null, null, -.06, null, null, "FakeProvider");
-        fixture.Repository.Chains = [Chain(expiration, observedAt, [source])];
+        fixture.MarketData.Chains = [Chain(expiration, observedAt, [source])];
 
         var mapped = Assert.Single((await fixture.Orchestrator.EvaluateAsync(HoldingId, EvaluationAt)).SelectedContracts);
 
@@ -159,7 +159,7 @@ public sealed class EntryStrategyEvaluationOrchestratorTests
     public async Task EarningsBoundaryPreservesStockAndEtfSemantics(string scenario)
     {
         var fixture = Fixture();
-        fixture.Repository.Chains = [Chain(new DateOnly(2026, 10, 16), EvaluationAt, [Contract("CALL", new DateOnly(2026, 10, 16), EvaluationAt)])];
+        fixture.MarketData.Chains = [Chain(new DateOnly(2026, 10, 16), EvaluationAt, [Contract("CALL", new DateOnly(2026, 10, 16), EvaluationAt)])];
         if (scenario == "available") fixture.Earnings.NextDate = new DateOnly(2026, 10, 16);
         if (scenario == "unavailable") fixture.Earnings.NextDate = null;
         if (scenario == "etf") fixture.Holdings.Holding = Holding(assetType: AssetType.ExchangeTradedFund);
@@ -201,7 +201,7 @@ public sealed class EntryStrategyEvaluationOrchestratorTests
     {
         var fixture = Fixture();
         fixture.Repository.Snapshot = Snapshot() with { CalculatedAt = EvaluationAt.AddMinutes(1) };
-        fixture.Repository.Chains = [Chain(new DateOnly(2026, 10, 16), EvaluationAt, [Contract("CALL", new DateOnly(2026, 10, 16), EvaluationAt)])];
+        fixture.MarketData.Chains = [Chain(new DateOnly(2026, 10, 16), EvaluationAt, [Contract("CALL", new DateOnly(2026, 10, 16), EvaluationAt)])];
 
         var bundle = await fixture.Orchestrator.EvaluateAsync(HoldingId, EvaluationAt);
 
@@ -213,7 +213,7 @@ public sealed class EntryStrategyEvaluationOrchestratorTests
     public async Task IndicatorAsOfBoundaryUsesNewYorkDateThenPhaseThreeLatestTradingDateSemantics()
     {
         var fixture = Fixture();
-        fixture.Repository.Chains = [Chain(new DateOnly(2026, 10, 16), EvaluationAt, [Contract("CALL", new DateOnly(2026, 10, 16), EvaluationAt)])];
+        fixture.MarketData.Chains = [Chain(new DateOnly(2026, 10, 16), EvaluationAt, [Contract("CALL", new DateOnly(2026, 10, 16), EvaluationAt)])];
         var cutoff = new DateTimeOffset(2026, 9, 18, 1, 0, 0, TimeSpan.Zero); // Sep 17 in New York.
 
         await fixture.Orchestrator.EvaluateAsync(HoldingId, cutoff);
@@ -221,22 +221,87 @@ public sealed class EntryStrategyEvaluationOrchestratorTests
         Assert.Equal(AsOfDate, fixture.Repository.LastLatestPriceBoundary);
     }
 
-    private static OrchestrationFixture Fixture()
+    [Fact]
+    public async Task PhaseFourChainCutoffCrossingUtcMidnightUsesTimestampRatherThanPhaseThreeDateCap()
+    {
+        var fixture = Fixture();
+        var cutoff = new DateTimeOffset(2026, 9, 18, 1, 0, 0, TimeSpan.Zero); // Sep 17 in New York.
+        var expiration = new DateOnly(2026, 10, 16);
+        var eligible = Chain(expiration, new DateTimeOffset(2026, 9, 18, 0, 30, 0, TimeSpan.Zero),
+            [Contract("ELIGIBLE", expiration, new DateTimeOffset(2026, 9, 18, 0, 30, 0, TimeSpan.Zero))]);
+        var future = Chain(expiration, cutoff.AddMinutes(1), [Contract("FUTURE", expiration, cutoff.AddMinutes(1))]);
+        fixture.MarketData.Chains = [future, eligible];
+
+        var bundle = await fixture.Orchestrator.EvaluateAsync(HoldingId, cutoff);
+
+        Assert.Equal(eligible.Timestamp, Assert.Single(bundle.SelectedOptionChains).Timestamp);
+        Assert.Equal("ELIGIBLE", Assert.Single(bundle.SelectedContracts).OptionSymbol);
+        Assert.Equal(cutoff, fixture.MarketData.LastRequest!.Value.Cutoff);
+    }
+
+    [Fact]
+    public async Task PhaseFourRetrievalUsesConfiguredInclusiveExpirationWindow()
+    {
+        var fixture = Fixture(
+            new ContractEligibilityConfiguration { MinimumDte = 20, MaximumDte = 30 },
+            new ContractScoreConfiguration
+            {
+                DteEfficiency = new IntegerScoreTable { Bands = [new(20, 22, 5), new(23, 27, 10), new(28, 30, 8)] }
+            });
+        var evaluationDate = new DateOnly(2026, 9, 18);
+        fixture.MarketData.Chains = new[] { 19, 20, 25, 30, 31 }.Select(dte =>
+        {
+            var expiration = evaluationDate.AddDays(dte);
+            return Chain(expiration, EvaluationAt, [Contract($"DTE-{dte}", expiration, EvaluationAt)]);
+        }).ToArray();
+
+        var bundle = await fixture.Orchestrator.EvaluateAsync(HoldingId, EvaluationAt);
+
+        Assert.Equal([evaluationDate.AddDays(20), evaluationDate.AddDays(25), evaluationDate.AddDays(30)],
+            bundle.SelectedOptionChains.Select(x => x.Expiration));
+        Assert.Equal((evaluationDate.AddDays(20), evaluationDate.AddDays(30), EvaluationAt), fixture.MarketData.LastRequest!.Value);
+    }
+
+    [Fact]
+    public async Task ConfiguredEarningsSourceBuildsAvailableContextConsumedByStrategyGate()
+    {
+        var fixture = Fixture();
+        var expiration = new DateOnly(2026, 10, 16);
+        fixture.MarketData.Chains = [Chain(expiration, EvaluationAt, [Contract("CALL", expiration, EvaluationAt)])];
+        var source = new ConfiguredEarningsDateSource(new EarningsCalendarConfiguration
+        {
+            Symbols = new Dictionary<string, string[]> { ["MSFT"] = ["2026-10-16"] }
+        });
+        var orchestrator = new EntryStrategyEvaluationOrchestrator(fixture.Holdings, fixture.MarketData,
+            new IndicatorOrchestrationService(fixture.Repository, fixture.Provider, new IndicatorOrchestrationConfiguration()),
+            fixture.Provider, source, fixture.Configuration);
+
+        var bundle = await orchestrator.EvaluateAsync(HoldingId, EvaluationAt);
+
+        Assert.Equal(AvailabilityStatus.Available, bundle.Context.Earnings.Status);
+        Assert.Equal(expiration, bundle.Context.Earnings.NextEarningsDate);
+        Assert.Equal(RejectionReasonCode.EarningsBeforeExpiration,
+            Assert.Single(bundle.StrategyResult.Contracts[0].Gates, x => x.Code == GateCode.Earnings).ReasonCode);
+    }
+
+    private static OrchestrationFixture Fixture(ContractEligibilityConfiguration? contractEligibility = null,
+        ContractScoreConfiguration? contractScore = null)
     {
         var repository = new FakeIndicatorRepository { Snapshot = Snapshot() };
+        var marketData = new FakeEntryStrategyMarketDataRepository();
         var holdings = new FakeHoldingRepository { Holding = Holding() };
         var earnings = new FakeEarningsDateSource();
         var provider = new FakeProvider();
         var orchestration = new IndicatorOrchestrationService(repository, provider, new IndicatorOrchestrationConfiguration());
         var configuration = new EntryStrategyOrchestrationConfiguration
         {
-            StrategyConfiguration = new EntryStrategyConfiguration { Version = new ConfigurationVersion(1) },
+            StrategyConfiguration = new EntryStrategyConfiguration { Version = new ConfigurationVersion(1), ContractEligibility = contractEligibility ?? new(), ContractScore = contractScore ?? new() },
             IndicatorConfiguration = new IndicatorConfiguration { Version = new ConfigurationVersion(1) },
             IndicatorCalculationVersion = IndicatorVersion,
             StrategyVersion = new StrategyVersion("4.0.0")
         };
-        return new OrchestrationFixture(repository, holdings, earnings, new EntryStrategyEvaluationOrchestrator(holdings, repository,
-            orchestration, provider, earnings, configuration));
+        return new OrchestrationFixture(repository, marketData, holdings, earnings, provider, configuration,
+            new EntryStrategyEvaluationOrchestrator(holdings, marketData, orchestration, provider, earnings, configuration));
     }
 
     private static Holding Holding(bool isEnabled = true, AssetType assetType = AssetType.Stock) => new(
@@ -262,8 +327,9 @@ public sealed class EntryStrategyEvaluationOrchestratorTests
     private static IndicatorValue<T> Available<T>(T value) where T : struct => IndicatorValue<T>.Available(value);
     private static IndicatorValue<T> Missing<T>() where T : struct => IndicatorValue<T>.InsufficientData();
 
-    private sealed record OrchestrationFixture(FakeIndicatorRepository Repository, FakeHoldingRepository Holdings,
-        FakeEarningsDateSource Earnings, EntryStrategyEvaluationOrchestrator Orchestrator);
+    private sealed record OrchestrationFixture(FakeIndicatorRepository Repository, FakeEntryStrategyMarketDataRepository MarketData, FakeHoldingRepository Holdings,
+        FakeEarningsDateSource Earnings, FakeProvider Provider, EntryStrategyOrchestrationConfiguration Configuration,
+        EntryStrategyEvaluationOrchestrator Orchestrator);
 
     private sealed class FakeHoldingRepository : IHoldingRepository
     {
@@ -292,10 +358,23 @@ public sealed class EntryStrategyEvaluationOrchestratorTests
         public Task<OptionChain> GetOptionChainAsync(string symbol, DateOnly expiration, CancellationToken cancellationToken = default) => throw new NotSupportedException();
     }
 
+    private sealed class FakeEntryStrategyMarketDataRepository : IEntryStrategyMarketDataRepository
+    {
+        public IReadOnlyList<OptionChain> Chains { get; set; } = [];
+        public (DateOnly Minimum, DateOnly Maximum, DateTimeOffset Cutoff)? LastRequest { get; private set; }
+
+        public Task<IReadOnlyList<OptionChain>> GetOptionChainsAsync(string symbol, string provider, DateOnly minimumExpiration,
+            DateOnly maximumExpiration, DateTimeOffset evaluationTimestampUtc, CancellationToken cancellationToken = default)
+        {
+            LastRequest = (minimumExpiration, maximumExpiration, evaluationTimestampUtc);
+            return Task.FromResult<IReadOnlyList<OptionChain>>(Chains.Where(x => x.Expiration >= minimumExpiration &&
+                x.Expiration <= maximumExpiration && x.Timestamp <= evaluationTimestampUtc).ToArray());
+        }
+    }
+
     private sealed class FakeIndicatorRepository : IIndicatorDataRepository
     {
         public IndicatorSnapshot Snapshot { get; set; } = null!;
-        public IReadOnlyList<OptionChain> Chains { get; set; } = [];
         public int IndicatorLookupCount { get; private set; }
         public int UpsertCount { get; private set; }
         public DateOnly? LastLatestPriceBoundary { get; private set; }
@@ -315,7 +394,7 @@ public sealed class EntryStrategyEvaluationOrchestratorTests
             }).ToArray();
             return Task.FromResult<IReadOnlyList<IndicatorPriceObservation>>(observations);
         }
-        public Task<IReadOnlyList<OptionChain>> GetOptionChainsThroughAsync(string symbol, string provider, DateOnly asOfDate, DateTimeOffset calculatedAt, CancellationToken cancellationToken = default) => Task.FromResult(Chains);
+        public Task<IReadOnlyList<OptionChain>> GetOptionChainsThroughAsync(string symbol, string provider, DateOnly asOfDate, DateTimeOffset calculatedAt, CancellationToken cancellationToken = default) => Task.FromResult<IReadOnlyList<OptionChain>>([]);
         public Task<IReadOnlyList<HistoricalIv30Observation>> GetPriorValidIv30Async(string symbol, DateOnly asOfDate, IndicatorCalculationVersion calculationVersion, ConfigurationVersion configurationVersion, int limit, CancellationToken cancellationToken = default) => Task.FromResult<IReadOnlyList<HistoricalIv30Observation>>([]);
         public Task<IndicatorSnapshot?> GetSnapshotAsync(string symbol, DateOnly asOfDate, IndicatorCalculationVersion calculationVersion, ConfigurationVersion configurationVersion, CancellationToken cancellationToken = default) => Task.FromResult<IndicatorSnapshot?>(Snapshot);
         public Task UpsertSnapshotAsync(IndicatorSnapshot snapshot, CancellationToken cancellationToken = default)

@@ -588,6 +588,15 @@ Do not reopen or invent alternatives for:
 The locked rules are in `SPECIFICATION.md` and
 `docs/design/OPTIONS-ENGINE-DESIGN-DECISIONS.md`.
 
+## Phase 4 V1 Earnings Input Decision
+
+Phase 4 V1 retains the earnings hard gate but uses the provider-independent
+`IEarningsDateSource` with validated configuration-backed current-evaluation dates.
+Do not implement an undocumented Tradier corporate-calendar/fundamentals request.
+This source does not recreate historical event knowledge; Phase 4E persists the
+actual `EarningsContext` used. A provider-backed adapter is deferred until an
+authoritative contract or sanitized captured fixture is available.
+
 ## Recommended Next Conversation
 
 Continue from `main` and read, in order:
@@ -608,4 +617,3 @@ implement CCOS, Contract Score, persistence, API endpoints, or position sizing.
 If implementation reveals a strategy ambiguity, update/clarify the
 specification before adding new financial behavior. Do not silently invent
 formulas, thresholds, or missing-data fallbacks.
-

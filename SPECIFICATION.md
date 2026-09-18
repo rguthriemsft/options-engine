@@ -1543,6 +1543,11 @@ NextEarningsDate
 
 For an individual stock, missing required earnings data is `INSUFFICIENT_DATA`. For an ETF, earnings is `NotApplicable`.
 
+For Phase 4 V1 production current evaluations, Application obtains the next earnings date through the provider-independent
+`IEarningsDateSource` boundary using validated configuration-backed dates. This is not a reconstruction of what was known
+historically; Phase 4E persists the exact `EarningsContext` consumed. A provider-backed source is deferred until an
+authoritative provider contract or sanitized captured fixture is approved.
+
 Dividend, ex-dividend, and generic material-event entry rules are deferred from Phase 4 V1. Ex-dividend information may be used by later defense/early-assignment logic.
 
 # 16\. Recommendation
@@ -3441,8 +3446,6 @@ GetOptionExpirationsAsync(symbol)
 GetOptionChainAsync(
     symbol,
     expiration)
-
-GetCorporateEventsAsync(symbol)
 ```
 
 Tradier shall implement this interface\.
@@ -4691,7 +4694,10 @@ StrategyVersion
 ConfigurationVersion
 ```
 
-The provider-independent market-data boundary shall supply earnings data. Phase 4 V1 consumes only Earnings; no dividend or generic material-event entry rule is added.
+`IEarningsDateSource` supplies provider-independent earnings input. Phase 4 V1 production current evaluations use validated
+configuration-backed dates because an authoritative Tradier corporate-calendar contract is not available in approved sources.
+A future provider-backed implementation may replace that source without changing Application orchestration or Strategy.
+Phase 4 V1 consumes only Earnings; no dividend or generic material-event entry rule is added.
 
 ### Phase 4E — Immutable Persistence
 

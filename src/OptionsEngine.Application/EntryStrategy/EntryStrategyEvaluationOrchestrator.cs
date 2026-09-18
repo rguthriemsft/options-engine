@@ -10,7 +10,7 @@ namespace OptionsEngine.Application.EntryStrategy;
 /// <summary>Assembles persisted normalized facts into a reproducible input bundle and invokes the pure Phase 4 strategy.</summary>
 public sealed class EntryStrategyEvaluationOrchestrator(
     IHoldingRepository holdingRepository,
-    IIndicatorDataRepository indicatorRepository,
+    IEntryStrategyMarketDataRepository entryStrategyMarketDataRepository,
     IndicatorOrchestrationService indicatorOrchestration,
     IMarketDataProvider marketDataProvider,
     IEarningsDateSource earningsDateSource,
@@ -48,8 +48,10 @@ public sealed class EntryStrategyEvaluationOrchestrator(
         var earnings = await ResolveEarningsAsync(holding, evaluationTimestampUtc, cancellationToken);
         var context = new EvaluationContext(holdingContext, indicatorContext, earnings, indicatorAsOfDate,
             evaluationTimestampUtc, configuration.StrategyConfiguration, configuration.StrategyVersion);
-        var observations = await indicatorRepository.GetOptionChainsThroughAsync(holding.Symbol, provider, requestBoundary,
-            evaluationTimestampUtc, cancellationToken);
+        var minimumExpiration = requestBoundary.AddDays(configuration.StrategyConfiguration.ContractEligibility.MinimumDte);
+        var maximumExpiration = requestBoundary.AddDays(configuration.StrategyConfiguration.ContractEligibility.MaximumDte);
+        var observations = await entryStrategyMarketDataRepository.GetOptionChainsAsync(holding.Symbol, provider,
+            minimumExpiration, maximumExpiration, evaluationTimestampUtc, cancellationToken);
         var selectedChains = OptionChainSnapshotSelector.Select(observations, evaluationTimestampUtc);
         var contracts = selectedChains.SelectMany(x => x.Contracts).Select(MapContract).ToArray();
         var strategyResult = _strategy.Evaluate(context, contracts);

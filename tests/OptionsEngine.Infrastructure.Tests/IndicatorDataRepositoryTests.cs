@@ -1,5 +1,6 @@
 using Microsoft.EntityFrameworkCore;
 using OptionsEngine.Application.MarketData;
+using OptionsEngine.Application.EntryStrategy;
 using OptionsEngine.Infrastructure.Persistence;
 using OptionsEngine.MarketData.Models;
 using OptionsEngine.Strategy.Indicators;
@@ -178,6 +179,31 @@ public sealed class IndicatorDataRepositoryTests : IAsyncLifetime
         Assert.Empty(historical[0].Contracts);
         Assert.Equal(observedAt, historical[0].Timestamp);
         Assert.Empty(await repository.GetOptionChainsThroughAsync("MSFT", "Tradier", asOf.AddDays(-1), CalculatedAt));
+    }
+
+    [Fact]
+    public async Task PhaseFourOptionChainQueryUsesUtcCutoffAndInclusiveConfiguredExpirationWindow()
+    {
+        await using var db = CreateContext();
+        var cache = new SqliteMarketDataCache(db);
+        var repository = new SqliteEntryStrategyMarketDataRepository(db);
+        var cutoff = new DateTimeOffset(2026, 9, 18, 1, 0, 0, TimeSpan.Zero); // Sep 17 in New York.
+        var evaluationDate = new DateOnly(2026, 9, 17);
+        var minimum = evaluationDate.AddDays(20);
+        var maximum = evaluationDate.AddDays(30);
+        var eligibleAt = cutoff.AddMinutes(-30); // UTC Sep 18; Phase 3's date cap would incorrectly exclude this.
+        await cache.SaveOptionChainAsync(Chain(eligibleAt, minimum, .2));
+        await cache.SaveOptionChainAsync(new OptionChain("MSFT", evaluationDate.AddDays(25), eligibleAt.AddMinutes(1), [], "Tradier"));
+        await cache.SaveOptionChainAsync(Chain(cutoff.AddMinutes(1), maximum, .8));
+        await cache.SaveOptionChainAsync(Chain(eligibleAt, minimum.AddDays(-1), .3));
+        await cache.SaveOptionChainAsync(Chain(eligibleAt, maximum.AddDays(1), .4));
+
+        var chains = await repository.GetOptionChainsAsync(" msft ", "Tradier", minimum, maximum, cutoff);
+
+        Assert.Equal([minimum, evaluationDate.AddDays(25)], chains.Select(x => x.Expiration));
+        Assert.Equal(eligibleAt, chains[0].Timestamp);
+        Assert.Empty(chains[1].Contracts); // Newer empty observations remain complete observations for the selector.
+        Assert.DoesNotContain(chains, x => x.Timestamp > cutoff);
     }
 
     [Fact]
