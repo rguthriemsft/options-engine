@@ -140,8 +140,8 @@ public sealed record EntryStrategyEvaluationResponse(
     decimal? PreferredInitialStrike,
     DateOnly? PreferredInitialExpiration,
     decimal? PreferredInitialReferencePremium,
-    DispositionReasonCode DispositionReason,
-    IReadOnlyList<MissingInputCode> MissingInputs,
+    string DispositionReason,
+    IReadOnlyList<string> MissingInputs,
     IReadOnlyList<string> Explanations)
 {
     public static EntryStrategyEvaluationResponse From(PersistedEntryStrategyEvaluation value)
@@ -157,7 +157,7 @@ public sealed record EntryStrategyEvaluationResponse(
             value.SelectedContracts.Select(OptionResponse.From).ToArray(), evaluation.Contracts.Select(ContractResponse.From).ToArray(), evaluation.EntryCandidateExists,
             evaluation.PreferredInitialOptionSymbol, evaluation.PreferredInitialStrike,
             evaluation.PreferredInitialExpiration, evaluation.PreferredInitialReferencePremium,
-            evaluation.DispositionReason, evaluation.MissingInputs, evaluation.Explanations);
+            evaluation.DispositionReason.ToString(), evaluation.MissingInputs.Select(x => x.ToString()).ToArray(), evaluation.Explanations);
     }
 }
 
@@ -173,23 +173,23 @@ public sealed record EntryStrategyEvaluationHistoryResponse(
     DateOnly IndicatorAsOfDate,
     DateTimeOffset EvaluationTimestampUtc,
     DateTimeOffset CalculatedAtUtc,
-    ScoreStatus CcosStatus,
+    string CcosStatus,
     double? CcosScore,
     string? CcosClassification,
     bool EntryCandidateExists,
     string? PreferredInitialOptionSymbol,
     decimal? PreferredInitialStrike,
     DateOnly? PreferredInitialExpiration,
-    DispositionReasonCode DispositionReason,
+    string DispositionReason,
     string IndicatorCalculationVersion,
     int ConfigurationVersion,
     string StrategyVersion)
 {
     public static EntryStrategyEvaluationHistoryResponse From(EntryStrategyEvaluationHistoryItem value) =>
         new(value.EntryStrategyEvaluationId, value.HoldingId, value.Symbol, value.IndicatorAsOfDate,
-            value.EvaluationTimestampUtc, value.CalculatedAtUtc, value.CcosStatus, value.CcosScore,
+            value.EvaluationTimestampUtc, value.CalculatedAtUtc, value.CcosStatus.ToString(), value.CcosScore,
             value.CcosClassification, value.EntryCandidateExists, value.PreferredInitialOptionSymbol,
-            value.PreferredInitialStrike, value.PreferredInitialExpiration, value.DispositionReason,
+            value.PreferredInitialStrike, value.PreferredInitialExpiration, value.DispositionReason.ToString(),
             value.IndicatorCalculationVersion, value.ConfigurationVersion.Value, value.StrategyVersion);
 }
 
