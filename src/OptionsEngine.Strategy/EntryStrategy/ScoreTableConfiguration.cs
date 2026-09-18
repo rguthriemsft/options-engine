@@ -199,7 +199,7 @@ public sealed record CcosResistanceScoringConfiguration
     ] };
     public IntegerScoreTable TouchCount { get; init; } = new() { Bands =
     [
-        new(2, 2, 1), new(3, 3, 3), new(4, null, 5)
+        new(1, 1, 0), new(2, 2, 1), new(3, 3, 3), new(4, null, 5)
     ] };
     public IntegerScoreTable AgeTradingDays { get; init; } = new() { Bands =
     [
@@ -216,7 +216,7 @@ public sealed record CcosResistanceScoringConfiguration
         ScoreConfigurationValidation.Points(TouchMaximumScore, maximum, nameof(TouchMaximumScore));
         ScoreConfigurationValidation.Points(RecencyMaximumScore, maximum, nameof(RecencyMaximumScore));
         DistancePercent.Validate(nameof(DistancePercent), 3, DistanceMaximumScore);
-        TouchCount.Validate(nameof(TouchCount), 3, TouchMaximumScore, 2, null);
+        TouchCount.Validate(nameof(TouchCount), 4, TouchMaximumScore, 1, null);
         AgeTradingDays.Validate(nameof(AgeTradingDays), 3, RecencyMaximumScore, 0, null);
         if (Math.Abs(DistanceMaximumScore + TouchMaximumScore + RecencyMaximumScore - maximum) > 0.0000001)
             throw new ArgumentException("Resistance subcomponent maximums must total its maximum score.", nameof(maximum));

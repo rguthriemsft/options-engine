@@ -45,7 +45,7 @@ public sealed class Phase4ConfigurationTablesTests
         AssertBands(c.ResistanceStructure.DistancePercent,
             [new(null, false, .02, true, 5), new(.02, false, .05, true, 3), new(.05, false, null, false, 1)]);
         AssertIntegerBands(c.ResistanceStructure.TouchCount,
-            [new(2, 2, 1), new(3, 3, 3), new(4, null, 5)]);
+            [new(1, 1, 0), new(2, 2, 1), new(3, 3, 3), new(4, null, 5)]);
         AssertIntegerBands(c.ResistanceStructure.AgeTradingDays,
             [new(0, 20, 5), new(21, 60, 3), new(61, null, 1)]);
         Assert.Equal((8d, 7d), (c.MarketSectorRegime.MarketMaximumScore, c.MarketSectorRegime.SectorMaximumScore));
@@ -186,6 +186,13 @@ public sealed class Phase4ConfigurationTablesTests
             .SetItem(1, bands[1] with { Minimum = 41, Points = 3 }) };
 
         (Defaults with { Ccos = Defaults.Ccos with { Rsi = updated } }).Validate();
+    }
+
+    [Fact]
+    public void ResistanceTouchConfigurationExplicitlySupportsOneTouchQualification()
+    {
+        Defaults.Validate();
+        Assert.Equal(new IntegerScoreBand(1, 1, 0), Defaults.Ccos.ResistanceStructure.TouchCount.Bands[0]);
     }
 
     private static void AssertBands(ContinuousScoreTable actual, ContinuousScoreBand[] expected) =>

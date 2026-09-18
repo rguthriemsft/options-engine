@@ -39,6 +39,16 @@ public enum ScoreStatus
     NotApplicable
 }
 
+public enum CcosClassification
+{
+    NoTrade,
+    Weak,
+    Watch,
+    SellCandidate,
+    Strong,
+    Exceptional
+}
+
 public enum OptionContractType
 {
     Call,

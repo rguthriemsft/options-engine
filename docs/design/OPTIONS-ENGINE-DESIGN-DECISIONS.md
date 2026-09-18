@@ -442,10 +442,15 @@ Distance, max 5:
 Touches, max 5:
 
 ```text
+1      0
 2      1
 3      3
 >=4    5
 ```
+
+When Phase 3 is explicitly configured with `MinimumResistanceTouches = 1`, a
+qualified one-touch resistance remains valid. Its touch contribution is zero;
+distance and recency continue to contribute normally.
 
 Recency, max 5:
 
@@ -901,4 +906,3 @@ DRS, roll recommendations, or execute trades.
   API.
 - Position sizing, strike laddering, DRS, roll logic, and final SELL
   Recommendation semantics.
-

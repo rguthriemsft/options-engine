@@ -2148,10 +2148,15 @@ DistanceToResistancePercent <= 2%             5
 Touch score, maximum 5:
 
 ```text
+1 touch         0
 2 touches       1
 3 touches       3
 >= 4 touches    5
 ```
+
+A qualified one-touch resistance is valid when Phase 3 is configured with
+`MinimumResistanceTouches = 1`. Its distance and recency subcomponents remain
+scorable. It is neither `NoQualifiedResistance` nor `InsufficientData`.
 
 Recency score, maximum 5:
 

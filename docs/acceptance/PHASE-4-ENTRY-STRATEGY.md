@@ -315,6 +315,7 @@ Acceptance criteria:
 - [ ] `NoQualifiedResistance` is a valid state and scores 0/15.
 - [ ] `InsufficientData` makes the component unavailable.
 - [ ] Distance scoring matches SPECIFICATION Section 25.3.
+- [ ] A qualified one-touch resistance scores 0 for touches while its distance and recency remain scorable.
 - [ ] Touch scoring matches SPECIFICATION Section 25.3.
 - [ ] Recency scoring matches SPECIFICATION Section 25.3.
 - [ ] Resistance facts are consumed from Phase 3 as-of context.
