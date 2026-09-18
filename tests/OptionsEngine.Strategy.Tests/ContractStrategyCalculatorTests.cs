@@ -472,11 +472,26 @@ public sealed class ContractStrategyCalculatorTests
     [Fact]
     public void StrongEntryGoldenScenarioHasPreferredContractAndExactComponents()
     {
-        var result = Evaluate(Contract());
-        var candidate = Only(result);
+        var preferred = Contract() with { OptionSymbol = "MSFT261016C00105000" };
+        var alternate = Contract() with
+        {
+            OptionSymbol = "MSFT261016C00108000",
+            Strike = 108m,
+            Delta = .20,
+            Theta = -.08
+        };
+        var result = Calculator.Evaluate(Context(), [alternate, preferred]);
+        var candidate = Assert.Single(result.Contracts, x => x.Contract.OptionSymbol == preferred.OptionSymbol);
+        var alternateResult = Assert.Single(result.Contracts, x => x.Contract.OptionSymbol == alternate.OptionSymbol);
         Assert.Equal(96, result.Ccos.Score);
         Assert.Equal(91, candidate.ContractScore!.Score);
         Assert.Equal(new double[] { 25, 15, 20, 10, 10, 8, 3 }, candidate.ContractScore.Components.Select(x => x.Score!.Value));
+        Assert.Equal(80, alternateResult.ContractScore!.Score);
+        Assert.Equal(new double[] { 10, 18, 20, 10, 10, 8, 4 }, alternateResult.ContractScore.Components.Select(x => x.Score!.Value));
+        Assert.Equal(2, alternateResult.Rank);
+        Assert.Equal(1, candidate.Rank);
+        Assert.True(candidate.EntryAcceptable);
+        Assert.True(alternateResult.EntryAcceptable);
         Assert.True(result.EntryCandidateExists);
         Assert.Equal(DispositionReasonCode.EntryCandidate, result.DispositionReason);
         Assert.Equal(candidate.Contract.Strike, result.PreferredInitialStrike);
@@ -488,10 +503,20 @@ public sealed class ContractStrategyCalculatorTests
     [Fact]
     public void HighAssignmentRiskGoldenScenarioRetainsRejectedCall()
     {
-        var candidate = Only(Evaluate(Contract() with { Delta = .2501 }));
-        Assert.Equal(RejectionReasonCode.DeltaExceedsMaximum, Gate(candidate, GateCode.MaximumDelta).ReasonCode);
-        Assert.Null(candidate.Rank);
-        Assert.False(candidate.HardGateEligible);
+        var highRisk = Contract() with { OptionSymbol = "HIGH_RISK", Delta = .2501 };
+        var lowerRisk = Contract() with { OptionSymbol = "LOWER_RISK", Delta = .15 };
+        var result = Calculator.Evaluate(Context(), [highRisk, lowerRisk]);
+        var rejected = Assert.Single(result.Contracts, x => x.Contract.OptionSymbol == highRisk.OptionSymbol);
+        var accepted = Assert.Single(result.Contracts, x => x.Contract.OptionSymbol == lowerRisk.OptionSymbol);
+        Assert.Equal(RejectionReasonCode.DeltaExceedsMaximum, Gate(rejected, GateCode.MaximumDelta).ReasonCode);
+        Assert.Equal(GateStatus.Failed, Gate(rejected, GateCode.MaximumDelta).Status);
+        Assert.Null(rejected.Rank);
+        Assert.False(rejected.HardGateEligible);
+        Assert.True(accepted.HardGateEligible);
+        Assert.Equal(ScoreStatus.Available, accepted.ContractScore!.Status);
+        Assert.NotNull(accepted.Rank);
+        Assert.True(accepted.EntryAcceptable);
+        Assert.Equal(accepted.Contract.OptionSymbol, result.PreferredInitialOptionSymbol);
     }
 
     [Fact]
@@ -507,8 +532,47 @@ public sealed class ContractStrategyCalculatorTests
     public void IlliquidContractGoldenScenarioRetainsSpreadFailure()
     {
         var result = Evaluate(Contract() with { Ask = 2.6m });
-        Assert.Equal(RejectionReasonCode.InsufficientLiquidity, Gate(Only(result), GateCode.Liquidity).ReasonCode);
+        var contract = Only(result);
+        Assert.Equal(RejectionReasonCode.InsufficientLiquidity, Gate(contract, GateCode.Liquidity).ReasonCode);
+        Assert.Equal(GateStatus.Failed, Gate(contract, GateCode.Liquidity).Status);
+        Assert.False(contract.HardGateEligible);
+        Assert.Null(contract.Rank);
+        Assert.Contains(contract, result.Contracts);
         Assert.Equal(DispositionReasonCode.NoAcceptableContract, result.DispositionReason);
+    }
+
+    [Fact]
+    public void MinimumContractScoreIsAThresholdAndDoesNotBecomeAHardGate()
+    {
+        var contractScore = Only(Evaluate(Contract())).ContractScore!.Score!.Value;
+        var above = Only(Evaluate(Contract(), Context() with { Holding = Holding() with { MinimumContractScore = contractScore - .1 } }));
+        var exact = Only(Evaluate(Contract(), Context() with { Holding = Holding() with { MinimumContractScore = contractScore } }));
+        var below = Only(Evaluate(Contract(), Context() with { Holding = Holding() with { MinimumContractScore = contractScore + .1 } }));
+
+        Assert.True(above.ContractScore!.MeetsConfiguredMinimum);
+        Assert.True(above.EntryAcceptable);
+        Assert.True(exact.ContractScore!.MeetsConfiguredMinimum);
+        Assert.True(exact.EntryAcceptable);
+        Assert.False(below.ContractScore!.MeetsConfiguredMinimum);
+        Assert.False(below.EntryAcceptable);
+        Assert.True(below.HardGateEligible);
+        Assert.Equal(ScoreStatus.Available, below.ContractScore.Status);
+        Assert.NotNull(below.Rank);
+        Assert.DoesNotContain(below.Gates, x => x.Code.ToString().Contains("ContractScore", StringComparison.Ordinal));
+    }
+
+    [Fact]
+    public void MissingDeltaMakesMaximumDeltaUnavailableWithoutAZeroSubstitute()
+    {
+        var result = Evaluate(Contract() with { Delta = null });
+        var contract = Only(result);
+        var gate = Gate(contract, GateCode.MaximumDelta);
+
+        Assert.Equal(GateStatus.Unavailable, gate.Status);
+        Assert.Equal(RejectionReasonCode.InsufficientData, gate.ReasonCode);
+        Assert.Contains(MissingInputCode.OptionDelta, gate.MissingInputs);
+        Assert.False(contract.HardGateEligible);
+        Assert.Null(contract.Rank);
     }
 
     [Fact]
