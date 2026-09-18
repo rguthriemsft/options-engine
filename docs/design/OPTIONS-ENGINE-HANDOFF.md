@@ -10,8 +10,9 @@ Repository: `rguthriemsft/options-engine`
 
 Current working branch: `phase3`
 
-As of the handoff, `phase3` is 3 commits ahead of `main` and 0 behind.
-The only branch changes relative to `main` are:
+At the original design handoff, `phase3` was 3 commits ahead of `main`
+and 0 behind. At that time, the only branch changes relative to `main`
+were:
 
 -   `SPECIFICATION.md`
 -   `docs/acceptance/PHASE-3-INDICATORS.md`
@@ -279,7 +280,7 @@ Important Phase 2 implementation lessons:
 -   Live production API verification is not part of normal automated
     testing.
 
-### Phase 3 --- Design in Progress
+### Phase 3 --- Implementation in Progress
 
 Authoritative documents on branch:
 
@@ -289,7 +290,9 @@ Authoritative documents on branch:
 Phase 3 owns derived market facts and classifications, not strategy
 scoring.
 
-Currently designed Phase 3 calculations:
+Phase 3A foundation/SMA, Phase 3B core technical indicators, and Phase
+3C IV30/IVRank/IVPercentile are implemented. Phase 3D resistance and
+market/sector regimes are next. Phase 3 calculations include:
 
 -   SMA20 / SMA50 / SMA200
 -   RSI14 using Wilder smoothing
@@ -300,8 +303,7 @@ Currently designed Phase 3 calculations:
 -   resistance detection
 -   market regime
 -   sector regime
--   IV30 / IVRank / IVPercentile ownership, with detailed methodology
-    intentionally still unresolved
+-   IV30 / IVRank / IVPercentile using the approved V1 methodology
 -   historical as-of calculation
 -   look-ahead-bias protection
 -   calculation versioning
@@ -456,9 +458,17 @@ Default lookback = 120 trading observations.
 
 Default clustering distance = `0.75 × ATR14`.
 
+V1 uses price-ascending, then TradingDate-ascending, one-dimensional
+complete-linkage clustering. A candidate joins the current cluster
+only when its price minus the cluster minimum is at most the fixed
+`0.75 × ATR14(AsOfDate)` threshold (multiplier configurable). This
+prevents transitive chaining. The threshold boundary is inclusive.
+
 Cluster representative = arithmetic mean of clustered swing-high prices.
 
-Primary resistance = nearest qualified resistance above current close.
+`MinimumResistanceTouches` defaults to 2 and is configurable (minimum
+1). Primary resistance = nearest qualified cluster representative
+strictly above current close.
 
 Do not fabricate resistance when none exists.
 
@@ -528,64 +538,13 @@ indicator calculator.
 
 No mapping =\> unavailable, not neutral.
 
-## Critical Open Design Question: IV Context
+## IV Context Decision
 
-This is the NEXT design task.
-
-Phase 4 CCOS requires:
-
-``` text
-IV Percentile
-IV30 / RV30
-```
-
-Phase 2 supplies normalized contract-level option observations including
-implied volatility.
-
-The architecture decision is now:
-
-``` text
-Phase 2
-    contract-level normalized option observations
-        |
-        v
-Phase 3
-    provider-independent underlying-level IV context
-        IV30
-        IVRank
-        IVPercentile
-        |
-        v
-Phase 4
-    CCOS volatility scoring
-```
-
-Phase 4 must not reconstruct IV metrics from provider-specific option
-data.
-
-The detailed V1 formulas are intentionally NOT defined yet. They must be
-designed before implementation.
-
-The IV design must explicitly decide:
-
-1.  What exactly a daily underlying `IV30` observation means.
-2.  Eligible option contracts.
-3.  ATM / strike-selection methodology.
-4.  Whether/how calls and puts are combined.
-5.  Expiration eligibility.
-6.  How expirations around 30 days are selected.
-7.  Whether and how interpolation creates a constant 30-day maturity.
-8.  Minimum required expirations/contracts.
-9.  Missing-data behavior.
-10. Historical storage semantics.
-11. IV Rank lookback and exact formula.
-12. IV Percentile lookback and exact formula.
-13. Behavior when historical IV coverage is incomplete.
-14. Numerical representation and precision.
-15. Deterministic tests/reference fixtures.
-
-Do not allow Codex to infer these from Tradier behavior or generic
-industry conventions.
+Phase 3C implements provider-independent IV30, IVRank, and IVPercentile
+from normalized provider-supplied contract IV. The approved V1 formulas,
+eligibility rules, missing-data treatment, and historical AsOfDate rules
+are in `SPECIFICATION.md` §12.10. Phase 4 consumes these outputs for
+CCOS; it must not reconstruct them from provider-specific data.
 
 ## Known Later Phase 4 Design Gaps
 
@@ -607,9 +566,8 @@ Start a fresh ChatGPT conversation and attach/reference:
 3.  `docs/acceptance/PHASE-3-INDICATORS.md`;
 4.  optionally `AGENTS.md`.
 
-Then use the bootstrap prompt in `NEW-CHAT-IV30-PROMPT.md`.
-
-The first task should be design only: define the authoritative V1 IV30
-methodology. Do not ask Codex to implement Phase 3 until that design is
-incorporated into `SPECIFICATION.md` and the Phase 3 acceptance
-checklist.
+The next implementation task is Phase 3D resistance detection and
+market/sector regimes. The former resistance-clustering ambiguity is
+resolved by the complete-linkage rule in `SPECIFICATION.md` §12.11 and
+the Phase 3 acceptance checklist. Do not begin Phase 3E as part of
+Phase 3D.

@@ -662,6 +662,7 @@ Resistance
     SwingWindow = 3
     LookbackTradingDays = 120
     ClusterDistanceAtrMultiplier = 0.75
+    MinimumResistanceTouches = 2
 
 Regime
     FastSmaPeriod = 50
@@ -1091,28 +1092,35 @@ Default resistance lookback:
 
 ### Clustering
 
-Confirmed swing highs shall be grouped into candidate resistance zones when their prices are within a configurable distance.
-
-Default clustering distance:
+V1 shall use deterministic one-dimensional complete-linkage clustering of confirmed swing-high prices within the configured resistance lookback. Calculate one threshold for the requested AsOfDate:
 
 ```text
-0.75 × ATR14
+ClusteringDistance = ClusterDistanceAtrMultiplier × ATR14(AsOfDate)
 ```
 
-of the candidate cluster.
+The default multiplier is `0.75`. This threshold is fixed for the entire resistance calculation; do not use a separate historical ATR for each swing high.
 
-The implementation shall use a deterministic clustering procedure whose result is independent of input enumeration order after chronological sorting.
+Sort candidates by swing-high price ascending, then TradingDate ascending. Start a cluster with the first candidate and process the remaining candidates in that order. A candidate joins the current cluster only when its price is within the threshold of every existing member. In ascending price order, this is equivalent to:
 
-Each cluster shall expose a deterministic representative resistance price.
+```text
+CandidatePrice - CurrentClusterMinimumPrice <= ClusteringDistance
+```
 
-The arithmetic mean of the clustered swing-high prices is the default V1 representative price.
+The boundary is inclusive. Otherwise, close the current cluster and start a new one with the candidate. Every resulting cluster must satisfy `MaxClusterPrice - MinClusterPrice <= ClusteringDistance`. Sorting makes the result independent of input enumeration order; transitive/single-linkage chaining is not permitted.
+
+For example, at a distance of `0.75`, prices `100.00`, `100.60`, and `101.20` form `{100.00, 100.60}` and `{101.20}`, because `101.20 - 100.00 > 0.75`.
+
+The V1 representative price is the arithmetic mean of all confirmed swing-high prices in the cluster. Representative price does not determine cluster membership.
 
 ### Primary Resistance
 
-The primary resistance level shall normally be:
+`MinimumResistanceTouches` is configurable, defaults to `2`, and must be at least `1`. A cluster qualifies only when its confirmed swing-high touch count is at least this minimum. Under the default, an isolated one-touch swing high is structural information but does not qualify as primary resistance.
+
+The primary resistance level is the qualified cluster with the smallest representative price strictly above CurrentClose:
 
 ```text
-Nearest qualified resistance level above CurrentClose
+ResistanceTouchCount >= MinimumResistanceTouches
+AND RepresentativePrice > CurrentClose
 ```
 
 If no qualified resistance exists above the current price:

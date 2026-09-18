@@ -352,7 +352,17 @@ RealizedVolatility:
     AnnualizationTradingDays = 252
 ```
 
-Resistance and regime parameters shall also be configurable once their algorithms are defined below.
+Approved V1 resistance configuration:
+
+```text
+Resistance:
+    SwingWindow = 3
+    LookbackTradingDays = 120
+    ClusterDistanceAtrMultiplier = 0.75
+    MinimumResistanceTouches = 2
+```
+
+`MinimumResistanceTouches` must be at least `1`. Regime parameters shall also be configurable as defined below.
 
 Approved V1 implied-volatility configuration:
 
@@ -880,25 +890,31 @@ Default:
 ResistanceLookbackTradingDays = 120
 ```
 
-Step 3 — Cluster nearby swing highs.
+Step 3 — Cluster nearby swing highs using deterministic one-dimensional complete linkage.
 
-Levels within:
+Calculate one distance for the requested AsOfDate and keep it fixed throughout this resistance calculation:
 
 ```text
-0.75 × ATR14
+ClusteringDistance = ClusterDistanceAtrMultiplier × ATR14(AsOfDate)
 ```
 
-of one another shall be considered part of the same candidate resistance zone.
+The default multiplier is `0.75`. Do not recalculate the threshold using ATR at each historical swing high. Sort confirmed swing highs by swing-high price ascending, then TradingDate ascending. Start the first cluster with the lowest-price swing high. Each subsequent candidate joins the current cluster only if it is within the distance of every existing member. In sorted order, this is equivalent to:
 
-The clustering distance shall be configurable.
+```text
+CandidatePrice - CurrentClusterMinimumPrice <= ClusteringDistance
+```
+
+The boundary is inclusive. Otherwise close the cluster and start a new one. Every cluster must satisfy `MaxClusterPrice - MinClusterPrice <= ClusteringDistance`; transitive/single-linkage chaining is not allowed. The result must be independent of input enumeration order. At a distance of `0.75`, `100.00`, `100.60`, and `101.20` form `{100.00, 100.60}` and `{101.20}`.
 
 Step 4 — Candidate level.
 
-Represent each cluster using a deterministic central price, such as the arithmetic mean of the clustered swing-high prices.
+Represent each cluster by the arithmetic mean of all its confirmed swing-high prices. Do not use the representative to decide membership.
 
 Step 5 — Candidate eligibility.
 
-The primary resistance level shall normally be the nearest qualified resistance level above the current closing price.
+`MinimumResistanceTouches` is configurable, defaults to `2`, and must be at least `1`. A cluster qualifies only if its confirmed swing-high touch count meets this minimum. A single isolated touch does not qualify by default.
+
+The primary resistance is the qualified cluster whose representative price is smallest while strictly above CurrentClose. A representative equal to CurrentClose is not overhead resistance. If none qualifies, resistance is unavailable.
 
 Step 6 — Structural evidence.
 
@@ -951,7 +967,7 @@ Tests shall cover:
 
 ```text
 No swing highs
-One valid swing high
+One valid swing high (unavailable at the default two-touch minimum)
 Multiple distinct levels
 Multiple clustered touches
 Resistance immediately above price
@@ -1490,9 +1506,19 @@ At minimum:
 Confirmed swing high
 Unconfirmed recent swing high excluded
 Future observation never used
-Clustered levels
+Complete linkage: 100.00, 100.60, 101.20 at distance 0.75 form two clusters
+Candidate exactly at the inclusive distance boundary joins its cluster
+Candidate just beyond the distance boundary starts a new cluster
+Transitive/single-linkage chaining is rejected
+Clustering is independent of original input enumeration order
+One fixed clustering distance uses ATR14 at the requested AsOfDate
+Arithmetic-mean cluster representative
+One-touch cluster is unqualified when MinimumResistanceTouches = 2
+Two-touch cluster qualifies at the default minimum
+Configurable MinimumResistanceTouches changes qualification
 Distinct levels
-Nearest qualified resistance selected
+Nearest qualified representative strictly above CurrentClose selected
+Representative equal to CurrentClose is not overhead resistance
 Resistance touch count
 Most recent touch selected from a multi-touch cluster
 ResistanceLastTouchDate
@@ -1500,9 +1526,10 @@ ResistanceAgeTradingDays
 Trading-day age ignores weekends and non-observation dates
 Historical as-of calculation produces correct resistance age
 Future observations do not alter resistance touch date or age
-No resistance
+No qualified resistance is unavailable
 ATR unavailable
 Historical as-of calculation
+Future observations do not change historical AsOfDate resistance
 ```
 
 ---
@@ -1766,8 +1793,8 @@ Phase 3 is complete when:
 - [ ] MACD 12/26/9 is implemented.
 - [ ] ATR14 with Wilder smoothing is implemented.
 - [ ] RV20 and RV30 annualized realized volatility are implemented.
-- [ ] The V1 IV30, IVRank, and IVPercentile methodology has been explicitly approved and incorporated into SPECIFICATION.md before implementation of implied-volatility context begins.
-- [ ] IV30, IVRank, and IVPercentile are implemented only after their approved V1 methodology is available.
+- [ ] IV30, IVRank, and IVPercentile follow the approved V1 methodology in SPECIFICATION.md §12.10.
+- [ ] Deterministic tests verify the approved V1 IV30, IVRank, and IVPercentile methodology.
 - [ ] Deterministic resistance detection is implemented.
 - [ ] Market regime classification is implemented.
 - [ ] Sector regime classification is implemented.

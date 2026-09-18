@@ -84,9 +84,21 @@ implementation agent.
 -   Historical swing high must have its complete future-side
     confirmation window on/before AsOfDate.
 -   Default lookback = 120 trading observations.
--   Default clustering distance = 0.75 × ATR14.
--   Cluster representative = arithmetic mean.
--   Primary resistance = nearest qualified level above current close.
+-   V1 uses one-dimensional complete-linkage clustering after sorting
+    confirmed swing highs by price ascending, then TradingDate ascending.
+-   One fixed threshold for the requested AsOfDate is
+    `ClusterDistanceAtrMultiplier × ATR14(AsOfDate)`; the default
+    multiplier is `0.75`.
+-   A candidate joins the current cluster when its price minus the
+    cluster minimum is less than or equal to that threshold. The
+    boundary is inclusive, and every cluster's maximum-minus-minimum
+    range is at most the threshold. Transitive chaining is not allowed.
+-   Cluster representative = arithmetic mean of member swing-high
+    prices; it does not control cluster membership.
+-   Configurable `MinimumResistanceTouches` defaults to `2` and must
+    be at least `1`. Only clusters meeting this minimum qualify.
+-   Primary resistance = nearest qualified cluster representative
+    strictly above current close; equality is not overhead resistance.
 -   No qualified level =\> unavailable.
 -   Do not fabricate resistance.
 -   `ResistanceStrength` was intentionally removed because its formula
@@ -108,12 +120,24 @@ implementation agent.
 
 -   Phase 2 owns normalized contract-level option observations.
 -   Phase 3 owns provider-independent underlying-level IV context.
--   Phase 3 outputs will include IV30, IVRank, and IVPercentile.
+-   Phase 3 outputs include IV30, IVRank, and IVPercentile.
 -   Phase 4 consumes those values for CCOS.
 -   Phase 4 must not independently reconstruct them from provider data.
--   Exact IV30/IVRank/IVPercentile methodology is intentionally
-    unresolved and blocks implementation of those calculations.
--   No implementation agent may invent the methodology.
+-   V1 consumes normalized provider-supplied contract IV; it does not
+    invert Black-Scholes or another option-pricing model.
+-   IV30 targets 30 calendar DTE. For each eligible expiration, use
+    the nearest ATM strike (lower strike wins an equal-distance tie),
+    within configurable `MaxAtmStrikeDistanceRatio = 0.05` by default.
+-   Both call and put IV are required at that strike; expiration IV is
+    their arithmetic mean. V1 applies no liquidity filter.
+-   An exact 30-DTE expiration supplies IV30 directly. Otherwise,
+    linearly interpolate between qualifying expirations bracketing 30
+    DTE; never extrapolate.
+-   IV Rank and IV Percentile use the most recent 252 valid IV30
+    observations through AsOfDate, with at least 126 required. Missing
+    observations are ignored, never treated as zero.
+-   Historical calculations use only data available through AsOfDate;
+    future observations cannot alter past results.
 
 ## CCOS
 
@@ -143,9 +167,6 @@ roll recommendation
 
 ## Explicitly Deferred
 
--   IV30 methodology
--   IVRank methodology
--   IVPercentile methodology
 -   Trend/Momentum CCOS scoring
 -   Bollinger bandwidth CCOS scoring
 -   Resistance/Structure CCOS scoring
