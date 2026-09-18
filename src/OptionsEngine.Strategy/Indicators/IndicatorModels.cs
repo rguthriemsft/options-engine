@@ -69,18 +69,88 @@ public sealed record SimpleMovingAverageConfiguration
     }
 }
 
+public sealed record RelativeStrengthIndexConfiguration
+{
+    public int Period { get; init; } = 14;
+
+    internal void Validate()
+    {
+        if (Period < 1) throw new ArgumentOutOfRangeException(nameof(Period), "RSI period must be positive.");
+    }
+}
+
+public sealed record BollingerBandsConfiguration
+{
+    public int Period { get; init; } = 20;
+    public double StandardDeviations { get; init; } = 2;
+
+    internal void Validate()
+    {
+        if (Period < 1) throw new ArgumentOutOfRangeException(nameof(Period), "Bollinger period must be positive.");
+        if (!double.IsFinite(StandardDeviations) || StandardDeviations < 0) throw new ArgumentOutOfRangeException(nameof(StandardDeviations), "Bollinger standard deviations must be finite and non-negative.");
+    }
+}
+
+public sealed record MovingAverageConvergenceDivergenceConfiguration
+{
+    public int FastPeriod { get; init; } = 12;
+    public int SlowPeriod { get; init; } = 26;
+    public int SignalPeriod { get; init; } = 9;
+
+    internal void Validate()
+    {
+        if (FastPeriod < 1) throw new ArgumentOutOfRangeException(nameof(FastPeriod), "MACD fast period must be positive.");
+        if (SlowPeriod <= FastPeriod) throw new ArgumentOutOfRangeException(nameof(SlowPeriod), "MACD slow period must exceed the fast period.");
+        if (SignalPeriod < 1) throw new ArgumentOutOfRangeException(nameof(SignalPeriod), "MACD signal period must be positive.");
+    }
+}
+
+public sealed record AverageTrueRangeConfiguration
+{
+    public int Period { get; init; } = 14;
+
+    internal void Validate()
+    {
+        if (Period < 1) throw new ArgumentOutOfRangeException(nameof(Period), "ATR period must be positive.");
+    }
+}
+
+public sealed record RealizedVolatilityConfiguration
+{
+    public int ShortPeriod { get; init; } = 20;
+    public int StandardPeriod { get; init; } = 30;
+    public int AnnualizationTradingDays { get; init; } = 252;
+
+    internal void Validate()
+    {
+        if (ShortPeriod < 2) throw new ArgumentOutOfRangeException(nameof(ShortPeriod), "Realized volatility requires at least two returns for sample standard deviation.");
+        if (StandardPeriod < 2) throw new ArgumentOutOfRangeException(nameof(StandardPeriod), "Realized volatility requires at least two returns for sample standard deviation.");
+        if (AnnualizationTradingDays < 1) throw new ArgumentOutOfRangeException(nameof(AnnualizationTradingDays), "Annualization trading days must be positive.");
+    }
+}
+
 /// <summary>
-/// Phase 3 indicator configuration for the implemented SMA slice. Later indicator settings belong here as their calculations are added.
+/// Versioned Phase 3 indicator configuration.
 /// </summary>
 public sealed record IndicatorConfiguration
 {
     public required ConfigurationVersion Version { get; init; }
     public SimpleMovingAverageConfiguration SimpleMovingAverage { get; init; } = new();
+    public RelativeStrengthIndexConfiguration RelativeStrengthIndex { get; init; } = new();
+    public BollingerBandsConfiguration BollingerBands { get; init; } = new();
+    public MovingAverageConvergenceDivergenceConfiguration Macd { get; init; } = new();
+    public AverageTrueRangeConfiguration AverageTrueRange { get; init; } = new();
+    public RealizedVolatilityConfiguration RealizedVolatility { get; init; } = new();
 
     internal void Validate()
     {
         if (Version.Value < 1) throw new ArgumentOutOfRangeException(nameof(Version), "Configuration version must be positive.");
         SimpleMovingAverage.Validate();
+        RelativeStrengthIndex.Validate();
+        BollingerBands.Validate();
+        Macd.Validate();
+        AverageTrueRange.Validate();
+        RealizedVolatility.Validate();
     }
 }
 
@@ -93,7 +163,7 @@ public sealed record IndicatorCalculationRequest(
     DateTimeOffset CalculatedAt);
 
 /// <summary>
-/// Provider-independent Phase 3 calculated facts as of a date. Fields not implemented in Phase 3A are deliberately absent.
+/// Provider-independent Phase 3 calculated facts as of a date. Fields for later Phase 3 slices are deliberately absent.
 /// </summary>
 public sealed record IndicatorSnapshot(
     string Symbol,
@@ -101,6 +171,19 @@ public sealed record IndicatorSnapshot(
     IndicatorValue<decimal> Sma20,
     IndicatorValue<decimal> Sma50,
     IndicatorValue<decimal> Sma200,
+    IndicatorValue<double> Rsi14,
+    IndicatorValue<double> BollingerMiddle,
+    IndicatorValue<double> BollingerUpper,
+    IndicatorValue<double> BollingerLower,
+    IndicatorValue<double> BollingerPercentB,
+    IndicatorValue<double> BollingerBandwidth,
+    IndicatorValue<double> Macd,
+    IndicatorValue<double> MacdSignal,
+    IndicatorValue<double> MacdHistogram,
+    IndicatorValue<double> Atr14,
+    IndicatorValue<double> AtrPercent,
+    IndicatorValue<double> RealizedVolatility20,
+    IndicatorValue<double> RealizedVolatility30,
     IndicatorCalculationVersion IndicatorCalculationVersion,
     ConfigurationVersion ConfigurationVersion,
     DateTimeOffset CalculatedAt);
