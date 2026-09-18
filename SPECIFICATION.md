@@ -519,6 +519,7 @@ DistanceToResistancePercent
 ResistanceTouchCount
 ResistanceLastTouchDate
 ResistanceAgeTradingDays
+ResistanceUnavailableReason
 
 MarketRegime
 SectorRegime
@@ -1129,9 +1130,17 @@ If no qualified resistance exists above the current price:
 
 ```text
 ResistancePrice = unavailable
+ResistanceUnavailableReason = NoQualifiedResistance
 ```
 
-The system shall not fabricate a resistance level. The applicable resistance fields shall remain unavailable; sentinel values shall not be used.
+This is a valid structural state, not a data failure. If resistance cannot be evaluated because required inputs are unavailable, use:
+
+```text
+ResistancePrice = unavailable
+ResistanceUnavailableReason = InsufficientData
+```
+
+The system shall not fabricate a resistance level. Sentinel values shall not be used. Phase 4 must distinguish `NoQualifiedResistance` from `InsufficientData`.
 
 ### Resistance Metrics
 
@@ -1430,13 +1439,11 @@ OptionSymbol
 Timestamp
 
 Expiration
-DTE
 Strike
 OptionType
 
 Bid
 Ask
-Mid
 Last
 
 Volume
@@ -1452,24 +1459,51 @@ UnderlyingPrice
 Provider
 ```
 
-Derived fields:
+Option observations shall be timestamped so the database naturally develops its own historical option dataset.
+
+Phase 4 derives calendar DTE from the America/New_York calendar date corresponding to the evaluation timestamp:
 
 ```text
-OTMPercent
-BidAskSpreadPercent
-PremiumYield
-DailyPremiumYield
-AnnualizedPremiumYield
+DTE = ExpirationDate - EvaluationDate
+```
+
+For Phase 4 V1, the approved derived contract metrics are:
+
+```text
+ReferencePremium = Bid
+
+Mid =
+(Bid + Ask) / 2
+
+BidAskSpreadPercent =
+(Ask - Bid) / Mid
+
+StrikeDistance =
+Strike - UnderlyingPrice
+
+OTMPercent =
+(Strike - UnderlyingPrice) / UnderlyingPrice
+
+PremiumYield =
+ReferencePremium / UnderlyingPrice
+
+DailyPremiumYield =
+PremiumYield / DTE
+
+AnnualizedPremiumYield =
+DailyPremiumYield * 365
+```
+
+The selected option-chain observation's provider-supplied `UnderlyingPrice` is authoritative for these contract calculations. Phase 4 shall not substitute the daily close, a separate quote, `Last`, or zero when required values are missing.
+
+The following conceptual fields are deferred from Phase 4 V1 until an approved methodology requires them:
+
+```text
 DeltaAdjustedYield
 ExpectedMove
 ExpectedMoveRatio
-StrikeDistance
 StrikeVsResistance
 ```
-
-Option observations shall be timestamped so the database naturally develops its own historical option dataset\.
-
----
 
 # 15\. Corporate Event
 
@@ -1483,7 +1517,7 @@ Description
 Source
 ```
 
-Types initially include:
+The broader domain may represent:
 
 ```text
 Earnings
@@ -1492,7 +1526,24 @@ Dividend
 OtherMaterialEvent
 ```
 
----
+Phase 4 V1 uses only earnings as an entry gate.
+
+The Phase 4 strategy input is conceptually:
+
+```text
+EarningsContext
+
+Status:
+    Available
+    Unavailable
+    NotApplicable
+
+NextEarningsDate
+```
+
+For an individual stock, missing required earnings data is `INSUFFICIENT_DATA`. For an ETF, earnings is `NotApplicable`.
+
+Dividend, ex-dividend, and generic material-event entry rules are deferred from Phase 4 V1. Ex-dividend information may be used by later defense/early-assignment logic.
 
 # 16\. Recommendation
 
@@ -1548,6 +1599,111 @@ URGENT_DEFENSE
 Recommendations shall be retained whether or not they are executed\.
 
 ---
+
+## 16.1 Phase 4 Entry Strategy Evaluation
+
+Phase 4 shall not create the final `Recommendation`. Position sizing belongs to Phase 5, and final SELL/recommended-contract-count semantics remain downstream.
+
+Every Phase 4 calculation that is persisted shall receive a permanent:
+
+```text
+EntryStrategyEvaluationId
+```
+
+An `EntryStrategyEvaluation` is an immutable historical strategy decision record. It shall preserve the actual inputs and outputs used at calculation time rather than relying on mutable current state.
+
+At minimum it shall preserve:
+
+```text
+EntryStrategyEvaluationId
+HoldingId
+Symbol
+
+IndicatorAsOfDate
+EvaluationTimestampUtc
+CalculatedAtUtc
+
+IndicatorCalculationVersion
+ConfigurationVersion
+StrategyVersion
+
+HoldingContext
+IndicatorContext
+EarningsContext
+ResolvedStrategyConfiguration
+
+CCOS result and component results
+Underlying gate results
+
+All evaluated call-contract observations
+Derived contract metrics
+Contract gate results
+Contract Score component results
+Contract ranking
+
+EntryCandidateExists
+PreferredInitialOptionSymbol
+PreferredInitialStrike
+PreferredInitialExpiration
+PreferredInitialReferencePremium
+DispositionReason
+
+MissingInputs
+Explanations
+```
+
+The captured HoldingContext shall include the actual Phase 4 holding-level settings consumed, including:
+
+```text
+AssetType
+AssignmentSensitivity
+TaxSensitivity
+MaximumInitialDelta
+PreferredDeltaMinimum
+PreferredDeltaMaximum
+MinimumCcos
+MinimumContractScore
+MinimumPremium
+MinimumAnnualizedYield
+```
+
+Historical evaluation records are append-only. Later holding edits, market observations, indicator recalculations, configuration changes, or strategy-version changes shall not rewrite an earlier evaluation.
+
+Detailed reproducibility payloads may use structured JSON, while high-value query fields may be relational columns. The persistence representation must not discard required inputs, component scores, gates, ranking, versions, or explanations.
+
+### Phase 4 V1 HTTP Surface
+
+Create a new immutable evaluation:
+
+```http
+POST /api/holdings/{holdingId}/entry-evaluations
+```
+
+The server owns market-input selection, indicator/configuration/strategy versions, and all calculations. A successful calculation is persisted and returns `201 Created`.
+
+Retrieve an immutable historical evaluation:
+
+```http
+GET /api/entry-evaluations/{entryStrategyEvaluationId}
+```
+
+This is a passive lookup and shall not refresh data or recalculate any strategy result.
+
+Retrieve lightweight holding history:
+
+```http
+GET /api/holdings/{holdingId}/entry-evaluations
+```
+
+History shall be newest first.
+
+Phase 4 V1 public POST semantics are "evaluate now." Arbitrary historical evaluation timestamps, as-of dates, and client-selected versions are not exposed through the V1 HTTP surface; deterministic historical evaluation remains available internally for tests and future backtesting.
+
+An unknown holding returns `404`. A disabled holding returns `409` with stable code `HOLDING_DISABLED` and does not create an evaluation.
+
+A valid strategy outcome such as `INSUFFICIENT_DATA`, `CCOS_BELOW_MINIMUM`, `BREAKOUT_VETO`, or `NO_ACCEPTABLE_CONTRACT` is not an HTTP failure; it is persisted as a successful evaluation.
+
+There are no Phase 4 V1 PUT, PATCH, or DELETE endpoints for an EntryStrategyEvaluation.
 
 # 17\. Transaction Ledger
 
@@ -1803,108 +1959,231 @@ Classification:
 90–100  EXCEPTIONAL
 ```
 
-Default opening requirement:
+The default opening threshold is 70, but a Phase 4 evaluation uses the snapshotted `Holding.MinimumCcos`.
+
+CCOS classification is descriptive. Entry eligibility is determined separately from classification by the holding threshold and approved hard gates.
+
+## 21.1 Global Missing-Data Policy
+
+Missing required financial data shall never become zero, neutral, an estimated substitute, or a passing gate.
+
+If any required CCOS component cannot be calculated:
 
 ```text
-CCOS >= 70
+CCOS = unavailable
 ```
+
+Weights shall not be renormalized.
+
+If any required Contract Score component cannot be calculated, that contract's Contract Score is unavailable and the contract is excluded from ranking.
+
+A missing gate input produces `INSUFFICIENT_DATA`, with the specific missing input recorded. A present value that violates a business threshold produces the corresponding threshold failure code.
+
+`NotApplicable` is distinct from `Unavailable`.
+
+One bad contract shall not make otherwise independent contracts unavailable.
+
+## 21.2 Scoring-Band Boundary Semantics
+
+For scoring tables, an interior shared boundary belongs to the band beginning at that boundary unless the table explicitly states otherwise.
+
+Explicit terminal `<` and `>` endpoints remain strict.
+
+Every numeric boundary shall have deterministic tests immediately below, exactly at, and immediately above the boundary.
 
 ---
 
-# 22\. CCOS Hard Gates
+# 22\. Phase 4 Underlying Entry Gate
 
-Regardless of score:
+Phase 4 V1 has one underlying-level technical veto:
 
-- Earnings before expiration normally prevents an individual\-stock trade\.
-- Known material event may prevent trade\.
-- Strong technical breakout can veto entry\.
-- Insufficient option liquidity prevents entry\.
-- Maximum coverage constraints prevent additional contracts\.
+```text
+BREAKOUT_VETO when:
 
-A hard\-gate failure shall include a machine\-readable reason code\.
+BollingerPercentB > 1.15
+AND RSI14 >= 75
+AND MACDHistogram > 0
+```
+
+When this veto fires:
+
+```text
+EntryCandidateExists = false
+```
+
+CCOS is still calculated and retained for explainability when its required inputs are available. Contract scoring may stop after the veto.
+
+Phase 4 V1 does not add volume breakouts, ATR breakout rules, bandwidth-expansion rates, acceleration rules, consecutive-close rules, or resistance-crossing rules.
+
+Earnings, liquidity, delta, DTE, strike, premium, and yield are contract-level gates defined in Section 27.
+
+Coverage, available shares, existing call exposure, Delta Exposure Ratio, maximum coverage, strike laddering, scaling, and recommended contract count belong to Phase 5.
+
+`Holding.IsEnabled == false` is an Application-level exclusion before Phase 4 strategy evaluation, not a CCOS gate.
 
 ---
 
 # 23\. CCOS Volatility Component
 
-Maximum: 25\.
-
-## IV Percentile — 15
+Maximum: 25.
 
 ```text
-<20       0
-20–30     3
-30–40     6
-40–50     9
-50–60    11
-60–70    13
->70      15
+VolatilityScore =
+    IVPercentileScore
+    + IV30ToRV30Score
 ```
 
-## IV30 / RV30 — 10
+### IV Percentile — 15
 
 ```text
-<0.90       0
-0.90–1.00   2
-1.00–1.10   4
-1.10–1.20   6
-1.20–1.35   8
->1.35      10
+< 20             0
+>= 20 and < 30   3
+>= 30 and < 40   6
+>= 40 and < 50   9
+>= 50 and < 60  11
+>= 60 and <= 70 13
+> 70             15
 ```
+
+### IV30 / RV30 — 10
+
+```text
+Ratio = IV30 / RV30
+
+< 0.90                  0
+>= 0.90 and < 1.00      2
+>= 1.00 and < 1.10      4
+>= 1.10 and < 1.20      6
+>= 1.20 and <= 1.35     8
+> 1.35                  10
+```
+
+IV30, IVPercentile, and RV30 are required. `RV30 <= 0` is invalid/unavailable for this calculation.
+
+IVRank remains available as context/research data but does not contribute to CCOS V1.
 
 ---
 
 # 24\. CCOS RSI Component
 
-Maximum: 15\.
+Maximum: 15.
 
 ```text
-RSI <40       0
-40–50         2
-50–55         5
-55–60         8
-60–65        11
-65–70        15
-70–75        13
-75–80         9
->80           5
+RSI < 40              0
+>= 40 and < 50        2
+>= 50 and < 55        5
+>= 55 and < 60        8
+>= 60 and < 65       11
+>= 65 and < 70       15
+>= 70 and < 75       13
+>= 75 and <= 80       9
+> 80                   5
 ```
 
-Extremely high RSI receives a lower score because it may represent accelerating breakout conditions rather than simple overextension\.
+RSI outside `0 <= RSI <= 100` is invalid/unavailable rather than scored.
 
 ---
 
-# 25\. Bollinger Component
+# 25\. CCOS Bollinger, Trend, Resistance, and Regime Components
 
-Standard:
+## 25.1 Bollinger Bands — 15
 
-```text
-20-period SMA
-+/- 2 standard deviations
-```
-
-%B:
+%B contributes up to 10:
 
 ```text
-(Price - LowerBand) /
-(UpperBand - LowerBand)
+< .40                   0
+>= .40 and < .60        2
+>= .60 and < .75        5
+>= .75 and < .90        8
+>= .90 and < 1.05      10
+>= 1.05 and <= 1.15     7
+> 1.15                   3
 ```
 
-%B scoring:
+If both Bollinger %B and Bollinger bandwidth are available, bandwidth contributes the remaining five points:
 
 ```text
-<.40       0
-.40–.60    2
-.60–.75    5
-.75–.90    8
-.90–1.05  10
-1.05–1.15  7
->1.15      3
+BollingerScore =
+    PercentBScore + 5
 ```
 
-Bandwidth contributes an additional five points\.
+Phase 4 V1 does not calculate a bandwidth expansion rate or apply absolute bandwidth bands. Missing %B or bandwidth makes this component unavailable.
 
-Rapidly expanding bands reduce attractiveness because they may indicate breakout acceleration\.
+## 25.2 Trend/Momentum — 15
+
+Award five points for each true condition:
+
+```text
+SMA20 > SMA50      +5
+SMA50 > SMA200     +5
+MACDHistogram > 0  +5
+```
+
+Equality receives zero for that check.
+
+All three inputs are required. Missing any required value makes the component unavailable.
+
+## 25.3 Resistance/Structure — 15
+
+When Phase 3 reports:
+
+```text
+ResistanceUnavailableReason = NoQualifiedResistance
+```
+
+this is a valid structural state and scores `0 / 15`.
+
+When Phase 3 reports `InsufficientData`, the component is unavailable.
+
+For a qualified resistance level:
+
+Distance score, maximum 5:
+
+```text
+DistanceToResistancePercent <= 2%             5
+> 2% and <= 5%                                3
+> 5%                                           1
+```
+
+Touch score, maximum 5:
+
+```text
+2 touches       1
+3 touches       3
+>= 4 touches    5
+```
+
+Recency score, maximum 5:
+
+```text
+ResistanceAgeTradingDays <= 20      5
+21–60                                3
+> 60                                 1
+```
+
+The Phase 4 resistance component uses the Phase 3 facts as of `IndicatorAsOfDate`. It shall not recompute distance from the intraday option-chain underlying price.
+
+## 25.4 Market/Sector Regime — 15
+
+Market regime, maximum 8:
+
+```text
+NEUTRAL  8
+BULLISH  4
+BEARISH  0
+```
+
+Sector regime, maximum 7:
+
+```text
+NEUTRAL  7
+BULLISH  3
+BEARISH  0
+```
+
+If either regime is unavailable, the entire component is unavailable.
+
+Phase 4 consumes the Phase 3 classifications; it does not recalculate regime from benchmark moving averages.
 
 ---
 
@@ -1912,7 +2191,7 @@ Rapidly expanding bands reduce attractiveness because they may indicate breakout
 
 Contract Score answers:
 
-> Which eligible call should be sold?
+> Which eligible call is the best Phase 4 entry candidate?
 
 Range:
 
@@ -1936,46 +2215,470 @@ Weights:
 Classification:
 
 ```text
-<60      Reject
-60–69    Weak
-70–79    Acceptable
-80–89    Good
-90–100   Excellent
+< 60     REJECT
+60–69    WEAK
+70–79    ACCEPTABLE
+80–89    GOOD
+90–100   EXCELLENT
 ```
 
-Default requirement:
+Classification is descriptive. Entry acceptability uses the snapshotted `Holding.MinimumContractScore`.
+
+## 26.1 Delta — 25
+
+After the delta hard gate passes:
 
 ```text
-CCOS >= 70
-AND
-ContractScore >= 80
+EffectivePreferredDeltaMaximum =
+    min(
+        Holding.PreferredDeltaMaximum,
+        EffectiveMaximumDelta
+    )
 ```
+
+Score:
+
+```text
+Delta < PreferredDeltaMinimum                         20
+PreferredDeltaMinimum <= Delta <= EffectivePreferredDeltaMaximum 25
+EffectivePreferredDeltaMaximum < Delta <= EffectiveMaximumDelta  10
+```
+
+The effective preferred range is inclusive.
+
+Configuration is invalid if `PreferredDeltaMinimum > EffectivePreferredDeltaMaximum`.
+
+## 26.2 Strike Safety — 20
+
+Use:
+
+```text
+OTMPercent =
+(Strike - UnderlyingPrice) / UnderlyingPrice
+```
+
+After the strict-OTM hard gate passes:
+
+```text
+0% < OTM < 1%       0
+>= 1% and < 2%      4
+>= 2% and < 3%      8
+>= 3% and < 4%     12
+>= 4% and < 6%     15
+>= 6% and <= 8%    18
+> 8%                20
+```
+
+Resistance and `StrikeVsResistance` do not contribute to Contract Score V1.
+
+## 26.3 Premium Efficiency — 20
+
+Use:
+
+```text
+PremiumEfficiencyRatio =
+AnnualizedPremiumYield / Holding.MinimumAnnualizedYield
+```
+
+The holding minimum must be greater than zero.
+
+Only contracts that pass the minimum-yield hard gate are scored:
+
+```text
+>= 1.00 and < 1.10    0
+>= 1.10 and < 1.25    5
+>= 1.25 and < 1.50   10
+>= 1.50 and < 2.00   15
+>= 2.00               20
+```
+
+`MinimumPremium` remains a hard dollar floor and does not add Premium Efficiency points.
+
+## 26.4 DTE Efficiency — 10
+
+Within the inclusive 14–45 DTE entry window:
+
+```text
+14–20   5
+21–35  10
+36–45   8
+```
+
+Phase 4 V1 adds no holding-specific preferred-DTE setting.
+
+## 26.5 IV/Volatility Edge — 10
+
+Use the candidate contract's normalized provider-supplied IV against Phase 3 RV30:
+
+```text
+ContractVolatilityEdge =
+Contract.ImpliedVolatility / RV30
+```
+
+Score:
+
+```text
+< 0.90                  0
+>= 0.90 and < 1.00      2
+>= 1.00 and < 1.10      4
+>= 1.10 and < 1.20      6
+>= 1.20 and <= 1.35     8
+> 1.35                  10
+```
+
+Contract IV and RV30 must be finite and strictly positive.
+
+Phase 4 shall not reconstruct IV30. IV30 and IVRank do not contribute to this Contract Score component.
+
+## 26.6 Liquidity — 10
+
+```text
+LiquidityScore =
+SpreadScore + OpenInterestScore
+```
+
+Spread score, maximum 5:
+
+```text
+BidAskSpreadPercent <= 5%              5
+> 5% and <= 10%                         4
+> 10% and <= 15%                        2
+> 15% and <= 20%                        1
+```
+
+Open-interest score, maximum 5:
+
+```text
+100–249       1
+250–499       2
+500–999       3
+1,000–1,999   4
+>= 2,000      5
+```
+
+Daily option volume does not affect Phase 4 V1 liquidity eligibility or Contract Score. It may still be retained for research.
+
+## 26.7 Theta Efficiency — 5
+
+Use:
+
+```text
+ThetaEfficiencyRatio =
+(-Theta) / ReferencePremium
+```
+
+Score:
+
+```text
+< 1%                 0
+>= 1% and < 2%       1
+>= 2% and < 3%       2
+>= 3% and < 4%       3
+>= 4% and < 5%       4
+>= 5%                5
+```
+
+Theta must be finite and strictly negative. Phase 4 shall not repair an unexpected sign with `abs(Theta)`.
+
+The ratio is a Greek-based decay characteristic, not a forecast of realized daily option P&L.
 
 ---
 
-# 27\. Contract Hard Gates
+# 27\. Contract Hard Gates, Ranking, and Initial Selection
 
-Reject if:
+## 27.1 Candidate Universe and Observation Selection
 
-```text
-Delta > .25
-DTE < 14
-DTE > 45
-Strike <= underlying price
-Earnings occurs before expiration
-Liquidity unacceptable
-Coverage constraint violated
-```
-
-For highly tax\-sensitive holdings:
+For a Phase 4 evaluation:
 
 ```text
-Maximum Delta = .20
+EvaluationDate =
+America/New_York calendar date corresponding to EvaluationTimestampUtc
+
+DTE =
+ExpirationDate - EvaluationDate
 ```
 
-All gates shall be configurable\.
+Application orchestration should retrieve expirations within the configured 14–45 DTE entry-search window, while Strategy shall validate DTE defensively.
 
----
+For each expiration, select the latest complete persisted normalized option-chain observation with:
+
+```text
+ChainTimestamp <= EvaluationTimestampUtc
+```
+
+Never mix contract observations across chain timestamps within one expiration.
+
+A newer empty chain supersedes an older populated chain; do not fall back.
+
+Phase 4 V1 candidates are calls only. After puts are discarded, do not silently prefilter calls before hard-gate evaluation. Rejected calls shall remain observable with reasons.
+
+For contract calculations, use the selected chain's provider-supplied `UnderlyingPrice`.
+
+## 27.2 Contract Hard Gates
+
+A call is contract-eligible only when all required gates pass.
+
+### DTE
+
+```text
+14 <= DTE <= 45
+```
+
+Failure code:
+
+```text
+DTE_OUTSIDE_RANGE
+```
+
+### Strike
+
+Require strictly OTM:
+
+```text
+Strike > UnderlyingPrice
+```
+
+Failure code:
+
+```text
+STRIKE_NOT_OTM
+```
+
+### Delta
+
+```text
+EffectiveMaximumDelta =
+min(
+    configured global maximum,
+    Holding.MaximumInitialDelta,
+    configured high-tax maximum when TaxSensitivity == High
+)
+```
+
+Default configured values:
+
+```text
+GlobalMaximumInitialDelta = .25
+HighTaxMaximumDelta = .20
+```
+
+Require call Delta to be finite and within `0 <= Delta <= 1`.
+
+A valid Delta greater than `EffectiveMaximumDelta` fails with:
+
+```text
+DELTA_EXCEEDS_MAXIMUM
+```
+
+Missing, non-finite, or invalid Delta produces `INSUFFICIENT_DATA`.
+
+### Earnings
+
+For an individual stock with available earnings context, reject when:
+
+```text
+NextEarningsDate <= Expiration
+```
+
+including same-day earnings.
+
+Failure code:
+
+```text
+EARNINGS_BEFORE_EXPIRATION
+```
+
+Missing required stock earnings data produces `INSUFFICIENT_DATA`. ETF earnings is `NotApplicable`.
+
+### Liquidity
+
+Require:
+
+```text
+Bid > 0
+Ask > Bid
+OpenInterest >= 100
+BidAskSpreadPercent <= 20%
+```
+
+The open-interest minimum and maximum spread are configurable.
+
+Present values that fail these thresholds produce:
+
+```text
+INSUFFICIENT_LIQUIDITY
+```
+
+Missing Bid, Ask, or OpenInterest produces `INSUFFICIENT_DATA`.
+
+### Premium Floor
+
+Require:
+
+```text
+ReferencePremium >= Holding.MinimumPremium
+```
+
+Failure code:
+
+```text
+PREMIUM_BELOW_MINIMUM
+```
+
+Equality passes.
+
+### Annualized Yield Floor
+
+Require:
+
+```text
+AnnualizedPremiumYield >= Holding.MinimumAnnualizedYield
+```
+
+Failure code:
+
+```text
+ANNUALIZED_YIELD_BELOW_MINIMUM
+```
+
+Equality passes.
+
+All determinable gate failures shall be retained. Do not stop after the first failure.
+
+`PreferredDeltaMinimum` and `PreferredDeltaMaximum` influence Contract Score only; they are not hard gates.
+
+Coverage, available shares, existing call exposure, DER, and maximum coverage are Phase 5 concerns and are not Phase 4 contract gates.
+
+## 27.3 Ranking
+
+Rank every hard-gate-passing contract with a complete Contract Score, including contracts below the holding's minimum Contract Score.
+
+Primary order:
+
+```text
+ContractScore DESC
+```
+
+Tie-break in this exact order:
+
+```text
+Delta ASC
+OTMPercent DESC
+AnnualizedPremiumYield DESC
+BidAskSpreadPercent ASC
+OpenInterest DESC
+DTE ASC
+OptionSymbol ordinal ASC
+```
+
+Contracts with a hard-gate failure or unavailable Contract Score are not ranked.
+
+Provider/input enumeration order shall not influence ranking.
+
+Contract analysis may still be produced when CCOS is below its minimum threshold, provided the contract's own required inputs are available. Such analysis does not make the holding entry-eligible.
+
+## 27.4 Preferred Initial Contract and Overall Disposition
+
+Phase 4 does not run a separate initial-strike optimizer.
+
+```text
+PreferredInitialContract =
+highest-ranked EntryAcceptable contract
+
+PreferredInitialStrike =
+PreferredInitialContract.Strike
+```
+
+`EntryCandidateExists = true` only when:
+
+```text
+CCOS is available
+AND no underlying-level veto is present
+AND CCOS >= Holding.MinimumCcos
+AND at least one contract:
+    passes every hard gate
+    has a complete Contract Score
+    ContractScore >= Holding.MinimumContractScore
+```
+
+Phase 4 overall disposition reasons include:
+
+```text
+ENTRY_CANDIDATE
+CCOS_BELOW_MINIMUM
+BREAKOUT_VETO
+NO_ACCEPTABLE_CONTRACT
+INSUFFICIENT_DATA
+```
+
+If CCOS is below its threshold, no preferred contract is selected, but ranked contract analysis may still be returned.
+
+If CCOS passes but no contract qualifies, use `NO_ACCEPTABLE_CONTRACT` and retain per-contract failure/score details.
+
+If CCOS is unavailable, use `INSUFFICIENT_DATA`; independently calculable contract analysis may still be retained.
+
+Phase 4 terminology is:
+
+```text
+EntryCandidateExists
+PreferredInitialContract
+PreferredInitialStrike
+```
+
+Final `Recommendation`, `RecommendedContracts`, and SELL semantics remain downstream of Phase 5.
+
+## 27.5 Explainability Result Contract
+
+Scores shall expose structured component results rather than opaque totals.
+
+Conceptually:
+
+```text
+ScoreComponentResult
+    Code
+    Name
+    Status
+    Score
+    MaximumScore
+    Inputs[]
+    Explanation
+```
+
+Gate results are separate:
+
+```text
+GateResult
+    Code
+    Status:
+        Passed
+        Failed
+        Unavailable
+        NotApplicable
+    Inputs[]
+    Explanation
+```
+
+Preserve all evaluated gate outcomes, not merely failures.
+
+`INSUFFICIENT_DATA` shall include stable machine-readable `MissingInputs` identifying the actual unavailable inputs.
+
+CCOS and Contract Score shall expose:
+
+```text
+Status
+Score
+MaximumScore
+Classification
+MinimumRequiredScore
+MeetsMinimumScore
+Components
+MissingInputs
+Explanation
+```
+
+Stable component, gate, reason, and missing-input codes are API contracts. Human-readable explanations accompany them but shall not be parsed to reconstruct strategy behavior.
+
+API/UI consumers shall not recalculate scoring, gates, eligibility, ranking, or disposition.
 
 # 28\. Position Sizing Engine
 
@@ -3641,39 +4344,60 @@ Tests shall not require live Tradier access for routine CI execution\.
 
 # 76\. Strategy Versioning
 
-Every production strategy change shall update:
+Phase 4 preserves three independent identities:
 
 ```text
+IndicatorCalculationVersion
+ConfigurationVersion
 StrategyVersion
 ```
 
-Example:
+### IndicatorCalculationVersion
+
+Changes when Phase 3 fact-calculation algorithms change, such as IV30 interpolation, RSI mathematics, resistance clustering, or regime calculation.
+
+Phase 4 records the indicator calculation version of the facts it consumed.
+
+### ConfigurationVersion
+
+Owns tunable numeric values and score parameters, including:
 
 ```text
-1.0.0
-1.1.0
-2.0.0
+CCOS weights and score bands
+CCOS classification thresholds
+Contract Score weights and score bands
+Contract Score classification thresholds
+maximum/preferred delta settings
+DTE ranges
+liquidity limits and bands
+premium/yield thresholds where server-configured
+other approved numeric strategy parameters
 ```
 
-Historical recommendations retain their original strategy version\.
+Changing a numeric value without changing the algorithm's meaning requires a configuration-version change.
 
-Configuration changes shall separately update:
+### StrategyVersion
+
+Owns algorithmic structure and semantics, including:
 
 ```text
-ConfigurationVersion
+formulas
+component composition
+hard-gate meaning
+missing-data policy
+ranking/tie-breaking
+decision flow
 ```
 
-This permits comparisons such as:
+Changing those semantics requires a strategy-version change.
 
-```text
-Strategy 1.0
-vs
-Strategy 1.1
-```
+Holding-specific values are not ConfigurationVersion values. They are snapshotted in the evaluation's HoldingContext.
 
-without contaminating historical results\.
+Every immutable Phase 4 evaluation shall persist both `ConfigurationVersion` and the complete resolved strategy-configuration values actually used.
 
----
+V1 uses one shared `ConfigurationVersion` identity across Phase 3 and Phase 4. It does not introduce separate indicator and strategy configuration-version systems.
+
+Historical evaluations retain their original versions and resolved configuration and shall never be silently reinterpreted using newer logic or values.
 
 # 77\. Auditability
 
@@ -3871,19 +4595,110 @@ Phase 3 shall not implement CCOS or other recommendation logic.
 
 ## Phase 4 — Entry Strategy
 
+Phase 4 stops before position sizing.
+
+It produces a reproducible entry-strategy assessment containing:
+
+```text
+CCOS and component explanation
+Underlying hard-gate results
+Per-contract hard-gate results
+Per-contract Contract Scores and components
+Deterministic ranking
+EntryCandidateExists
+PreferredInitialContract
+PreferredInitialStrike
+Immutable EntryStrategyEvaluation
+```
+
+Phase 4 does not determine:
+
+```text
+coverage percentage
+available-share constraints
+existing-call exposure
+Delta Exposure Ratio
+recommended contract count
+strike laddering
+scaling
+final SELL Recommendation
+```
+
+Those belong to Phase 5 or later recommendation layers.
+
+Implementation shall be split into reviewable packets:
+
+### Phase 4A — Strategy Foundations and Input Contracts
+
+```text
+Strongly typed Phase 4 configuration and validation
+StrategyVersion representation
+HoldingContext
+IndicatorContext
+EarningsContext
+EvaluationContext
+ScoreComponentResult
+GateResult
+stable reason/missing-input codes
+contract/evaluation result models
+ResistanceUnavailableReason refinement
+```
+
+No CCOS or Contract Score implementation belongs in 4A.
+
+### Phase 4B — CCOS and Underlying Eligibility
+
+Implement the six CCOS components, classifications, holding threshold evaluation, breakout veto, and global missing-data policy as pure Strategy logic.
+
+### Phase 4C — Contract Eligibility, Scoring, Ranking, and Selection
+
 Implement:
 
 ```text
-Entry hard gates
-CCOS
-CCOS component scoring
-Contract Score
-Contract hard gates
-Contract ranking
-Initial strike selection
+derived contract metrics
+contract hard gates
+effective maximum delta
+earnings gate consumption
+liquidity
+minimum premium/yield
+all seven Contract Score components
+Contract Score classification
+deterministic ranking/tie-breaking
+EntryAcceptable
+preferred initial contract/strike
+overall Phase 4 disposition
 ```
 
-Phase 4 shall consume the normalized indicator and market-context outputs established by Phase 3.
+as pure Strategy logic.
+
+### Phase 4D — Evaluation Orchestration and Market/Event Inputs
+
+Application/MarketData shall assemble the approved reproducible evaluation bundle:
+
+```text
+HoldingContext snapshot
+IndicatorContext
+IndicatorAsOfDate
+EvaluationTimestampUtc
+latest eligible complete chain per expiration
+EarningsContext
+StrategyVersion
+ConfigurationVersion
+```
+
+The provider-independent market-data boundary shall supply earnings data. Phase 4 V1 consumes only Earnings; no dividend or generic material-event entry rule is added.
+
+### Phase 4E — Immutable Persistence
+
+Persist append-only EntryStrategyEvaluation history, all evaluated contracts, actual consumed inputs, resolved configuration, versions, scores, gates, ranking, explanations, and preferred-contract disposition.
+
+Schema changes shall use EF Core migrations.
+
+### Phase 4F — API and Merge-Gate Validation
+
+Implement the Phase 4 V1 HTTP surface defined in Section 16.1 and complete full release build, test-suite, and clean/upgrade migration validation.
+
+No Phase 4 packet may introduce a new formula, threshold, trading rule, or missing-data fallback beyond this specification.
 
 ## Phase 5 — Position Sizing
 
