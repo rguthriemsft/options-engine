@@ -178,18 +178,96 @@ IMarketDataProvider
 
 without modifying strategy engines\.
 
-## 6\.2 Strategy Reproducibility
+## 6.2 Strategy and Calculation Reproducibility
 
-Every recommendation shall record:
+Every recommendation shall record or be traceable to:
 
-- raw inputs;
+- the normalized market observations used;
 - calculated indicators;
 - component scores;
 - configuration values or configuration version;
+- indicator calculation version;
 - strategy version;
-- timestamp\.
+- recommendation timestamp.
 
-Historical recommendations shall never silently change because the current strategy configuration changed\.
+Historical recommendations shall never silently change because:
+
+- current market data changed;
+- current strategy configuration changed;
+- indicator configuration changed;
+- an indicator algorithm changed;
+- a market-data provider changed.
+
+Historical indicator calculations shall have explicit as-of semantics.
+
+For an indicator calculation with:
+
+```text
+AsOfDate = D
+```
+
+the calculation may consume only market observations with:
+
+```text
+TradingDate <= D
+```
+
+and must never consume observations after `D`.
+
+This requirement applies to:
+
+```text
+Technical indicators
+Resistance detection
+Market regime
+Sector regime
+```
+
+Historical calculations must therefore be protected from look-ahead bias.
+
+Indicator implementations shall have an explicit calculation version independent from the strategy version.
+
+Conceptually:
+
+```text
+IndicatorCalculationVersion
+ConfigurationVersion
+StrategyVersion
+```
+
+These values represent different concerns:
+
+```text
+IndicatorCalculationVersion
+    Mathematical and algorithmic implementation used
+    to derive indicators and market context.
+
+ConfigurationVersion
+    Parameter values supplied to calculations and
+    strategy engines.
+
+StrategyVersion
+    Strategy and recommendation logic consuming
+    those calculated values.
+```
+
+Any change to an indicator algorithm that can materially alter historical results shall require an indicator calculation-version change.
+
+Examples include:
+
+```text
+RSI smoothing method
+EMA initialization
+Standard-deviation convention
+Realized-volatility calculation
+Resistance-detection algorithm
+Market-regime algorithm
+Sector-regime algorithm
+```
+
+Stored historical recommendations and indicator snapshots shall retain sufficient version information to reproduce and explain their original results.
+
+Recalculating a canonical indicator snapshot from corrected historical inputs may change that canonical snapshot under the same calculation and configuration versions, as specified in Section 12.15. This shall not silently mutate an already recorded historical recommendation or erase the inputs and calculated values needed to explain its original decision.
 
 ## 6\.3 Immutable Transactions
 
@@ -388,12 +466,20 @@ V1 shall treat tax calculations as informational estimates only\.
 
 ---
 
-# 12\. Market Snapshot
+# 12. Market and Indicator Snapshot
+
+A Market Snapshot represents normalized market context and calculated technical indicators for a symbol as of a specific trading date.
+
+The snapshot shall remain provider-independent.
+
+Conceptually:
 
 ```text
 MarketSnapshotId
 Symbol
-Timestamp
+AsOfDate
+CalculatedAt
+
 Price
 Open
 High
@@ -418,7 +504,9 @@ MACDSignal
 MACDHistogram
 
 ATR14
+ATRPercent
 
+RV20
 RV30
 
 IV30
@@ -427,12 +515,891 @@ IVPercentile
 
 ResistancePrice
 DistanceToResistance
+DistanceToResistancePercent
+ResistanceTouchCount
+ResistanceLastTouchDate
+ResistanceAgeTradingDays
 
 MarketRegime
 SectorRegime
 
-StrategyVersion
+IndicatorCalculationVersion
+ConfigurationVersion
 ```
+
+Not every field must be available for every snapshot.
+
+Missing or insufficient data shall remain explicitly unavailable.
+
+The following distinctions are mandatory:
+
+```text
+Missing indicator != indicator value of 0
+
+Missing volatility != volatility of 0
+
+Missing resistance != resistance price of 0
+
+Missing regime != NEUTRAL regime
+```
+
+The implementation shall not silently substitute zero or a neutral classification when required input data is unavailable.
+
+## 12.1 Indicator Calculation Principles
+
+Technical indicators shall be deterministic calculations over normalized historical market observations.
+
+Indicator calculation code shall not depend directly upon:
+
+```text
+Tradier
+Provider DTOs
+HTTP
+EF Core entities
+ASP.NET
+Excel
+Brokerage APIs
+```
+
+Given identical:
+
+```text
+Historical observations
+AsOfDate
+Indicator configuration
+Indicator calculation version
+```
+
+the indicator engine shall produce equivalent results within the documented numerical tolerance.
+
+Historical observations shall be ordered chronologically by trading date.
+
+Calendar days without trading observations shall not be synthesized as zero-price or zero-volume observations.
+
+The same calculation implementation shall support both current and historical as-of calculations.
+
+Separate mathematical implementations for current and historical calculations shall not be maintained.
+
+## 12.2 As-Of Semantics and Look-Ahead Protection
+
+Every indicator calculation shall have an explicit as-of date.
+
+For:
+
+```text
+AsOfDate = D
+```
+
+only observations satisfying:
+
+```text
+TradingDate <= D
+```
+
+may contribute to the result.
+
+Future observations must never influence a historical result.
+
+This applies to conventional rolling indicators as well as:
+
+```text
+Resistance detection
+Market regime
+Sector regime
+```
+
+A historical calculation shall produce the result that could have been calculated using information available as of that historical date.
+
+Automated tests shall explicitly verify that appending observations after the as-of date does not change previously calculated results.
+
+Look-ahead protection is a hard requirement because historical indicator data will later support:
+
+```text
+Recommendation reconstruction
+Backtesting
+Parameter analysis
+Counterfactual analysis
+Strategy validation
+```
+
+## 12.3 Indicator Configuration
+
+Indicator parameters shall be strongly typed, configurable, and versioned.
+
+Default V1 parameters:
+
+```text
+SMA
+    FastPeriod = 20
+    MediumPeriod = 50
+    LongPeriod = 200
+
+RSI
+    Period = 14
+
+BollingerBands
+    Period = 20
+    StandardDeviations = 2
+
+MACD
+    FastPeriod = 12
+    SlowPeriod = 26
+    SignalPeriod = 9
+
+ATR
+    Period = 14
+
+RealizedVolatility
+    ShortPeriod = 20
+    StandardPeriod = 30
+    AnnualizationTradingDays = 252
+
+ImpliedVolatility
+    TargetDteCalendarDays = 30
+    MaxAtmStrikeDistanceRatio = 0.05
+    HistoricalLookbackValidObservations = 252
+    MinimumHistoricalValidObservations = 126
+
+Resistance
+    SwingWindow = 3
+    LookbackTradingDays = 120
+    ClusterDistanceAtrMultiplier = 0.75
+    MinimumResistanceTouches = 2
+
+Regime
+    FastSmaPeriod = 50
+    LongSmaPeriod = 200
+    SlopeLookbackTradingDays = 20
+    MarketBenchmark = SPY
+```
+
+Important numerical parameters shall not be buried as unexplained implementation constants.
+
+## 12.4 Simple Moving Average
+
+For period `N`:
+
+```text
+SMA(N) =
+SUM(last N valid closing prices) / N
+```
+
+V1 shall calculate:
+
+```text
+SMA20
+SMA50
+SMA200
+```
+
+The current observation counts toward the rolling window.
+
+At least `N` valid closing observations are required.
+
+If fewer than `N` observations are available:
+
+```text
+SMA(N) = unavailable
+```
+
+Partial-window SMA values shall not be emitted.
+
+## 12.5 Relative Strength Index
+
+V1 shall calculate:
+
+```text
+RSI14
+```
+
+using the standard Wilder smoothing formulation.
+
+For each price transition:
+
+```text
+Change =
+CurrentClose - PreviousClose
+
+Gain =
+max(Change, 0)
+
+Loss =
+max(-Change, 0)
+```
+
+The initial average gain and loss shall be arithmetic means over the configured RSI period.
+
+Subsequent values shall use Wilder smoothing:
+
+```text
+AverageGain =
+((PreviousAverageGain × (N - 1)) + CurrentGain) / N
+
+AverageLoss =
+((PreviousAverageLoss × (N - 1)) + CurrentLoss) / N
+```
+
+Then:
+
+```text
+RS =
+AverageGain / AverageLoss
+
+RSI =
+100 - (100 / (1 + RS))
+```
+
+Zero-loss and zero-gain cases shall be handled explicitly and deterministically.
+
+A valid RSI shall satisfy:
+
+```text
+0 <= RSI <= 100
+```
+
+An RSI period of `N` requires at least:
+
+```text
+N + 1
+```
+
+closing-price observations because `N` price changes are required.
+
+Partial-window RSI values shall not be emitted.
+
+CCOS interpretation of RSI belongs to the Entry Strategy phase and shall not be implemented by the indicator calculator.
+
+## 12.6 Bollinger Bands
+
+V1 Bollinger Bands shall use:
+
+```text
+Period = 20
+StandardDeviations = 2
+```
+
+Calculate:
+
+```text
+MiddleBand =
+SMA20
+
+UpperBand =
+MiddleBand + (2 × StandardDeviation)
+
+LowerBand =
+MiddleBand - (2 × StandardDeviation)
+```
+
+Standard deviation shall use the same rolling closing-price observations used by the middle band.
+
+The rolling observed-price window shall use population standard deviation.
+
+This convention shall be documented and locked by deterministic tests.
+
+Calculate Bollinger Percent B:
+
+```text
+%B =
+(Close - LowerBand)
+/
+(UpperBand - LowerBand)
+```
+
+%B shall not be clamped.
+
+Values below zero and above one are valid.
+
+If:
+
+```text
+UpperBand == LowerBand
+```
+
+%B shall be unavailable.
+
+Calculate normalized bandwidth:
+
+```text
+Bandwidth =
+(UpperBand - LowerBand)
+/
+MiddleBand
+```
+
+If the middle band is zero or unavailable, bandwidth shall be unavailable.
+
+Phase 3 calculates these values but does not assign CCOS points.
+
+## 12.7 MACD
+
+V1 MACD shall use:
+
+```text
+FastPeriod = 12
+SlowPeriod = 26
+SignalPeriod = 9
+```
+
+Calculate:
+
+```text
+MACD =
+EMA12 - EMA26
+
+MACDSignal =
+EMA9(MACD)
+
+MACDHistogram =
+MACD - MACDSignal
+```
+
+EMA smoothing shall use:
+
+```text
+Multiplier =
+2 / (Period + 1)
+
+EMA =
+(CurrentValue × Multiplier)
++
+(PreviousEMA × (1 - Multiplier))
+```
+
+EMA initialization shall be deterministic.
+
+The initial EMA for a period shall be seeded using the arithmetic SMA of the first complete period.
+
+It shall not be initialized from an arbitrary first observation.
+
+MACD may become available before sufficient MACD observations exist to initialize the signal EMA.
+
+During that valid warm-up state:
+
+```text
+MACD = available
+MACDSignal = unavailable
+MACDHistogram = unavailable
+```
+
+Unavailable components shall not be represented as zero.
+
+## 12.8 Average True Range
+
+True Range for observation `t` shall be:
+
+```text
+TR =
+max(
+    High[t] - Low[t],
+    abs(High[t] - Close[t-1]),
+    abs(Low[t] - Close[t-1])
+)
+```
+
+V1 shall calculate:
+
+```text
+ATR14
+```
+
+using Wilder smoothing.
+
+Initial ATR:
+
+```text
+ATR14 =
+Arithmetic mean of the first 14 valid True Range observations
+```
+
+Subsequent ATR:
+
+```text
+ATR =
+((PreviousATR × 13) + CurrentTR) / 14
+```
+
+Also calculate:
+
+```text
+ATRPercent =
+ATR / Close
+```
+
+ATRPercent shall be unavailable when Close is unavailable or zero.
+
+## 12.9 Realized Volatility
+
+V1 shall calculate annualized close-to-close realized volatility.
+
+Daily log return:
+
+```text
+Return[t] =
+ln(Close[t] / Close[t-1])
+```
+
+For an `N`-return window:
+
+```text
+RV(N) =
+SampleStandardDeviation(last N log returns)
+× sqrt(AnnualizationTradingDays)
+```
+
+V1 shall calculate:
+
+```text
+RV20
+RV30
+```
+
+with:
+
+```text
+AnnualizationTradingDays = 252
+```
+
+by default.
+
+The annualization value shall be configurable.
+
+An `N`-period realized-volatility calculation requires:
+
+```text
+N valid returns
+N + 1 valid closing-price observations
+```
+
+Partial-window realized volatility shall not be emitted.
+
+Realized volatility shall use decimal-ratio representation:
+
+```text
+0.25 = 25% annualized volatility
+```
+
+A legitimate realized volatility of zero shall remain distinguishable from unavailable volatility.
+
+## 12.10 Implied Volatility Context
+
+Phase 3 derives provider-independent IV30, IVRank, and IVPercentile from normalized contract-level implied volatility captured by Phase 2. Phase 4 consumes these values and does not reconstruct them from provider-specific option data.
+
+### IV30
+
+V1 IV30 is constant-30-calendar-day ATM implied volatility derived from normalized provider-supplied contract IV.
+
+For AsOfDate:
+- DTE is calendar days to expiration.
+- Use positive-DTE expirations available as of the calculation.
+- Select the strike nearest the associated underlying price; equal-distance ties select the lower strike.
+- Require abs(Strike - UnderlyingPrice) / UnderlyingPrice <= MaxAtmStrikeDistanceRatio. Default is 0.05 (5%) and is configurable.
+- Require both call and put IV at the selected strike. V1 applies no liquidity, volume, open-interest, or bid/ask filter.
+- ExpirationIV = (CallIV + PutIV) / 2.
+- An exact 30-DTE expiration supplies IV30 directly.
+- Otherwise linearly interpolate between the qualifying expirations nearest below and above 30 DTE:
+
+```text
+IV30 = IVNear
+     + ((30 - DteNear) / (DteFar - DteNear))
+       * (IVFar - IVNear)
+```
+
+V1 does not extrapolate. IV30 is unavailable if 30 DTE cannot be bracketed. IV uses double decimal-ratio representation, so 0.30 means 30%.
+
+Historical IV30 uses the latest eligible option-chain observation available on AsOfDate. Later snapshots must never backfill or alter an earlier result. Phase 3 consumes normalized provider IV and does not invert an option-pricing model to recalculate contract IV.
+
+Missing IV30 is explicitly unavailable with a reason. Zero, RV30, one-sided IV, and extrapolated IV are not substitutes.
+
+### IV Rank and IV Percentile
+
+Both metrics use the most recent 252 valid IV30 observations through and including current AsOfDate. At least 126 valid observations are required. Missing observations are ignored and never treated as zero.
+
+```text
+IVRank =
+((CurrentIV30 - MinIV30) / (MaxIV30 - MinIV30)) * 100
+```
+
+If MaxIV30 equals MinIV30, IV Rank is unavailable.
+
+```text
+IVPercentile =
+100 * (
+    count(valid IV30 observations strictly below CurrentIV30)
+    / count(valid IV30 observations in lookback)
+)
+```
+
+Current IV30 is included in the denominator. Values equal to current IV30 are not counted as below it.
+
+If current IV30 is unavailable or fewer than 126 valid observations exist, the applicable historical IV context is unavailable. Future observations must not change historical results.
+
+Approved defaults:
+
+```text
+TargetDteCalendarDays = 30
+MaxAtmStrikeDistanceRatio = 0.05
+HistoricalLookbackValidObservations = 252
+MinimumHistoricalValidObservations = 126
+```
+
+Material IV parameters are strongly typed and versioned through ConfigurationVersion. Material algorithm changes require IndicatorCalculationVersion review. Deterministic fixed-data reference fixtures shall lock this methodology.
+
+
+## 12.11 Resistance Detection
+
+Resistance detection answers:
+
+> What meaningful recent price level above the current price may impede further upward movement?
+
+Resistance is market structure information.
+
+Resistance detection shall not determine whether a covered call should be sold.
+
+V1 shall use deterministic confirmed swing-high clustering.
+
+### Swing High Detection
+
+An observation is a confirmed swing-high candidate when its `High` is greater than the highs of the configured number of observations immediately before it and greater than or equal to the highs of the configured number of observations immediately after it.
+
+Default:
+
+```text
+SwingWindow = 3
+```
+
+Conceptually:
+
+```text
+High[t] >
+High[t-3..t-1]
+
+AND
+
+High[t] >=
+High[t+1..t+3]
+```
+
+For a historical as-of calculation, the complete confirmation window must occur on or before the as-of date.
+
+An apparent swing high that requires future observations for confirmation must not be used.
+
+### Lookback
+
+Default resistance lookback:
+
+```text
+120 trading observations
+```
+
+### Clustering
+
+V1 shall use deterministic one-dimensional complete-linkage clustering of confirmed swing-high prices within the configured resistance lookback. Calculate one threshold for the requested AsOfDate:
+
+```text
+ClusteringDistance = ClusterDistanceAtrMultiplier × ATR14(AsOfDate)
+```
+
+The default multiplier is `0.75`. This threshold is fixed for the entire resistance calculation; do not use a separate historical ATR for each swing high.
+
+Sort candidates by swing-high price ascending, then TradingDate ascending. Start a cluster with the first candidate and process the remaining candidates in that order. A candidate joins the current cluster only when its price is within the threshold of every existing member. In ascending price order, this is equivalent to:
+
+```text
+CandidatePrice - CurrentClusterMinimumPrice <= ClusteringDistance
+```
+
+The boundary is inclusive. Otherwise, close the current cluster and start a new one with the candidate. Every resulting cluster must satisfy `MaxClusterPrice - MinClusterPrice <= ClusteringDistance`. Sorting makes the result independent of input enumeration order; transitive/single-linkage chaining is not permitted.
+
+For example, at a distance of `0.75`, prices `100.00`, `100.60`, and `101.20` form `{100.00, 100.60}` and `{101.20}`, because `101.20 - 100.00 > 0.75`.
+
+The V1 representative price is the arithmetic mean of all confirmed swing-high prices in the cluster. Representative price does not determine cluster membership.
+
+### Primary Resistance
+
+`MinimumResistanceTouches` is configurable, defaults to `2`, and must be at least `1`. A cluster qualifies only when its confirmed swing-high touch count is at least this minimum. Under the default, an isolated one-touch swing high is structural information but does not qualify as primary resistance.
+
+The primary resistance level is the qualified cluster with the smallest representative price strictly above CurrentClose:
+
+```text
+ResistanceTouchCount >= MinimumResistanceTouches
+AND RepresentativePrice > CurrentClose
+```
+
+If no qualified resistance exists above the current price:
+
+```text
+ResistancePrice = unavailable
+```
+
+The system shall not fabricate a resistance level. The applicable resistance fields shall remain unavailable; sentinel values shall not be used.
+
+### Resistance Metrics
+
+At minimum calculate:
+
+```text
+ResistancePrice
+
+DistanceToResistance =
+ResistancePrice - CurrentClose
+
+DistanceToResistancePercent =
+DistanceToResistance / CurrentClose
+
+ResistanceTouchCount
+
+ResistanceLastTouchDate
+
+ResistanceAgeTradingDays
+```
+
+ResistanceLastTouchDate shall be the trading date of the most recent confirmed swing-high observation belonging to the selected resistance cluster.
+
+ResistanceAgeTradingDays shall be the number of actual trading observations between the most recent confirmed touch and the snapshot AsOfDate. Calendar-day subtraction shall not be used.
+
+Phase 3 shall expose objective structural evidence rather than a strategy-oriented resistance-strength score.
+
+Phase 4 may use `DistanceToResistancePercent`, `ResistanceTouchCount`, `ResistanceAgeTradingDays`, and other approved structural inputs when calculating the Resistance/Structure component of CCOS. Phase 3 shall not determine the CCOS interpretation of those observations.
+
+## 12.12 Market Regime
+
+Market regime provides broad directional market context.
+
+V1 shall use a configurable broad-market benchmark.
+
+Default:
+
+```text
+SPY
+```
+
+V1 regime classifications:
+
+```text
+BULLISH
+NEUTRAL
+BEARISH
+INSUFFICIENT_DATA
+```
+
+The default regime model shall use:
+
+```text
+Close
+SMA50
+SMA200
+SMA50 direction
+```
+
+Default classification:
+
+```text
+BULLISH:
+
+    Close > SMA200
+    AND
+    SMA50 > SMA200
+    AND
+    SMA50 is rising
+
+
+BEARISH:
+
+    Close < SMA200
+    AND
+    SMA50 < SMA200
+    AND
+    SMA50 is falling
+
+
+Otherwise:
+
+    NEUTRAL
+```
+
+SMA50 direction shall compare the current SMA50 against SMA50 from a configurable prior trading observation.
+
+Default:
+
+```text
+SlopeLookbackTradingDays = 20
+```
+
+Conceptually:
+
+```text
+Rising:
+CurrentSMA50 > SMA50[20 trading observations ago]
+
+Falling:
+CurrentSMA50 < SMA50[20 trading observations ago]
+```
+
+If required history is unavailable:
+
+```text
+MarketRegime = INSUFFICIENT_DATA
+```
+
+Phase 3 shall classify the regime but shall not assign CCOS points to it.
+
+## 12.13 Sector Regime
+
+Sector regime shall use the same deterministic classification algorithm as market regime.
+
+The difference is the benchmark symbol.
+
+A holding may be associated with a configurable sector benchmark.
+
+V1 may use sector ETFs such as:
+
+```text
+XLK
+XLF
+XLE
+XLV
+XLY
+XLP
+XLI
+XLB
+XLU
+XLRE
+XLC
+```
+
+These examples do not constitute a hard-coded mapping inside the indicator engine.
+
+The mapping:
+
+```text
+Underlying Symbol
+    ->
+Sector Benchmark Symbol
+```
+
+shall belong to configuration/application context.
+
+If no sector benchmark is configured for an underlying:
+
+```text
+SectorRegime = unavailable
+```
+
+The system shall not silently assume:
+
+```text
+SectorRegime = NEUTRAL
+```
+
+Market and sector regimes shall remain separate observations.
+
+Example:
+
+```text
+MarketRegime = BULLISH
+SectorRegime = NEUTRAL
+```
+
+Phase 4 may determine how the two classifications contribute to CCOS.
+
+## 12.14 Indicator Calculation Version
+
+Indicator algorithms shall have an explicit calculation version.
+
+Example:
+
+```text
+IndicatorCalculationVersion = 1.0.0
+```
+
+This version identifies the mathematical and algorithmic behavior used to produce the snapshot.
+
+Changes that can alter historical indicator results require a calculation-version change.
+
+Examples include:
+
+```text
+RSI smoothing
+EMA initialization
+Bollinger standard-deviation convention
+ATR formulation
+Realized-volatility formulation
+Resistance algorithm
+Regime algorithm
+```
+
+Historical indicator snapshots produced under different calculation versions may coexist.
+
+Recalculating a current indicator must not silently rewrite a historical result generated under a different calculation version.
+
+## 12.15 Indicator Snapshot Persistence
+
+Calculated indicator snapshots shall be retained when necessary for recommendation reproducibility, auditing, historical research, and future backtesting.
+
+A canonical persisted indicator snapshot has exactly one row per identity:
+
+```text
+Symbol
+AsOfDate
+IndicatorCalculationVersion
+ConfigurationVersion
+```
+
+The database shall enforce a unique constraint or index over these four fields. Persistence shall use deterministic, atomic insert-or-replace/update semantics: insert when the identity does not exist; when it does exist, replace the persisted calculated facts with the newly calculated facts without creating a second canonical row. Preserve all four identity fields during replacement. `CalculatedAt` represents when the current canonical values were calculated and shall update to the new calculation timestamp after a successful replacement.
+
+Corrected historical source data eligible for `AsOfDate` may legitimately change a recalculated canonical result. Recalculation shall not weaken AsOfDate or no-look-ahead rules: source observations ineligible for the requested historical AsOfDate shall not affect the result merely because calculation runs later.
+
+A material algorithm change requires a new `IndicatorCalculationVersion`, and a material configuration change requires a new `ConfigurationVersion`. Each therefore creates a distinct canonical identity rather than replacing the prior version. V1 does not require immutable history of every recalculation; any future calculation audit/history belongs in a separate model, not duplicate canonical snapshot rows.
+
+Persistence shall preserve nullable/unavailable values.
+
+Historical snapshots shall remain traceable to the normalized market observations from which they were calculated.
+
+The persistence design shall support multiple calculation or configuration versions without destroying prior historical results.
+
+## 12.16 Numerical Precision
+
+Prices and monetary values shall follow the repository's monetary precision rules.
+
+Statistical and quantitative calculations may use `double`.
+
+Conversions between monetary `decimal` values and statistical `double` values shall occur deliberately at calculation boundaries.
+
+Floating-point calculations shall be validated using appropriate numerical tolerances.
+
+Persisted indicator precision shall be sufficient to reproduce downstream scoring and classification decisions.
+
+## 12.17 Indicator Libraries
+
+A mature external .NET technical-analysis library may be used where it materially reduces implementation risk.
+
+If an external library is used:
+
+- repository-owned interfaces shall remain authoritative;
+- external library types shall not leak into Domain, Application, or API contracts;
+- the library's formulas and initialization behavior must match this specification;
+- behavior shall be locked with deterministic reference tests;
+- resistance and regime semantics remain Options Engine responsibilities.
+
+If library behavior conflicts with this specification, this specification wins.
+
+## 12.18 Phase Boundary
+
+Phase 3 calculates market facts and classifications.
+
+It shall not determine:
+
+```text
+CCOS
+Contract Score
+Trade eligibility
+Recommended contract
+Recommended contract count
+DRS
+Roll recommendation
+```
+
+Those decisions belong to later strategy phases.
 
 ---
 
@@ -708,11 +1675,13 @@ These records are critical for later evaluating defense rules\.
 
 ---
 
-# 20\. Strategy Configuration
+# 20. Strategy and Calculation Configuration
 
-No important strategy constants shall be hard\-coded\.
+No important strategy or indicator constants shall be hard-coded.
 
-Configuration shall be versioned\.
+Configuration shall be strongly typed and versioned.
+
+At minimum:
 
 ```text
 StrategyConfiguration
@@ -723,6 +1692,7 @@ StrategyConfiguration
 Configuration categories include:
 
 ```text
+Indicators
 CCOS
 ContractScore
 PositionSizing
@@ -732,7 +1702,69 @@ ProfitTaking
 TaxSensitivity
 ```
 
-Every recommendation records the configuration version used to generate it\.
+The Indicators category shall include parameters governing at least:
+
+```text
+SMA periods
+RSI period
+Bollinger period and standard-deviation multiplier
+MACD periods
+ATR period
+Realized-volatility periods
+Volatility annualization days
+IV30 calculation parameters
+IV historical lookback
+IV Rank parameters
+IV Percentile parameters
+Resistance swing window
+Resistance lookback
+Resistance clustering
+Market benchmark
+Regime SMA periods
+Regime slope lookback
+Sector benchmark mappings
+```
+
+IV30 calculation parameters, IV historical lookback, IV Rank parameters, and IV Percentile parameters become required once the V1 implied-volatility methodology is approved. No defaults are approved before that methodology is specified.
+
+Indicator algorithm identity shall be represented separately from configuration values.
+
+Conceptually:
+
+```text
+IndicatorCalculationVersion
+ConfigurationVersion
+StrategyVersion
+```
+
+Changing a parameter such as:
+
+```text
+RSI period 14 -> 21
+```
+
+is a configuration change.
+
+Changing the RSI mathematical implementation from Wilder smoothing to another smoothing algorithm is a calculation-version change.
+
+Changing how RSI contributes to CCOS is a strategy-version change.
+
+Every persisted indicator snapshot shall record or be traceable to:
+
+```text
+IndicatorCalculationVersion
+ConfigurationVersion
+```
+
+Every recommendation shall record or be traceable to:
+
+```text
+IndicatorCalculationVersion
+ConfigurationVersion
+StrategyVersion
+```
+
+Historical records shall not be silently reinterpreted using newer configuration, calculation, or strategy versions.
 
 ---
 
@@ -2119,9 +3151,49 @@ Strategy implementations shall be deterministic given:
 
 The ASP\.NET Core API shall expose a local interface suitable for Excel and future clients\.
 
+## Phase 3 Indicator API
+
+V1 exposes one indicator route: `GET /api/indicators/{symbol}`, optionally with
+`?asOf=YYYY-MM-DD`. This is a read-only HTTP surface: clients do not create,
+update, or delete indicator snapshots through HTTP. GET is nevertheless a
+calculation/read-through operation. On a successful request, the API shall
+normalize and validate the symbol, resolve the as-of date and the server's
+current indicator configuration and calculation version, invoke Application
+indicator orchestration, calculate/recalculate and canonically upsert the
+derived snapshot, and return the resulting normalized `IndicatorSnapshot`.
+This internal derived-data write must not mutate source market observations.
+
+An explicit `asOf` is used exactly as requested, including on non-trading
+calendar dates; the returned snapshot retains that requested `AsOfDate` and
+historical no-look-ahead rules apply. Without `asOf`, Application/Infrastructure
+shall resolve the latest persisted trading-observation date for the requested
+underlying symbol and configured provider at or before the applicable request
+boundary. That persisted trading date, not the current UTC calendar date or a
+fabricated trading day, becomes the returned `AsOfDate`. If no applicable
+persisted price observation exists to resolve an omitted `asOf`, return a
+not-found/unavailable response (`404 Not Found`); do not calculate using today's
+date. An explicit historical `asOf` may still yield a valid snapshot with
+individual indicators unavailable for insufficient history.
+
+`IndicatorCalculationVersion` and `IndicatorConfiguration.Version` are
+server-owned for this V1 calculation endpoint. The composition root shall
+provide the currently supported calculation version and currently configured,
+validated `IndicatorConfiguration` through configuration/dependency injection;
+missing or invalid server configuration must fail clearly, not fall back to an
+implicit version. Endpoint logic shall not hard-code version identities.
+Requests attempting to supply calculation or configuration versions through
+query parameters are invalid rather than silently selecting or ignoring them.
+The response shall expose both version identifiers and preserve available versus
+unavailable indicator values, including the IV30 unavailable reason. The
+existing exact-identity Application/repository retrieval operation remains
+required internally, but V1 exposes no second, version-selectable indicator
+HTTP retrieval route.
+
 Representative endpoints:
 
 ```text
+GET /api/indicators/{symbol}
+
 GET /api/holdings
 
 GET /api/opportunities
@@ -2707,122 +3779,181 @@ V1 is successful when the user can:
 
 ---
 
-# 81\. Implementation Phases
+# 81. Implementation Phases
 
 ## Phase 1 — Repository/Foundation
 
 Build:
 
 ```text
-Tradier production API authentication
-Quotes
-Price history
-Expirations
-Option chains
-Greeks/IV mapping
-Rate-limit handling
-Caching
-Historical snapshot persistence
-Mocked provider test fixtures
+Solution and project structure
+Domain foundations
+Application boundaries
+Persistence foundations
+SQLite
+Initial EF migration
+Logging
+Configuration foundations
+Testing infrastructure
+Health endpoint
+Repository engineering guidance
 ```
+
+Phase 1 shall establish architecture and engineering conventions without implementing market-data providers or strategy logic.
 
 ## Phase 2 — Tradier Data
 
 Build:
 
 ```text
-Tradier authentication
+Tradier production API authentication
+Provider-independent market-data abstraction
 Quotes
-Price history
-Expirations
+Historical daily prices
+Option expirations
 Option chains
-Greeks/IV mapping
+Greeks and implied-volatility mapping
+Rate-limit handling
 Caching
-Historical persistence
+Historical market-data persistence
+Append-only option snapshots
+Mocked provider fixtures
+Market-data API
 ```
 
-## Phase 3 — Indicators
+Tradier sandbox and brokerage/trading functionality remain out of scope.
+
+## Phase 3 — Indicators and Market Context
 
 Implement:
 
 ```text
-SMA
-RSI
+SMA20
+SMA50
+SMA200
+
+RSI14 using Wilder smoothing
+
 Bollinger Bands
-MACD
-ATR
-Realized volatility
+Bollinger %B
+Bollinger bandwidth
+
+MACD 12/26/9
+
+ATR14 using Wilder smoothing
+ATR percent
+
+RV20
+RV30
+
+Underlying implied-volatility context:
+    IV30
+    IVRank
+    IVPercentile
+
 Resistance detection
-Market/sector regime
+
+Market regime
+Sector regime
+
+Historical as-of calculations
+Look-ahead-bias protection
+Indicator calculation versioning
+Indicator snapshot persistence
+Read-only indicator API
 ```
+
+Phase 3 shall produce deterministic, provider-independent indicator observations suitable for direct consumption by later strategy engines.
+
+The V1 IV30, IVRank, and IVPercentile methodology is approved in Section 12.10 and shall be implemented exactly as specified. Changes require explicit specification and calculation-version review.
+
+Phase 3 shall not implement CCOS or other recommendation logic.
 
 ## Phase 4 — Entry Strategy
 
 Implement:
 
 ```text
-Hard gates
+Entry hard gates
 CCOS
+CCOS component scoring
 Contract Score
-Position Sizing
+Contract hard gates
+Contract ranking
+Initial strike selection
+```
+
+Phase 4 shall consume the normalized indicator and market-context outputs established by Phase 3.
+
+## Phase 5 — Position Sizing
+
+Implement:
+
+```text
+Assignment Sensitivity
+Contract Quality modifier
+Concentration modifier
+Delta Exposure Ratio
+Coverage constraints
 Strike laddering
-Recommendation generation
+Scaling
+Recommended contract count
 ```
 
-## Phase 5 — Position Management
+## Phase 6 — Defense and Roll Engine
 
 Implement:
 
 ```text
-Transactions
-Campaigns
-Position snapshots
-Profit capture
+Daily position monitoring
 DRS
-Defense triggers
+DRS classification
+Defense hard triggers
+Profit-taking evaluation
+Roll candidate generation
+Roll economics
+RQS
+Roll hard gates
+Maximum roll debit
 ```
 
-## Phase 6 — Roll Engine
+## Phase 7 — Campaign Accounting and Performance
 
 Implement:
 
 ```text
-Candidate generation
-Roll economics
-Projected DRS
-RQS
-Hard gates
-Roll recommendations
-```
-
-## Phase 7 — Excel UI
-
-Build:
-
-```text
-Dashboard
-Holdings
-Opportunities
-Contract Analysis
-Positions
-Roll Analyzer
-Campaigns
-Performance
-Configuration
-```
-
-## Phase 8 — Research & Validation
-
-Build:
-
-```text
-Performance attribution
+Transaction ledger
+Campaign lifecycle
+Roll-linked campaign accounting
+Premium accounting
+Daily position snapshots
+Performance measurement
 Buy-and-hold benchmark
-Signal analysis
-Parameter analysis
-Counterfactual tracking
-Backtesting framework
+Counterfactual history
+Research outputs
 ```
+
+## Phase 8 — Excel Dashboard
+
+Implement:
+
+```text
+Portfolio view
+Market-data refresh
+Indicator display
+Opportunity display
+Contract candidates
+Defense monitoring
+Roll candidates
+Campaign history
+Performance reporting
+Manual transaction entry
+Configuration interface
+```
+
+Excel shall remain a presentation, configuration, and analytical layer.
+
+Authoritative strategy and indicator calculations shall remain in C#.
 
 ---
 

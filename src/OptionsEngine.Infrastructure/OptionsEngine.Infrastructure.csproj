@@ -3,6 +3,8 @@
   <ItemGroup>
     <ProjectReference Include="..\OptionsEngine.Domain\OptionsEngine.Domain.csproj" />
     <ProjectReference Include="..\OptionsEngine.MarketData\OptionsEngine.MarketData.csproj" />
+    <ProjectReference Include="..\OptionsEngine.Application\OptionsEngine.Application.csproj" />
+    <ProjectReference Include="..\OptionsEngine.Strategy\OptionsEngine.Strategy.csproj" />
   </ItemGroup>
 
   <ItemGroup>

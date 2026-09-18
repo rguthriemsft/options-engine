@@ -10,8 +10,9 @@ Repository: `rguthriemsft/options-engine`
 
 Current working branch: `phase3`
 
-As of the handoff, `phase3` is 3 commits ahead of `main` and 0 behind.
-The only branch changes relative to `main` are:
+At the original design handoff, `phase3` was 3 commits ahead of `main`
+and 0 behind. At that time, the only branch changes relative to `main`
+were:
 
 -   `SPECIFICATION.md`
 -   `docs/acceptance/PHASE-3-INDICATORS.md`
@@ -279,7 +280,7 @@ Important Phase 2 implementation lessons:
 -   Live production API verification is not part of normal automated
     testing.
 
-### Phase 3 --- Design in Progress
+### Phase 3 --- Implemented, Ready for Review
 
 Authoritative documents on branch:
 
@@ -289,7 +290,10 @@ Authoritative documents on branch:
 Phase 3 owns derived market facts and classifications, not strategy
 scoring.
 
-Currently designed Phase 3 calculations:
+Phase 3A foundation/SMA, 3B core technical indicators, 3C
+IV30/IVRank/IVPercentile, 3D resistance and market/sector regimes, 3E
+canonical persistence/orchestration, and 3F indicator API are implemented.
+Phase 3 calculations include:
 
 -   SMA20 / SMA50 / SMA200
 -   RSI14 using Wilder smoothing
@@ -300,13 +304,29 @@ Currently designed Phase 3 calculations:
 -   resistance detection
 -   market regime
 -   sector regime
--   IV30 / IVRank / IVPercentile ownership, with detailed methodology
-    intentionally still unresolved
+-   IV30 / IVRank / IVPercentile using the approved V1 methodology
 -   historical as-of calculation
 -   look-ahead-bias protection
 -   calculation versioning
 -   indicator persistence
 -   read-only indicator API
+
+The V1 API has one route, `GET /api/indicators/{symbol}`, with optional
+`?asOf=YYYY-MM-DD`. GET calculates and canonically upserts derived facts
+from persisted observations; it does not fetch or mutate source market
+data. An omitted `asOf` resolves the latest persisted trading date for
+the configured provider at or before the request's UTC date, or returns
+404 when no such observation exists. Version identities are server-owned;
+exact-identity historical retrieval remains internal.
+
+The Phase 3F merge gate passed: Release build had 0 warnings and 0
+errors; the full automated suite had 191 passed, 0 failed, 0 skipped.
+Both empty-database migration and final-Phase-2-to-Phase-3 upgrade
+tests passed; EF reported no pending model changes. These checks use
+deterministic local SQLite and mocked provider data, not live Tradier.
+V1 intentionally has no version-selectable indicator HTTP route,
+immutable recalculation audit history, or provider refresh on indicator
+GET. Historical results require the relevant persisted source data.
 
 Phase 3 explicitly does NOT own:
 
@@ -456,9 +476,17 @@ Default lookback = 120 trading observations.
 
 Default clustering distance = `0.75 × ATR14`.
 
+V1 uses price-ascending, then TradingDate-ascending, one-dimensional
+complete-linkage clustering. A candidate joins the current cluster
+only when its price minus the cluster minimum is at most the fixed
+`0.75 × ATR14(AsOfDate)` threshold (multiplier configurable). This
+prevents transitive chaining. The threshold boundary is inclusive.
+
 Cluster representative = arithmetic mean of clustered swing-high prices.
 
-Primary resistance = nearest qualified resistance above current close.
+`MinimumResistanceTouches` defaults to 2 and is configurable (minimum
+1). Primary resistance = nearest qualified cluster representative
+strictly above current close.
 
 Do not fabricate resistance when none exists.
 
@@ -528,64 +556,13 @@ indicator calculator.
 
 No mapping =\> unavailable, not neutral.
 
-## Critical Open Design Question: IV Context
+## IV Context Decision
 
-This is the NEXT design task.
-
-Phase 4 CCOS requires:
-
-``` text
-IV Percentile
-IV30 / RV30
-```
-
-Phase 2 supplies normalized contract-level option observations including
-implied volatility.
-
-The architecture decision is now:
-
-``` text
-Phase 2
-    contract-level normalized option observations
-        |
-        v
-Phase 3
-    provider-independent underlying-level IV context
-        IV30
-        IVRank
-        IVPercentile
-        |
-        v
-Phase 4
-    CCOS volatility scoring
-```
-
-Phase 4 must not reconstruct IV metrics from provider-specific option
-data.
-
-The detailed V1 formulas are intentionally NOT defined yet. They must be
-designed before implementation.
-
-The IV design must explicitly decide:
-
-1.  What exactly a daily underlying `IV30` observation means.
-2.  Eligible option contracts.
-3.  ATM / strike-selection methodology.
-4.  Whether/how calls and puts are combined.
-5.  Expiration eligibility.
-6.  How expirations around 30 days are selected.
-7.  Whether and how interpolation creates a constant 30-day maturity.
-8.  Minimum required expirations/contracts.
-9.  Missing-data behavior.
-10. Historical storage semantics.
-11. IV Rank lookback and exact formula.
-12. IV Percentile lookback and exact formula.
-13. Behavior when historical IV coverage is incomplete.
-14. Numerical representation and precision.
-15. Deterministic tests/reference fixtures.
-
-Do not allow Codex to infer these from Tradier behavior or generic
-industry conventions.
+Phase 3C implements provider-independent IV30, IVRank, and IVPercentile
+from normalized provider-supplied contract IV. The approved V1 formulas,
+eligibility rules, missing-data treatment, and historical AsOfDate rules
+are in `SPECIFICATION.md` §12.10. Phase 4 consumes these outputs for
+CCOS; it must not reconstruct them from provider-specific data.
 
 ## Known Later Phase 4 Design Gaps
 
@@ -607,9 +584,8 @@ Start a fresh ChatGPT conversation and attach/reference:
 3.  `docs/acceptance/PHASE-3-INDICATORS.md`;
 4.  optionally `AGENTS.md`.
 
-Then use the bootstrap prompt in `NEW-CHAT-IV30-PROMPT.md`.
-
-The first task should be design only: define the authoritative V1 IV30
-methodology. Do not ask Codex to implement Phase 3 until that design is
-incorporated into `SPECIFICATION.md` and the Phase 3 acceptance
-checklist.
+Phase 3 is ready for review. The next phase is Phase 4 strategy design
+and implementation, subject to resolving its explicitly deferred CCOS
+component formulas before coding them. The resistance-clustering
+decision is already locked in `SPECIFICATION.md` §12.11; do not reopen
+Phase 3 methodology as part of Phase 4 work.

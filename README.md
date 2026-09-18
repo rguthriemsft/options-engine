@@ -6,18 +6,19 @@ V1 uses SQLite, EF Core, an ASP.NET Core Minimal API, and a future Excel present
 
 ## Architecture
 
-The Phase 1 solution keeps the domain and strategy core independent from infrastructure:
+The solution keeps the domain and strategy core independent from infrastructure:
 
 ```text
 OptionsEngine.Api (composition root)
-├── OptionsEngine.Application
-│   ├── OptionsEngine.Domain
-│   ├── OptionsEngine.Strategy ──> OptionsEngine.Domain
-│   └── OptionsEngine.MarketData
-└── OptionsEngine.Infrastructure ──> OptionsEngine.Domain
+├── OptionsEngine.Infrastructure ──> OptionsEngine.Application
+└── OptionsEngine.Application
+    ├── OptionsEngine.Strategy ──> OptionsEngine.Domain
+    └── OptionsEngine.MarketData
 ```
 
-`OptionsEngine.Domain` contains provider- and persistence-independent account, holding, and tax-lot models. `OptionsEngine.Strategy` depends only on Domain and remains infrastructure-independent. `OptionsEngine.MarketData` owns normalized market-data records and `IMarketDataProvider`; its Tradier adapter maps production HTTP payloads at the boundary. `OptionsEngine.Application` orchestrates the provider abstraction and SQLite cache. `OptionsEngine.Infrastructure` owns EF Core/SQLite snapshot persistence. The API composes these layers.
+`OptionsEngine.Domain` contains provider- and persistence-independent account, holding, and tax-lot models. `OptionsEngine.Strategy` depends only on Domain and remains infrastructure-independent; its indicator boundary accepts provider-independent daily observations and produces versioned, as-of indicator snapshots. `OptionsEngine.MarketData` owns normalized market-data records and `IMarketDataProvider`; its Tradier adapter maps production HTTP payloads at the boundary. `OptionsEngine.Application` orchestrates the provider abstraction and SQLite cache. `OptionsEngine.Infrastructure` owns EF Core/SQLite snapshot persistence. The API composes these layers.
+
+Phase 3 calculates provider-independent technical, IV, resistance, and regime facts from persisted observations. A canonical indicator snapshot is keyed by symbol, as-of date, calculation version, and configuration version; recalculation updates that row. Version-matched IV30 history supports IV Rank and IV Percentile, and empty observed option chains remain explicit.
 
 ## Prerequisites and setup
 
@@ -70,6 +71,12 @@ dotnet user-secrets set "Tradier:AccessToken" "YOUR_PRODUCTION_TOKEN" --project 
 - `GET /api/market/{symbol}/history?start=YYYY-MM-DD&end=YYYY-MM-DD`
 - `GET /api/market/{symbol}/options/expirations`
 - `GET /api/market/{symbol}/options?expiration=YYYY-MM-DD`
+
+## Indicator endpoint
+
+`GET /api/indicators/{symbol}` calculates and persists the current canonical indicator snapshot from stored observations, then returns its facts and availability statuses. Add `?asOf=YYYY-MM-DD` to calculate for an exact historical or non-trading date. Without `asOf`, the API uses the latest stored trading observation for the configured provider at or before the request's UTC date; it returns 404 if none exists. Future observations do not affect historical calculations. The GET does not fetch fresh provider data or alter source observations.
+
+The server owns `Indicators:CalculationVersion` and `Indicators:ConfigurationVersion` in configuration; clients cannot select versions through the endpoint. Indicator parameters and `Indicators:SectorBenchmarks` can be configured in the same section. Missing or invalid server configuration fails startup. Unavailable values are returned as `null` with a status, never as zero; IV30 also includes its unavailable reason. Exact-identity historical snapshot retrieval remains internal to Application/repository code.
 
 ## Phase 1 assumptions
 
