@@ -280,65 +280,72 @@ Important Phase 2 implementation lessons:
 -   Live production API verification is not part of normal automated
     testing.
 
-### Phase 3 --- Implemented, Ready for Review
+### Phase 3 --- Complete and Merged
 
-Authoritative documents on branch:
+Phase 3 is complete on `main`.
 
--   `SPECIFICATION.md`
--   `docs/acceptance/PHASE-3-INDICATORS.md`
+Authoritative Phase 3 documents:
 
-Phase 3 owns derived market facts and classifications, not strategy
-scoring.
+- `SPECIFICATION.md`
+- `docs/acceptance/PHASE-3-INDICATORS.md`
+- `docs/design/OPTIONS-ENGINE-DESIGN-DECISIONS.md`
 
-Phase 3A foundation/SMA, 3B core technical indicators, 3C
-IV30/IVRank/IVPercentile, 3D resistance and market/sector regimes, 3E
-canonical persistence/orchestration, and 3F indicator API are implemented.
-Phase 3 calculations include:
+Phase 3 owns derived market facts and classifications, not strategy scoring.
 
--   SMA20 / SMA50 / SMA200
--   RSI14 using Wilder smoothing
--   Bollinger Bands / %B / bandwidth
--   MACD 12/26/9
--   ATR14 / ATR percent using Wilder smoothing
--   RV20 / RV30
--   resistance detection
--   market regime
--   sector regime
--   IV30 / IVRank / IVPercentile using the approved V1 methodology
--   historical as-of calculation
--   look-ahead-bias protection
--   calculation versioning
--   indicator persistence
--   read-only indicator API
+Implemented Phase 3 capabilities include:
 
-The V1 API has one route, `GET /api/indicators/{symbol}`, with optional
-`?asOf=YYYY-MM-DD`. GET calculates and canonically upserts derived facts
-from persisted observations; it does not fetch or mutate source market
-data. An omitted `asOf` resolves the latest persisted trading date for
-the configured provider at or before the request's UTC date, or returns
-404 when no such observation exists. Version identities are server-owned;
-exact-identity historical retrieval remains internal.
+- SMA20 / SMA50 / SMA200
+- RSI14 using Wilder smoothing
+- Bollinger Bands / %B / bandwidth
+- MACD 12/26/9
+- ATR14 / ATR percent using Wilder smoothing
+- RV20 / RV30
+- resistance detection
+- market regime
+- sector regime
+- IV30 / IVRank / IVPercentile
+- historical as-of calculation
+- look-ahead-bias protection
+- calculation/configuration versioning
+- canonical indicator persistence
+- read-through indicator API
 
-The Phase 3F merge gate passed: Release build had 0 warnings and 0
-errors; the full automated suite had 191 passed, 0 failed, 0 skipped.
-Both empty-database migration and final-Phase-2-to-Phase-3 upgrade
-tests passed; EF reported no pending model changes. These checks use
-deterministic local SQLite and mocked provider data, not live Tradier.
-V1 intentionally has no version-selectable indicator HTTP route,
-immutable recalculation audit history, or provider refresh on indicator
-GET. Historical results require the relevant persisted source data.
+The V1 indicator route is `GET /api/indicators/{symbol}` with optional
+`?asOf=YYYY-MM-DD`.
 
-Phase 3 explicitly does NOT own:
+Phase 3 explicitly does NOT own CCOS, Contract Score, trade eligibility,
+contract ranking, position sizing, DRS, Roll Engine / RQS, recommendations,
+or trade execution.
 
--   CCOS
--   Contract Score
--   trade eligibility
--   contract ranking
--   position sizing
--   DRS
--   Roll Engine / RQS
--   recommendations
--   trade execution
+### Phase 4 --- Design Locked, Implementation Not Started
+
+Phase 4 strategy methodology is fully designed and recorded on `main`.
+
+Authoritative Phase 4 documents:
+
+- `SPECIFICATION.md`
+- `docs/acceptance/PHASE-4-ENTRY-STRATEGY.md`
+- `docs/design/OPTIONS-ENGINE-DESIGN-DECISIONS.md`
+
+Phase 4 owns:
+
+- CCOS and all six deterministic component formulas;
+- breakout veto;
+- contract candidate derivation and hard gates;
+- all seven Contract Score component formulas;
+- deterministic contract ranking/tie-breaking;
+- preferred initial contract/strike selection;
+- reproducible evaluation orchestration;
+- immutable EntryStrategyEvaluation persistence;
+- Phase 4 API.
+
+Phase 4 stops before position sizing. Coverage, available-share constraints,
+existing-call exposure, DER, maximum coverage, strike laddering, scaling, and
+recommended contract count belong to Phase 5.
+
+Implementation shall proceed in work packets 4A through 4F as defined in
+`SPECIFICATION.md` and the Phase 4 acceptance checklist.
+## Phase 3 Mathematical Decisions Already Locked
 
 ## Phase 3 Mathematical Decisions Already Locked
 
@@ -564,28 +571,42 @@ eligibility rules, missing-data treatment, and historical AsOfDate rules
 are in `SPECIFICATION.md` §12.10. Phase 4 consumes these outputs for
 CCOS; it must not reconstruct them from provider-specific data.
 
-## Known Later Phase 4 Design Gaps
+## Phase 4 Design Status
 
-Do not solve these accidentally during Phase 3:
+The previously deferred Phase 4 scoring gaps are resolved.
 
--   exact Trend/Momentum CCOS scoring
--   exact Bollinger bandwidth CCOS scoring
--   exact Resistance/Structure CCOS scoring from Phase 3 resistance
-    evidence
+Do not reopen or invent alternatives for:
 
-These require explicit Phase 4 design.
+- Trend/Momentum CCOS scoring;
+- Bollinger bandwidth CCOS treatment;
+- Resistance/Structure CCOS scoring;
+- Market/Sector regime scoring;
+- contract hard gates;
+- Contract Score component formulas;
+- ranking/tie-breaking;
+- Phase 4 persistence/API/versioning semantics.
+
+The locked rules are in `SPECIFICATION.md` and
+`docs/design/OPTIONS-ENGINE-DESIGN-DECISIONS.md`.
 
 ## Recommended Next Conversation
 
-Start a fresh ChatGPT conversation and attach/reference:
+Continue from `main` and read, in order:
 
-1.  this handoff document;
-2.  `SPECIFICATION.md` from the current `phase3` branch;
-3.  `docs/acceptance/PHASE-3-INDICATORS.md`;
-4.  optionally `AGENTS.md`.
+1. `AGENTS.md`
+2. `SPECIFICATION.md`
+3. `docs/design/OPTIONS-ENGINE-HANDOFF.md`
+4. `docs/design/OPTIONS-ENGINE-DESIGN-DECISIONS.md`
+5. `docs/acceptance/PHASE-3-INDICATORS.md`
+6. `docs/acceptance/PHASE-4-ENTRY-STRATEGY.md`
 
-Phase 3 is ready for review. The next phase is Phase 4 strategy design
-and implementation, subject to resolving its explicitly deferred CCOS
-component formulas before coding them. The resistance-clustering
-decision is already locked in `SPECIFICATION.md` §12.11; do not reopen
-Phase 3 methodology as part of Phase 4 work.
+The next implementation packet is **Phase 4A — Strategy Foundations and Input
+Contracts**.
+
+Do not implement later Phase 4 packets in 4A. In particular, 4A shall not
+implement CCOS, Contract Score, persistence, API endpoints, or position sizing.
+
+If implementation reveals a strategy ambiguity, update/clarify the
+specification before adding new financial behavior. Do not silently invent
+formulas, thresholds, or missing-data fallbacks.
+
