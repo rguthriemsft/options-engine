@@ -80,7 +80,7 @@ public sealed class CcosCalculatorTests
         Assert.Equal(0, noQualified.Score);
         Assert.Equal(ScoreStatus.Unavailable, insufficient.Status);
         Assert.Null(insufficient.Score);
-        Assert.Contains(MissingInputCode.Resistance, insufficient.MissingInputs);
+        Assert.Contains(MissingInputCode.ResistanceStatus, insufficient.MissingInputs);
     }
 
     [Theory]
@@ -135,6 +135,18 @@ public sealed class CcosCalculatorTests
 
         Assert.Equal(ScoreStatus.Unavailable, Component(result, ScoreComponentCode.CcosRsi).Status);
         Assert.Contains(MissingInputCode.Rsi14, result.Ccos.MissingInputs);
+    }
+
+    [Theory]
+    [InlineData(-0.0001)]
+    [InlineData(100.0001)]
+    public void RsiOutsideItsApprovedRangeMakesBreakoutVetoUnavailable(double rsi)
+    {
+        var result = Evaluate(Indicators() with { BollingerPercentB = Available(1.16), Rsi14 = Available(rsi), MacdHistogram = Available(.01) });
+
+        Assert.Equal(GateStatus.Unavailable, result.BreakoutVeto.Status);
+        Assert.Equal(RejectionReasonCode.InsufficientData, result.BreakoutVeto.ReasonCode);
+        Assert.Contains(MissingInputCode.Rsi14, result.BreakoutVeto.MissingInputs);
     }
 
     [Theory]
@@ -216,18 +228,19 @@ public sealed class CcosCalculatorTests
     public static IEnumerable<object[]> ClassificationCases() =>
         new[]
         {
-            new object[] { 39.999d, CcosClassification.NoTrade }, new object[] { 40d, CcosClassification.Weak },
+            new object[] { 39.999d, CcosClassification.NoTrade }, new object[] { 40d, CcosClassification.Weak }, new object[] { 40.0001d, CcosClassification.Weak },
             new object[] { 54.999d, CcosClassification.Weak }, new object[] { 55d, CcosClassification.Watch },
-            new object[] { 69.999d, CcosClassification.Watch }, new object[] { 70d, CcosClassification.SellCandidate },
-            new object[] { 79.999d, CcosClassification.SellCandidate }, new object[] { 80d, CcosClassification.Strong },
-            new object[] { 89.999d, CcosClassification.Strong }, new object[] { 90d, CcosClassification.Exceptional }
+            new object[] { 55.0001d, CcosClassification.Watch }, new object[] { 69.999d, CcosClassification.Watch }, new object[] { 70d, CcosClassification.SellCandidate },
+            new object[] { 70.0001d, CcosClassification.SellCandidate }, new object[] { 79.999d, CcosClassification.SellCandidate }, new object[] { 80d, CcosClassification.Strong },
+            new object[] { 80.0001d, CcosClassification.Strong }, new object[] { 89.999d, CcosClassification.Strong }, new object[] { 90d, CcosClassification.Exceptional },
+            new object[] { 90.0001d, CcosClassification.Exceptional }
         };
 
     public static IEnumerable<object[]> ResistanceCases() =>
         new[]
         {
             new object[] { .0199d, 1, 20, 10d }, new object[] { .0201d, 1, 20, 8d },
-            new object[] { .05d, 1, 20, 8d }, new object[] { .0501d, 1, 20, 6d },
+            new object[] { .0499d, 1, 20, 8d }, new object[] { .05d, 1, 20, 8d }, new object[] { .0501d, 1, 20, 6d },
             new object[] { .02d, 1, 20, 10d }, new object[] { .02d, 2, 20, 11d }, new object[] { .02d, 3, 20, 13d },
             new object[] { .02d, 4, 20, 15d }, new object[] { .02d, 5, 20, 15d },
             new object[] { .02d, 4, 19, 15d }, new object[] { .02d, 4, 21, 13d },
@@ -246,7 +259,12 @@ public sealed class CcosCalculatorTests
         yield return [Indicators() with { Sma50 = Missing<decimal>() }, ScoreComponentCode.CcosTrendMomentum, MissingInputCode.Sma50];
         yield return [Indicators() with { Sma200 = Missing<decimal>() }, ScoreComponentCode.CcosTrendMomentum, MissingInputCode.Sma200];
         yield return [Indicators() with { MacdHistogram = Missing<double>() }, ScoreComponentCode.CcosTrendMomentum, MissingInputCode.MacdHistogram];
-        yield return [Indicators() with { ResistanceUnavailableReason = ResistanceUnavailableReason.InsufficientData }, ScoreComponentCode.CcosResistanceStructure, MissingInputCode.Resistance];
+        yield return [Indicators() with { ResistanceUnavailableReason = ResistanceUnavailableReason.InsufficientData }, ScoreComponentCode.CcosResistanceStructure, MissingInputCode.ResistanceStatus];
+        yield return [Indicators() with { DistanceToResistancePercent = Missing<double>(), ResistanceUnavailableReason = null }, ScoreComponentCode.CcosResistanceStructure, MissingInputCode.ResistanceDistancePercent];
+        yield return [Indicators() with { ResistanceTouchCount = Missing<int>(), ResistanceUnavailableReason = null }, ScoreComponentCode.CcosResistanceStructure, MissingInputCode.ResistanceTouchCount];
+        yield return [Indicators() with { ResistanceAgeTradingDays = Missing<int>(), ResistanceUnavailableReason = null }, ScoreComponentCode.CcosResistanceStructure, MissingInputCode.ResistanceAgeTradingDays];
+        yield return [Indicators() with { RealizedVolatility30 = Available(0d) }, ScoreComponentCode.CcosVolatility, MissingInputCode.RealizedVolatility30];
+        yield return [Indicators() with { RealizedVolatility30 = Available(-0.0001d) }, ScoreComponentCode.CcosVolatility, MissingInputCode.RealizedVolatility30];
         yield return [Indicators() with { MarketRegime = MarketRegime.InsufficientData }, ScoreComponentCode.CcosMarketSectorRegime, MissingInputCode.MarketRegime];
         yield return [Indicators() with { SectorRegime = MarketRegime.InsufficientData }, ScoreComponentCode.CcosMarketSectorRegime, MissingInputCode.SectorRegime];
     }

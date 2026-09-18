@@ -147,10 +147,10 @@ public sealed class CcosCalculator
 
         var missing = new List<MissingInputCode>();
         if (context.ResistanceUnavailableReason == ResistanceUnavailableReason.InsufficientData)
-            missing.Add(MissingInputCode.Resistance);
-        var distance = Required(context.DistanceToResistancePercent, MissingInputCode.Resistance, "DISTANCE_TO_RESISTANCE_PERCENT", inputs, missing);
-        var touches = Required(context.ResistanceTouchCount, MissingInputCode.Resistance, "RESISTANCE_TOUCH_COUNT", inputs, missing);
-        var age = Required(context.ResistanceAgeTradingDays, MissingInputCode.Resistance, "RESISTANCE_AGE_TRADING_DAYS", inputs, missing);
+            missing.Add(MissingInputCode.ResistanceStatus);
+        var distance = Required(context.DistanceToResistancePercent, MissingInputCode.ResistanceDistancePercent, "DISTANCE_TO_RESISTANCE_PERCENT", inputs, missing);
+        var touches = Required(context.ResistanceTouchCount, MissingInputCode.ResistanceTouchCount, "RESISTANCE_TOUCH_COUNT", inputs, missing);
+        var age = Required(context.ResistanceAgeTradingDays, MissingInputCode.ResistanceAgeTradingDays, "RESISTANCE_AGE_TRADING_DAYS", inputs, missing);
         if (context.ResistanceUnavailableReason is not null || distance is null || touches is null || age is null)
             return Unavailable(ScoreComponentCode.CcosResistanceStructure, "Resistance/Structure", configuration.ResistanceStructureMaximumScore,
                 inputs, missing);
@@ -191,6 +191,11 @@ public sealed class CcosCalculator
         var percentB = Required(context.BollingerPercentB, MissingInputCode.BollingerPercentB, "BOLLINGER_PERCENT_B", inputs, missing);
         var rsi = Required(context.Rsi14, MissingInputCode.Rsi14, "RSI14", inputs, missing);
         var macd = Required(context.MacdHistogram, MissingInputCode.MacdHistogram, "MACD_HISTOGRAM", inputs, missing);
+        if (rsi is { } rsiValue && (rsiValue < 0 || rsiValue > 100))
+        {
+            SetUnavailable(inputs, missing, "RSI14", MissingInputCode.Rsi14);
+            rsi = null;
+        }
         if (percentB is null || rsi is null || macd is null)
             return new GateResult(GateCode.BreakoutVeto, GateStatus.Unavailable, RejectionReasonCode.InsufficientData, inputs, missing,
                 "Breakout veto could not be evaluated because a required input is unavailable.");
