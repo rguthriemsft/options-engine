@@ -111,7 +111,6 @@ public sealed class EntryStrategyConfigurationTests
     private static EntryStrategyConfiguration Configuration() => new()
     {
         Version = new ConfigurationVersion(1),
-        EffectiveDate = new DateOnly(2026, 9, 17)
     };
 
     private static HoldingContext Holding() => new(

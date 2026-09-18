@@ -48,7 +48,6 @@ public enum OptionContractType
 // These values are stable contracts. Their names, rather than explanation text, are used by later strategy, persistence, and API layers.
 public enum GateCode
 {
-    CcosMinimum,
     BreakoutVeto,
     Dte,
     StrikeOtM,
@@ -79,7 +78,6 @@ public enum ScoreComponentCode
 public enum RejectionReasonCode
 {
     InsufficientData,
-    CcosBelowMinimum,
     BreakoutVeto,
     DteOutsideRange,
     StrikeNotOtm,
@@ -87,17 +85,15 @@ public enum RejectionReasonCode
     EarningsBeforeExpiration,
     InsufficientLiquidity,
     PremiumBelowMinimum,
-    AnnualizedYieldBelowMinimum,
-    ContractScoreBelowMinimum
+    AnnualizedYieldBelowMinimum
 }
 
 public enum DispositionReasonCode
 {
-    EntryCandidateSelected,
+    EntryCandidate,
     CcosBelowMinimum,
     BreakoutVeto,
     InsufficientData,
-    NoEligibleContracts,
     NoAcceptableContract
 }
 
@@ -170,7 +166,8 @@ public sealed record IndicatorContext(
     MarketRegime MarketRegime,
     MarketRegime SectorRegime,
     IndicatorCalculationVersion IndicatorCalculationVersion,
-    ConfigurationVersion ConfigurationVersion)
+    ConfigurationVersion ConfigurationVersion,
+    DateTimeOffset IndicatorCalculatedAtUtc)
 {
     public IndicatorValue<double> IvRank { get; init; } = IndicatorValue<double>.InsufficientData();
 }
@@ -179,7 +176,7 @@ public sealed record EarningsContext(AvailabilityStatus Status, DateOnly? NextEa
 
 /// <summary>
 /// Provider-independent normalized option observation retained by later Phase 4 evaluations.
-/// It intentionally contains no provider DTO or transport concern.
+/// ObservationTimestampUtc is the timestamp of its selected complete chain observation.
 /// </summary>
 public sealed record OptionContractContext(
     string OptionSymbol,
@@ -194,13 +191,15 @@ public sealed record OptionContractContext(
     double? ImpliedVolatility,
     double? Delta,
     double? Theta,
-    decimal? UnderlyingPrice);
+    decimal? UnderlyingPrice,
+    decimal? Last,
+    long? Volume,
+    string Provider);
 
 /// <summary>All resolved Phase 4 numeric configuration used by an evaluation.</summary>
 public sealed record EntryStrategyConfiguration
 {
     public required ConfigurationVersion Version { get; init; }
-    public required DateOnly EffectiveDate { get; init; }
     public CcosConfiguration Ccos { get; init; } = new();
     public ContractScoreConfiguration ContractScore { get; init; } = new();
     public ContractEligibilityConfiguration ContractEligibility { get; init; } = new();
@@ -212,9 +211,9 @@ public sealed record EntryStrategyConfiguration
         ArgumentNullException.ThrowIfNull(Ccos);
         ArgumentNullException.ThrowIfNull(ContractScore);
         ArgumentNullException.ThrowIfNull(ContractEligibility);
-        Ccos.Validate();
-        ContractScore.Validate();
         ContractEligibility.Validate();
+        Ccos.Validate();
+        ContractScore.Validate(ContractEligibility);
     }
 
     /// <summary>Validates holding settings whose effective limits depend on this resolved configuration.</summary>
@@ -257,6 +256,21 @@ public sealed record CcosConfiguration
     public double ResistanceStructureMaximumScore { get; init; } = 15;
     public double MarketSectorRegimeMaximumScore { get; init; } = 15;
     public double DefaultMinimumCcos { get; init; } = 70;
+    public CcosClassificationConfiguration Classification { get; init; } = new();
+    public CcosVolatilityScoringConfiguration Volatility { get; init; } = new();
+    public ContinuousScoreTable Rsi { get; init; } = new() { Bands =
+    [
+        new(null, false, 40, false, 0), new(40, true, 50, false, 2),
+        new(50, true, 55, false, 5), new(55, true, 60, false, 8),
+        new(60, true, 65, false, 11), new(65, true, 70, false, 15),
+        new(70, true, 75, false, 13), new(75, true, 80, true, 9),
+        new(80, false, null, false, 5)
+    ] };
+    public CcosBollingerScoringConfiguration Bollinger { get; init; } = new();
+    public CcosTrendScoringConfiguration TrendMomentum { get; init; } = new();
+    public CcosResistanceScoringConfiguration ResistanceStructure { get; init; } = new();
+    public CcosRegimeScoringConfiguration MarketSectorRegime { get; init; } = new();
+    public BreakoutVetoConfiguration BreakoutVeto { get; init; } = new();
 
     internal void Validate()
     {
@@ -266,6 +280,22 @@ public sealed record CcosConfiguration
             throw new ArgumentOutOfRangeException(nameof(VolatilityMaximumScore), "CCOS component maximum scores must be finite, non-negative, and total 100.");
         if (!double.IsFinite(DefaultMinimumCcos) || DefaultMinimumCcos < 0 || DefaultMinimumCcos > 100)
             throw new ArgumentOutOfRangeException(nameof(DefaultMinimumCcos), "The default minimum CCOS must be between 0 and 100.");
+        ArgumentNullException.ThrowIfNull(Classification);
+        ArgumentNullException.ThrowIfNull(Volatility);
+        ArgumentNullException.ThrowIfNull(Rsi);
+        ArgumentNullException.ThrowIfNull(Bollinger);
+        ArgumentNullException.ThrowIfNull(TrendMomentum);
+        ArgumentNullException.ThrowIfNull(ResistanceStructure);
+        ArgumentNullException.ThrowIfNull(MarketSectorRegime);
+        ArgumentNullException.ThrowIfNull(BreakoutVeto);
+        Classification.Validate();
+        Volatility.Validate(VolatilityMaximumScore);
+        Rsi.Validate(nameof(Rsi), 9, RsiMaximumScore);
+        Bollinger.Validate(BollingerMaximumScore);
+        TrendMomentum.Validate(TrendMomentumMaximumScore);
+        ResistanceStructure.Validate(ResistanceStructureMaximumScore);
+        MarketSectorRegime.Validate(MarketSectorRegimeMaximumScore);
+        BreakoutVeto.Validate();
     }
 }
 
@@ -278,13 +308,64 @@ public sealed record ContractScoreConfiguration
     public double VolatilityEdgeMaximumScore { get; init; } = 10;
     public double LiquidityMaximumScore { get; init; } = 10;
     public double ThetaEfficiencyMaximumScore { get; init; } = 5;
+    public double DefaultMinimumContractScore { get; init; } = 80;
+    public ContractScoreClassificationConfiguration Classification { get; init; } = new();
+    public ContractDeltaScoringConfiguration Delta { get; init; } = new();
+    public ContinuousScoreTable StrikeSafety { get; init; } = new() { Bands =
+    [
+        new(0, false, .01, false, 0), new(.01, true, .02, false, 4),
+        new(.02, true, .03, false, 8), new(.03, true, .04, false, 12),
+        new(.04, true, .06, false, 15), new(.06, true, .08, true, 18),
+        new(.08, false, null, false, 20)
+    ] };
+    public ContinuousScoreTable PremiumEfficiency { get; init; } = new() { Bands =
+    [
+        new(1, true, 1.10, false, 0), new(1.10, true, 1.25, false, 5),
+        new(1.25, true, 1.50, false, 10), new(1.50, true, 2, false, 15),
+        new(2, true, null, false, 20)
+    ] };
+    public IntegerScoreTable DteEfficiency { get; init; } = new() { Bands =
+    [
+        new(14, 20, 5), new(21, 35, 10), new(36, 45, 8)
+    ] };
+    public ContinuousScoreTable VolatilityEdge { get; init; } = new() { Bands =
+    [
+        new(null, false, .90, false, 0), new(.90, true, 1, false, 2),
+        new(1, true, 1.10, false, 4), new(1.10, true, 1.20, false, 6),
+        new(1.20, true, 1.35, true, 8), new(1.35, false, null, false, 10)
+    ] };
+    public ContractLiquidityScoringConfiguration Liquidity { get; init; } = new();
+    public ContinuousScoreTable ThetaEfficiency { get; init; } = new() { Bands =
+    [
+        new(null, false, .01, false, 0), new(.01, true, .02, false, 1),
+        new(.02, true, .03, false, 2), new(.03, true, .04, false, 3),
+        new(.04, true, .05, false, 4), new(.05, true, null, false, 5)
+    ] };
 
-    internal void Validate()
+    internal void Validate(ContractEligibilityConfiguration eligibility)
     {
         var weights = new[] { DeltaMaximumScore, StrikeSafetyMaximumScore, PremiumEfficiencyMaximumScore, DteEfficiencyMaximumScore,
             VolatilityEdgeMaximumScore, LiquidityMaximumScore, ThetaEfficiencyMaximumScore };
         if (weights.Any(x => !double.IsFinite(x) || x < 0) || Math.Abs(weights.Sum() - 100) > 0.0000001)
             throw new ArgumentOutOfRangeException(nameof(DeltaMaximumScore), "Contract Score component maximum scores must be finite, non-negative, and total 100.");
+        if (!double.IsFinite(DefaultMinimumContractScore) || DefaultMinimumContractScore < 0 || DefaultMinimumContractScore > 100)
+            throw new ArgumentOutOfRangeException(nameof(DefaultMinimumContractScore), "The default minimum Contract Score must be between 0 and 100.");
+        ArgumentNullException.ThrowIfNull(Classification);
+        ArgumentNullException.ThrowIfNull(Delta);
+        ArgumentNullException.ThrowIfNull(StrikeSafety);
+        ArgumentNullException.ThrowIfNull(PremiumEfficiency);
+        ArgumentNullException.ThrowIfNull(DteEfficiency);
+        ArgumentNullException.ThrowIfNull(VolatilityEdge);
+        ArgumentNullException.ThrowIfNull(Liquidity);
+        ArgumentNullException.ThrowIfNull(ThetaEfficiency);
+        Classification.Validate();
+        Delta.Validate(DeltaMaximumScore);
+        StrikeSafety.Validate(nameof(StrikeSafety), 7, StrikeSafetyMaximumScore, 0);
+        PremiumEfficiency.Validate(nameof(PremiumEfficiency), 5, PremiumEfficiencyMaximumScore, 1);
+        DteEfficiency.Validate(nameof(DteEfficiency), 3, DteEfficiencyMaximumScore, eligibility.MinimumDte, eligibility.MaximumDte);
+        VolatilityEdge.Validate(nameof(VolatilityEdge), 6, VolatilityEdgeMaximumScore);
+        Liquidity.Validate(LiquidityMaximumScore, eligibility.MaximumBidAskSpreadPercent, eligibility.MinimumOpenInterest);
+        ThetaEfficiency.Validate(nameof(ThetaEfficiency), 6, ThetaEfficiencyMaximumScore);
     }
 }
 
@@ -320,6 +401,7 @@ public sealed record ScoreInput(string Code, AvailabilityStatus Status, string? 
 
 public sealed record ScoreComponentResult(
     ScoreComponentCode Code,
+    string Name,
     ScoreStatus Status,
     double? Score,
     double MaximumScore,
@@ -363,13 +445,16 @@ public sealed record ContractEvaluation(
     ContractDerivedMetrics DerivedMetrics,
     IReadOnlyList<GateResult> Gates,
     ScoreResult? ContractScore,
+    bool HardGateEligible,
+    bool EntryAcceptable,
     int? Rank,
     IReadOnlyList<MissingInputCode> MissingInputs,
     IReadOnlyList<string> Explanations);
 
-/// <summary>Immutable, provider-independent Phase 4 result shape. Persistence is deliberately deferred to Phase 4E.</summary>
+/// <summary>Immutable Phase 4 result shape. Application supplies the permanent ID and calculation time before persistence.</summary>
 public sealed record EntryStrategyEvaluation(
     Guid EntryStrategyEvaluationId,
+    DateTimeOffset CalculatedAtUtc,
     EvaluationContext Context,
     ScoreResult? Ccos,
     IReadOnlyList<GateResult> UnderlyingGates,
