@@ -132,12 +132,68 @@ public sealed class ImpliedVolatilityContextCalculatorTests
     }
 
     [Fact]
-    public void LatestEligibleAsOfSnapshotIsSelectedWhenNewerSnapshotHasNoAtmPair()
+    public void NewerInvalidSnapshotMakesExpirationUnavailableWithoutUsingOlderValidSnapshot()
     {
         var earlier = Chain(30, 0.20, 0.40, observedAt: CalculatedAt.AddHours(-2));
         var laterWithoutPair = Chain(30, 0.90, null, observedAt: CalculatedAt.AddHours(-1));
 
-        AssertValue(0.30, Calculate([earlier, laterWithoutPair]).Iv30);
+        var result = Calculate([earlier, laterWithoutPair]);
+
+        AssertUnavailable(result.Iv30);
+        Assert.Equal(Iv30UnavailableReason.NoEligibleAtmPair, result.Iv30UnavailableReason);
+    }
+
+    [Fact]
+    public void NewerEmptySnapshotMakesExpirationUnavailableWithoutUsingOlderValidSnapshot()
+    {
+        var earlier = Chain(30, 0.20, 0.40, observedAt: CalculatedAt.AddHours(-2));
+        var laterEmpty = Chain(30, null, null, observedAt: CalculatedAt.AddHours(-1), contracts: []);
+
+        var result = Calculate([laterEmpty, earlier]);
+
+        AssertUnavailable(result.Iv30);
+        Assert.Equal(Iv30UnavailableReason.NoEligibleAtmPair, result.Iv30UnavailableReason);
+    }
+
+    [Fact]
+    public void NewerValidSnapshotReplacesOlderInvalidSnapshot()
+    {
+        var earlierWithoutPair = Chain(30, 0.20, null, observedAt: CalculatedAt.AddHours(-2));
+        var later = Chain(30, 0.40, 0.60, observedAt: CalculatedAt.AddHours(-1));
+
+        AssertValue(0.50, Calculate([later, earlierWithoutPair]).Iv30);
+    }
+
+    [Fact]
+    public void NewerSnapshotAfterAsOfDateDoesNotReplaceLatestEligibleSnapshot()
+    {
+        var earlier = Chain(30, 0.20, 0.40, observedAt: CalculatedAt.AddHours(-1));
+        var later = Chain(30, 0.90, 0.90, observedAt: CalculatedAt.AddDays(1));
+
+        AssertValue(0.30, Calculate([later, earlier]).Iv30);
+    }
+
+    [Fact]
+    public void NewerSameDaySnapshotAfterCalculatedAtDoesNotReplaceLatestEligibleSnapshot()
+    {
+        var earlier = Chain(30, 0.20, 0.40, observedAt: CalculatedAt.AddHours(-1));
+        var later = Chain(30, 0.90, 0.90, observedAt: CalculatedAt.AddMinutes(1));
+
+        AssertValue(0.30, Calculate([later, earlier]).Iv30);
+    }
+
+    [Fact]
+    public void SelectsLatestEligibleSnapshotIndependentlyForEachInterpolationExpiration()
+    {
+        var chains = new[]
+        {
+            Chain(40, 0.60, 0.60, observedAt: CalculatedAt.AddHours(-1)),
+            Chain(20, 0.10, 0.10, observedAt: CalculatedAt.AddHours(-2)),
+            Chain(40, 0.30, 0.30, observedAt: CalculatedAt.AddHours(-2)),
+            Chain(20, 0.20, 0.20, observedAt: CalculatedAt.AddHours(-1))
+        };
+
+        AssertValue(0.40, Calculate(chains).Iv30);
     }
 
     [Fact]

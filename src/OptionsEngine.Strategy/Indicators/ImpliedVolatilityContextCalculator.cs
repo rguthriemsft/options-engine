@@ -22,10 +22,10 @@ public sealed class ImpliedVolatilityContextCalculator
             .ToArray();
 
         var expirationIvs = asOfChains
+            .GroupBy(chain => chain.Expiration)
+            .Select(group => group.OrderByDescending(chain => chain.ObservedAt).First())
             .Select(chain => (Chain: chain, Iv: ExpirationIv(chain, settings)))
             .Where(item => item.Iv.HasValue)
-            .GroupBy(item => item.Chain.Expiration)
-            .Select(group => group.OrderByDescending(item => item.Chain.ObservedAt).First())
             .Select(item => (Dte: item.Chain.Expiration.DayNumber - request.AsOfDate.DayNumber, Iv: item.Iv!.Value))
             .ToArray();
 

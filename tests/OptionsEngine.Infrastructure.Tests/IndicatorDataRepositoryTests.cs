@@ -1,4 +1,5 @@
 using Microsoft.EntityFrameworkCore;
+using OptionsEngine.Application.MarketData;
 using OptionsEngine.Infrastructure.Persistence;
 using OptionsEngine.MarketData.Models;
 using OptionsEngine.Strategy.Indicators;
@@ -157,6 +158,33 @@ public sealed class IndicatorDataRepositoryTests : IAsyncLifetime
         Assert.Empty(historical[0].Contracts);
         Assert.Equal(observedAt, historical[0].Timestamp);
         Assert.Empty(await repository.GetOptionChainsThroughAsync("MSFT", "Tradier", asOf.AddDays(-1), CalculatedAt));
+    }
+
+    [Fact]
+    public async Task PersistedNewerEmptyChainMakesOlderValidIvUnavailable()
+    {
+        await using var db = CreateContext();
+        var cache = new SqliteMarketDataCache(db);
+        var repository = new SqliteIndicatorDataRepository(db);
+        var asOf = new DateOnly(2026, 1, 2);
+        var expiration = asOf.AddDays(30);
+        var earlierAt = new DateTimeOffset(2026, 1, 2, 14, 0, 0, TimeSpan.Zero);
+        var laterAt = earlierAt.AddHours(1);
+        await cache.SaveOptionChainAsync(Chain(earlierAt, expiration, 0.2));
+        await cache.SaveOptionChainAsync(new OptionChain("MSFT", expiration, laterAt, [], "Tradier"));
+
+        var persisted = await repository.GetOptionChainsThroughAsync("MSFT", "Tradier", asOf, CalculatedAt);
+        Assert.Equal(2, persisted.Count);
+        Assert.Equal(earlierAt, persisted[0].Timestamp);
+        Assert.Equal(laterAt, persisted[1].Timestamp);
+        Assert.Empty(persisted[1].Contracts);
+
+        var result = new ImpliedVolatilityContextCalculator().Calculate(new ImpliedVolatilityCalculationRequest(
+            "MSFT", asOf, persisted.Select(ImpliedVolatilityObservationMapper.Map).ToArray(), [],
+            new IndicatorConfiguration { Version = new ConfigurationVersion(1) }, Version, CalculatedAt));
+        Assert.Equal(IndicatorValueStatus.InsufficientData, result.Iv30.Status);
+        Assert.Null(result.Iv30.Value);
+        Assert.Equal(Iv30UnavailableReason.NoEligibleAtmPair, result.Iv30UnavailableReason);
     }
 
     [Fact]
