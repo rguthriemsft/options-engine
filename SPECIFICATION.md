@@ -267,6 +267,8 @@ Sector-regime algorithm
 
 Stored historical recommendations and indicator snapshots shall retain sufficient version information to reproduce and explain their original results.
 
+Recalculating a canonical indicator snapshot from corrected historical inputs may change that canonical snapshot under the same calculation and configuration versions, as specified in Section 12.15. This shall not silently mutate an already recorded historical recommendation or erase the inputs and calculated values needed to explain its original decision.
+
 ## 6\.3 Immutable Transactions
 
 Executed transactions shall be represented as immutable ledger entries\.
@@ -1334,7 +1336,7 @@ Recalculating a current indicator must not silently rewrite a historical result 
 
 Calculated indicator snapshots shall be retained when necessary for recommendation reproducibility, auditing, historical research, and future backtesting.
 
-A persisted indicator observation shall be uniquely distinguishable by at least:
+A canonical persisted indicator snapshot has exactly one row per identity:
 
 ```text
 Symbol
@@ -1342,6 +1344,12 @@ AsOfDate
 IndicatorCalculationVersion
 ConfigurationVersion
 ```
+
+The database shall enforce a unique constraint or index over these four fields. Persistence shall use deterministic, atomic insert-or-replace/update semantics: insert when the identity does not exist; when it does exist, replace the persisted calculated facts with the newly calculated facts without creating a second canonical row. Preserve all four identity fields during replacement. `CalculatedAt` represents when the current canonical values were calculated and shall update to the new calculation timestamp after a successful replacement.
+
+Corrected historical source data eligible for `AsOfDate` may legitimately change a recalculated canonical result. Recalculation shall not weaken AsOfDate or no-look-ahead rules: source observations ineligible for the requested historical AsOfDate shall not affect the result merely because calculation runs later.
+
+A material algorithm change requires a new `IndicatorCalculationVersion`, and a material configuration change requires a new `ConfigurationVersion`. Each therefore creates a distinct canonical identity rather than replacing the prior version. V1 does not require immutable history of every recalculation; any future calculation audit/history belongs in a separate model, not duplicate canonical snapshot rows.
 
 Persistence shall preserve nullable/unavailable values.
 

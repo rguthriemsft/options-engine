@@ -59,6 +59,27 @@ implementation agent.
 -   Historical results must not silently change under newer
     algorithms/configuration.
 
+## Canonical Phase 3 Indicator Snapshots
+
+-   One canonical row is identified by `Symbol`, `AsOfDate`,
+    `IndicatorCalculationVersion`, and `ConfigurationVersion`; a
+    database unique constraint/index enforces this identity.
+-   V1 persistence atomically inserts a new identity or replaces the
+    calculated facts of an existing identity. Retries do not create
+    duplicate canonical rows; replacement preserves all identity fields.
+-   `CalculatedAt` is the calculation time of the current canonical
+    values and updates on successful replacement.
+-   Corrected historical source data eligible for `AsOfDate` may change
+    the canonical result. Future/ineligible data cannot backfill or
+    change a historical recalculation merely because it runs later.
+-   Material algorithm and configuration changes use new calculation
+    and configuration versions, respectively, and coexist as distinct
+    canonical identities rather than overwriting previous versions.
+-   V1 does not retain every recalculation as an immutable history.
+    Any later calculation audit belongs in a separate model, not
+    duplicate canonical snapshot rows. Recorded historical
+    recommendations must still remain explainable and unchanged.
+
 ## Phase 3 Indicator Math
 
 -   SMA: arithmetic mean; no partial windows.

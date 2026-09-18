@@ -1119,16 +1119,18 @@ Phase 4 may determine how they contribute to CCOS.
 
 Calculated indicators shall be persistable as historical observations.
 
-A persisted indicator snapshot shall be uniquely associated with at least:
+A canonical persisted indicator snapshot has exactly one row per identity:
 
 ```text
 Symbol
 AsOfDate
-CalculationVersion
+IndicatorCalculationVersion
 ConfigurationVersion
 ```
 
-Recalculating today's indicators must not silently rewrite historical results generated under a different calculation/configuration version.
+Enforce a database unique constraint or index over the four identity fields. Insert a first calculation; atomically replace/update calculated facts when the same identity is recalculated. A retry or recalculation must not create a second canonical row. Replacement preserves the identity fields and updates `CalculatedAt` to the new calculation timestamp.
+
+Corrected source data eligible for the historical AsOfDate may change the canonical facts on recalculation. Future or otherwise ineligible source data must not change a historical result merely because it is recalculated later. Material algorithm/configuration changes require new calculation/configuration versions and therefore distinct canonical identities. V1 does not require an immutable audit of each recalculation; any future audit belongs in a separate model rather than duplicate canonical rows.
 
 Persistence shall support later recommendation reproducibility.
 
@@ -1589,10 +1591,20 @@ Calculation version preserved
 Configuration version preserved
 Historical as-of date preserved
 Different calculation versions may coexist
+Different configuration versions may coexist
 Different as-of dates may coexist
+First calculation inserts one canonical snapshot
+Repeating the same calculation creates no duplicate
+Recalculation after eligible historical source correction updates canonical facts
+CalculatedAt updates on replacement
+Symbol, AsOfDate, IndicatorCalculationVersion, and ConfigurationVersion remain unchanged on replacement
+Future/ineligible source observations cannot change historical recalculation
+New IndicatorCalculationVersion creates a distinct canonical snapshot
+New ConfigurationVersion creates a distinct canonical snapshot
+Exactly one row remains per canonical identity after retries and recalculations
 ```
 
-Do not allow a current calculation to destroy historical calculation records.
+Do not allow recalculation to replace a different as-of date or version, or to silently change an already recorded historical recommendation.
 
 ---
 
