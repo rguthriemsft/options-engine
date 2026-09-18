@@ -345,7 +345,6 @@ recommended contract count belong to Phase 5.
 
 Implementation shall proceed in work packets 4A through 4F as defined in
 `SPECIFICATION.md` and the Phase 4 acceptance checklist.
-## Phase 3 Mathematical Decisions Already Locked
 
 ## Phase 3 Mathematical Decisions Already Locked
 
