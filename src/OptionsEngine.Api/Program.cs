@@ -1,5 +1,7 @@
 using Microsoft.AspNetCore.Diagnostics.HealthChecks;
 using Microsoft.EntityFrameworkCore;
+using System.Text.Json.Serialization;
+using System.Text.Json;
 using OptionsEngine.Api.Health;
 using OptionsEngine.Api.Indicators;
 using OptionsEngine.Infrastructure.Persistence;
@@ -12,6 +14,12 @@ using OptionsEngine.MarketData.Tradier;
 using OptionsEngine.Strategy.Indicators;
 
 var builder = WebApplication.CreateBuilder(args);
+builder.Services.ConfigureHttpJsonOptions(options =>
+{
+    options.SerializerOptions.Converters.Add(new JsonStringEnumConverter(null, allowIntegerValues: false));
+    options.SerializerOptions.Converters.Add(new ConfigurationVersionHttpJsonConverter());
+    options.SerializerOptions.Converters.Add(new IndicatorCalculationVersionHttpJsonConverter());
+});
 
 var connectionString = builder.Configuration.GetConnectionString("OptionsEngine")
     ?? throw new InvalidOperationException("Connection string 'OptionsEngine' is required.");
@@ -47,6 +55,8 @@ builder.Services.AddScoped<IEntryStrategyMarketDataRepository, SqliteEntryStrate
 builder.Services.AddScoped<EntryStrategyEvaluationOrchestrator>();
 builder.Services.AddScoped<IEntryStrategyEvaluationRepository, SqliteEntryStrategyEvaluationRepository>();
 builder.Services.AddScoped<EntryStrategyEvaluationPersistenceService>();
+builder.Services.AddScoped<IEntryStrategyEvaluationWriter>(sp =>
+    sp.GetRequiredService<EntryStrategyEvaluationPersistenceService>());
 builder.Services.AddSingleton(TimeProvider.System);
 builder.Services.AddHealthChecks().AddCheck<DatabaseHealthCheck>("database");
 
@@ -62,6 +72,7 @@ await using (var scope = app.Services.CreateAsyncScope())
 
 app.MapHealthChecks("/health", new HealthCheckOptions { ResponseWriter = HealthResponseWriter.WriteAsync });
 app.MapIndicatorEndpoints();
+app.MapEntryStrategyEndpoints();
 var market = app.MapGroup("/api/market").AddEndpointFilter(async (context, next) =>
 {
     try { return await next(context); }

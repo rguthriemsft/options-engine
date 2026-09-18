@@ -37,10 +37,17 @@ public interface IEntryStrategyEvaluationRepository
         CancellationToken cancellationToken = default);
 }
 
+/// <summary>Application write boundary used by the HTTP layer without exposing orchestration details.</summary>
+public interface IEntryStrategyEvaluationWriter
+{
+    Task<PersistedEntryStrategyEvaluation> CreateAsync(Guid holdingId, DateTimeOffset evaluationTimestampUtc,
+        CancellationToken cancellationToken = default);
+}
+
 public sealed class EntryStrategyEvaluationPersistenceService(
     EntryStrategyEvaluationOrchestrator orchestrator,
     IEntryStrategyEvaluationRepository repository,
-    TimeProvider timeProvider)
+    TimeProvider timeProvider) : IEntryStrategyEvaluationWriter
 {
     public async Task<PersistedEntryStrategyEvaluation> CreateAsync(Guid holdingId, DateTimeOffset evaluationTimestampUtc,
         CancellationToken cancellationToken = default)

@@ -828,16 +828,16 @@ GET /api/holdings/{holdingId}/entry-evaluations
 
 Acceptance criteria:
 
-- [ ] POST evaluates current server-owned context and returns `201 Created`.
-- [ ] Successful POST persists exactly one immutable evaluation.
-- [ ] GET by ID is passive retrieval and performs no refresh/recalculation.
-- [ ] Holding history is lightweight and newest first.
-- [ ] Missing holding returns 404.
-- [ ] Disabled holding returns 409 `HOLDING_DISABLED`.
-- [ ] Strategy outcomes such as `INSUFFICIENT_DATA`, `CCOS_BELOW_MINIMUM`, `BREAKOUT_VETO`, or `NO_ACCEPTABLE_CONTRACT` remain successful persisted evaluations.
-- [ ] Public V1 POST does not expose arbitrary as-of/evaluation/version parameters.
-- [ ] No PUT, PATCH, or DELETE endpoint exists for EntryStrategyEvaluation.
-- [ ] API DTOs do not expose EF entities.
+- [x] POST evaluates current server-owned context and returns `201 Created`.
+- [x] Successful POST persists exactly one immutable evaluation.
+- [x] GET by ID is passive retrieval and performs no refresh/recalculation.
+- [x] Holding history is lightweight and newest first.
+- [x] Missing holding returns 404.
+- [x] Disabled holding returns 409 `HOLDING_DISABLED`.
+- [x] Strategy outcomes such as `INSUFFICIENT_DATA`, `CCOS_BELOW_MINIMUM`, `BREAKOUT_VETO`, or `NO_ACCEPTABLE_CONTRACT` remain successful persisted evaluations.
+- [x] Public V1 POST does not expose arbitrary as-of/evaluation/version parameters.
+- [x] No PUT, PATCH, or DELETE endpoint exists for EntryStrategyEvaluation.
+- [x] API DTOs do not expose EF entities.
 
 ---
 
@@ -963,18 +963,18 @@ current date/time
 
 Before Phase 4 is complete:
 
-- [ ] `dotnet restore` succeeds.
-- [ ] `dotnet build --configuration Release --no-restore` succeeds.
-- [ ] Release build contains zero warnings/errors unless an explicitly documented repository-wide exception exists.
-- [ ] `dotnet test --configuration Release --no-build` passes.
-- [ ] Clean EF migration path succeeds.
-- [ ] Phase 3 database upgrades to Phase 4 successfully.
-- [ ] No credentials or personal financial data are introduced.
-- [ ] Architecture dependency rules remain intact.
-- [ ] No Phase 5+ behavior is implemented.
-- [ ] Documentation matches implementation.
-- [ ] Every Phase 4 threshold has deterministic below/at/above coverage.
-- [ ] All eight Phase 4 golden scenarios pass.
+- [x] `dotnet restore` succeeds.
+- [x] `dotnet build --configuration Release --no-restore` succeeds.
+- [x] Release build contains zero warnings/errors unless an explicitly documented repository-wide exception exists.
+- [x] `dotnet test --configuration Release --no-build` passes.
+- [x] Clean EF migration path succeeds.
+- [x] Phase 3 database upgrades to Phase 4 successfully.
+- [x] No credentials or personal financial data are introduced.
+- [x] Architecture dependency rules remain intact.
+- [x] No Phase 5+ behavior is implemented.
+- [x] Documentation matches implementation.
+- [x] Every Phase 4 threshold has deterministic below/at/above coverage.
+- [x] All eight Phase 4 golden scenarios pass.
 
 ---
 

@@ -343,8 +343,8 @@ Phase 4 stops before position sizing. Coverage, available-share constraints,
 existing-call exposure, DER, maximum coverage, strike laddering, scaling, and
 recommended contract count belong to Phase 5.
 
-Phase 4A, 4B, 4C, 4D, and 4E are complete. Phase 4F — API and final merge
-gate — is next. Phase 4 stops before position sizing.
+Phase 4A, 4B, 4C, 4D, 4E, and 4F are complete. The Phase 4 merge gate is
+passed. Phase 4 stops before position sizing.
 
 ## Phase 3 Mathematical Decisions Already Locked
 
@@ -599,8 +599,8 @@ authoritative contract or sanitized captured fixture is available.
 
 ## Current Phase Status
 
-Phase 1, Phase 2, Phase 3, Phase 4A, Phase 4B, Phase 4C, and Phase 4D are complete.
-Phase 4E immutable evaluation persistence is now complete. Phase 4F remains.
+Phase 1, Phase 2, Phase 3, Phase 4A, Phase 4B, Phase 4C, Phase 4D, Phase 4E,
+and Phase 4F are complete. The Phase 4 merge gate is passed.
 
 Completed Phase 4 decisions include CCOS and breakout veto, Contract Score,
 contract gates/ranking, one-touch resistance scoring (zero touch points),
@@ -615,7 +615,7 @@ chain observations.
 
 ## Recommended Next Conversation
 
-Continue with **Phase 4F — API and final merge gate** and read, in order:
+Continue with **Phase 5 — Position Sizing** and read, in order:
 
 1. `AGENTS.md`
 2. `SPECIFICATION.md`
