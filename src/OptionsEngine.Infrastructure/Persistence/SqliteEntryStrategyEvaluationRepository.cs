@@ -12,7 +12,11 @@ public sealed class SqliteEntryStrategyEvaluationRepository(OptionsEngineDbConte
 {
     private static readonly JsonSerializerOptions JsonOptions = new()
     {
-        Converters = { new ConfigurationVersionJsonConverter() }
+        Converters =
+        {
+            new JsonStringEnumConverter(null, allowIntegerValues: false),
+            new ConfigurationVersionJsonConverter()
+        }
     };
 
     public async Task InsertAsync(PersistedEntryStrategyEvaluation evaluation, CancellationToken cancellationToken = default)

@@ -263,6 +263,26 @@ public sealed class EntryStrategyEvaluationOrchestratorTests
     }
 
     [Fact]
+    public async Task PersistenceServiceUsesRequestedCutoffAndInjectedCalculatedAtAndInsertsOnce()
+    {
+        var fixture = Fixture();
+        var expiration = new DateOnly(2026, 10, 16);
+        fixture.MarketData.Chains = [Chain(expiration, EvaluationAt, [Contract("CALL", expiration, EvaluationAt)])];
+        var repository = new CapturingEvaluationRepository();
+        var calculatedAt = new DateTimeOffset(2026, 9, 18, 16, 30, 0, TimeSpan.Zero);
+        var service = new EntryStrategyEvaluationPersistenceService(fixture.Orchestrator, repository,
+            new FixedTimeProvider(calculatedAt));
+
+        var persisted = await service.CreateAsync(HoldingId, EvaluationAt);
+
+        Assert.Equal(1, repository.InsertCount);
+        Assert.Equal(persisted.Evaluation.EntryStrategyEvaluationId, repository.Value!.Evaluation.EntryStrategyEvaluationId);
+        Assert.Equal(EvaluationAt, persisted.Evaluation.Context.EvaluationTimestampUtc);
+        Assert.Equal(calculatedAt, persisted.Evaluation.CalculatedAtUtc);
+        Assert.NotEqual(persisted.Evaluation.Context.EvaluationTimestampUtc, persisted.Evaluation.CalculatedAtUtc);
+    }
+
+    [Fact]
     public async Task ConfiguredEarningsSourceBuildsAvailableContextConsumedByStrategyGate()
     {
         var fixture = Fixture();
@@ -370,6 +390,27 @@ public sealed class EntryStrategyEvaluationOrchestratorTests
             return Task.FromResult<IReadOnlyList<OptionChain>>(Chains.Where(x => x.Expiration >= minimumExpiration &&
                 x.Expiration <= maximumExpiration && x.Timestamp <= evaluationTimestampUtc).ToArray());
         }
+    }
+
+    private sealed class CapturingEvaluationRepository : IEntryStrategyEvaluationRepository
+    {
+        public int InsertCount { get; private set; }
+        public PersistedEntryStrategyEvaluation? Value { get; private set; }
+        public Task InsertAsync(PersistedEntryStrategyEvaluation evaluation, CancellationToken cancellationToken = default)
+        {
+            InsertCount++;
+            Value = evaluation;
+            return Task.CompletedTask;
+        }
+        public Task<PersistedEntryStrategyEvaluation?> GetByIdAsync(Guid evaluationId, CancellationToken cancellationToken = default) =>
+            Task.FromResult(Value?.Evaluation.EntryStrategyEvaluationId == evaluationId ? Value : null);
+        public Task<IReadOnlyList<EntryStrategyEvaluationHistoryItem>> GetHistoryByHoldingAsync(Guid holdingId, CancellationToken cancellationToken = default) =>
+            Task.FromResult<IReadOnlyList<EntryStrategyEvaluationHistoryItem>>([]);
+    }
+
+    private sealed class FixedTimeProvider(DateTimeOffset utcNow) : TimeProvider
+    {
+        public override DateTimeOffset GetUtcNow() => utcNow;
     }
 
     private sealed class FakeIndicatorRepository : IIndicatorDataRepository

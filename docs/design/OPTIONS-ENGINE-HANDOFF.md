@@ -317,9 +317,9 @@ Phase 3 explicitly does NOT own CCOS, Contract Score, trade eligibility,
 contract ranking, position sizing, DRS, Roll Engine / RQS, recommendations,
 or trade execution.
 
-### Phase 4 --- Design Locked, Implementation Not Started
+### Phase 4 --- Implementation Status
 
-Phase 4 strategy methodology is fully designed and recorded on `main`.
+Phase 4 strategy methodology is fully designed and implemented through Phase 4E.
 
 Authoritative Phase 4 documents:
 
@@ -343,8 +343,8 @@ Phase 4 stops before position sizing. Coverage, available-share constraints,
 existing-call exposure, DER, maximum coverage, strike laddering, scaling, and
 recommended contract count belong to Phase 5.
 
-Implementation shall proceed in work packets 4A through 4F as defined in
-`SPECIFICATION.md` and the Phase 4 acceptance checklist.
+Phase 4A, 4B, 4C, 4D, and 4E are complete. Phase 4F — API and final merge
+gate — is next. Phase 4 stops before position sizing.
 
 ## Phase 3 Mathematical Decisions Already Locked
 

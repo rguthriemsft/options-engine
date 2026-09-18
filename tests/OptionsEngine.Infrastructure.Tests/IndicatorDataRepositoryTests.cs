@@ -268,6 +268,56 @@ public sealed class IndicatorDataRepositoryTests : IAsyncLifetime
         }
     }
 
+    [Fact]
+    public async Task PopulatedPhaseThreeDatabaseUpgradesToPhaseFourWithoutLosingExistingData()
+    {
+        var upgradePath = Path.Combine(Path.GetTempPath(), $"options-engine-phase3-to-phase4-{Guid.NewGuid():N}.db");
+        try
+        {
+            var account = new OptionsEngine.Domain.Accounts.Account("Phase3", OptionsEngine.Domain.Accounts.Broker.Other,
+                OptionsEngine.Domain.Accounts.AccountType.Taxable, false);
+            var holding = new OptionsEngine.Domain.Accounts.Holding(account, "MSFT", OptionsEngine.Domain.Accounts.AssetType.Stock,
+                100m, OptionsEngine.Domain.Accounts.AssignmentSensitivity.Level3, OptionsEngine.Domain.Accounts.TaxSensitivity.Moderate,
+                1m, .25, .12, .18, 70, 80, .1m, .1, 0);
+            var lot = new OptionsEngine.Domain.Accounts.TaxLot(holding, new DateOnly(2020, 1, 2), 100m, 10m, 1000m,
+                OptionsEngine.Domain.Accounts.HoldingPeriodClassification.LongTerm);
+            var expiration = new DateOnly(2026, 10, 16);
+            var chain = Chain(new DateTimeOffset(2026, 9, 17, 15, 0, 0, TimeSpan.Zero), expiration, .2);
+
+            await using (var phase3 = CreateContext(upgradePath))
+            {
+                await phase3.Database.MigrateAsync("20260918024627_AddIndicatorSnapshots");
+                phase3.AddRange(account, holding, lot);
+                var cache = new SqliteMarketDataCache(phase3);
+                await cache.UpsertHistoricalBarsAsync([new HistoricalBar("MSFT", Start, 1m, 2m, 1m, 2m, 100, "Tradier")], Start, Start, CalculatedAt);
+                await cache.SaveOptionChainAsync(chain);
+                await new SqliteIndicatorDataRepository(phase3).UpsertSnapshotAsync(Snapshot(Start, Version, 1));
+            }
+
+            await using (var phase4 = CreateContext(upgradePath))
+            {
+                await phase4.Database.MigrateAsync("20260918170325_AddEntryStrategyEvaluations");
+                Assert.Contains(await phase4.Database.GetAppliedMigrationsAsync(), x => x.EndsWith("_AddEntryStrategyEvaluations", StringComparison.Ordinal));
+                Assert.Empty(await phase4.EntryStrategyEvaluations.ToListAsync());
+                Assert.Empty(await phase4.Database.GetPendingMigrationsAsync());
+            }
+
+            await using var verify = CreateContext(upgradePath);
+            Assert.Single(await verify.Accounts.ToListAsync());
+            Assert.Single(await verify.Holdings.ToListAsync());
+            Assert.Single(await verify.TaxLots.ToListAsync());
+            Assert.Single(await verify.HistoricalPriceBars.ToListAsync());
+            Assert.Equal(2, await verify.OptionContractSnapshots.CountAsync());
+            Assert.Single(await verify.IndicatorSnapshots.ToListAsync());
+        }
+        finally
+        {
+            File.Delete(upgradePath);
+            File.Delete($"{upgradePath}-shm");
+            File.Delete($"{upgradePath}-wal");
+        }
+    }
+
     private OptionsEngineDbContext CreateContext() => new(
         new DbContextOptionsBuilder<OptionsEngineDbContext>().UseSqlite($"Data Source={_path}").Options);
 
