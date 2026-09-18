@@ -135,6 +135,9 @@ public sealed class CcosCalculatorTests
 
         Assert.Equal(ScoreStatus.Unavailable, Component(result, ScoreComponentCode.CcosRsi).Status);
         Assert.Contains(MissingInputCode.Rsi14, result.Ccos.MissingInputs);
+        var input = Assert.Single(Component(result, ScoreComponentCode.CcosRsi).Inputs, x => x.Code == "RSI14");
+        Assert.Equal(AvailabilityStatus.Unavailable, input.Status);
+        Assert.Equal(rsi.ToString("G17", System.Globalization.CultureInfo.InvariantCulture), input.Value);
     }
 
     [Theory]
@@ -147,6 +150,21 @@ public sealed class CcosCalculatorTests
         Assert.Equal(GateStatus.Unavailable, result.BreakoutVeto.Status);
         Assert.Equal(RejectionReasonCode.InsufficientData, result.BreakoutVeto.ReasonCode);
         Assert.Contains(MissingInputCode.Rsi14, result.BreakoutVeto.MissingInputs);
+        var input = Assert.Single(result.BreakoutVeto.Inputs, x => x.Code == "RSI14");
+        Assert.Equal(AvailabilityStatus.Unavailable, input.Status);
+        Assert.Equal(rsi.ToString("G17", System.Globalization.CultureInfo.InvariantCulture), input.Value);
+    }
+
+    [Theory]
+    [InlineData(0d)]
+    [InlineData(-0.0001d)]
+    public void InvalidRv30HasOneUnavailableInputWithItsSuppliedValue(double rv30)
+    {
+        var result = Evaluate(Indicators() with { RealizedVolatility30 = Available(rv30) });
+        var input = Assert.Single(Component(result, ScoreComponentCode.CcosVolatility).Inputs, x => x.Code == "RV30");
+
+        Assert.Equal(AvailabilityStatus.Unavailable, input.Status);
+        Assert.Equal(rv30.ToString("G17", System.Globalization.CultureInfo.InvariantCulture), input.Value);
     }
 
     [Theory]

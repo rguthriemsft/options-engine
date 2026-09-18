@@ -218,7 +218,8 @@ public sealed class CcosCalculator
             inputs.Add(Input(code, number));
             return number;
         }
-        SetUnavailable(inputs, missing, code, missingCode);
+        SetUnavailable(inputs, missing, code, missingCode,
+            value.Value?.ToString("G17", CultureInfo.InvariantCulture));
         return null;
     }
 
@@ -230,7 +231,8 @@ public sealed class CcosCalculator
             inputs.Add(Input(code, number));
             return number;
         }
-        SetUnavailable(inputs, missing, code, missingCode);
+        SetUnavailable(inputs, missing, code, missingCode,
+            value.Value?.ToString(CultureInfo.InvariantCulture));
         return null;
     }
 
@@ -242,7 +244,8 @@ public sealed class CcosCalculator
             inputs.Add(Input(code, number));
             return number;
         }
-        SetUnavailable(inputs, missing, code, missingCode);
+        SetUnavailable(inputs, missing, code, missingCode,
+            value.Value?.ToString(CultureInfo.InvariantCulture));
         return null;
     }
 
@@ -250,9 +253,12 @@ public sealed class CcosCalculator
     private static ScoreInput Input(string code, decimal value) => new(code, AvailabilityStatus.Available, value.ToString(CultureInfo.InvariantCulture));
     private static ScoreInput Input(string code, int value) => new(code, AvailabilityStatus.Available, value.ToString(CultureInfo.InvariantCulture));
 
-    private static void SetUnavailable(ICollection<ScoreInput> inputs, ICollection<MissingInputCode> missing, string code, MissingInputCode missingCode)
+    private static void SetUnavailable(ICollection<ScoreInput> inputs, ICollection<MissingInputCode> missing, string code,
+        MissingInputCode missingCode, string? suppliedValue = null)
     {
-        inputs.Add(new ScoreInput(code, AvailabilityStatus.Unavailable, null));
+        var existing = inputs.FirstOrDefault(input => input.Code == code);
+        if (existing is not null) inputs.Remove(existing);
+        inputs.Add(new ScoreInput(code, AvailabilityStatus.Unavailable, suppliedValue ?? existing?.Value));
         missing.Add(missingCode);
     }
 

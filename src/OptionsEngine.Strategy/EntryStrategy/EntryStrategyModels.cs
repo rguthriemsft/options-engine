@@ -139,7 +139,8 @@ public enum MissingInputCode
     OptionDelta,
     OptionImpliedVolatility,
     OptionTheta,
-    EarningsDate
+    EarningsDate,
+    ContractDte
 }
 
 /// <summary>Immutable snapshot of holding-specific values consumed by Phase 4.</summary>
@@ -461,6 +462,20 @@ public sealed record ContractEvaluation(
     bool HardGateEligible,
     bool EntryAcceptable,
     int? Rank,
+    IReadOnlyList<MissingInputCode> MissingInputs,
+    IReadOnlyList<string> Explanations);
+
+/// <summary>Pure Phase 4C decision; Application supplies persistence identity and calculation time later.</summary>
+public sealed record ContractStrategyResult(
+    ScoreResult Ccos,
+    GateResult BreakoutVeto,
+    IReadOnlyList<ContractEvaluation> Contracts,
+    bool EntryCandidateExists,
+    string? PreferredInitialOptionSymbol,
+    decimal? PreferredInitialStrike,
+    DateOnly? PreferredInitialExpiration,
+    decimal? PreferredInitialReferencePremium,
+    DispositionReasonCode DispositionReason,
     IReadOnlyList<MissingInputCode> MissingInputs,
     IReadOnlyList<string> Explanations);
 
