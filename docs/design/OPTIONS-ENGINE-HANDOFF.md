@@ -8,7 +8,7 @@ System (CCDSS) in a fresh ChatGPT conversation.
 
 Repository: `rguthriemsft/options-engine`
 
-Current working branch: `phase3`
+Current working branch: `phase4`
 
 At the original design handoff, `phase3` was 3 commits ahead of `main`
 and 0 behind. At that time, the only branch changes relative to `main`
@@ -597,9 +597,25 @@ This source does not recreate historical event knowledge; Phase 4E persists the
 actual `EarningsContext` used. A provider-backed adapter is deferred until an
 authoritative contract or sanitized captured fixture is available.
 
+## Current Phase Status
+
+Phase 1, Phase 2, Phase 3, Phase 4A, Phase 4B, Phase 4C, and Phase 4D are complete.
+Phase 4E immutable evaluation persistence is now complete. Phase 4F remains.
+
+Completed Phase 4 decisions include CCOS and breakout veto, Contract Score,
+contract gates/ranking, one-touch resistance scoring (zero touch points),
+evaluation-timestamp chain cutoffs, configured expiration search windows,
+configuration-backed V1 earnings input with provider-backed earnings deferred,
+and the Phase 4 boundary before position sizing.
+
+Phase 3 canonical indicator snapshots remain replaceable; Phase 4 evaluations
+are append-only immutable historical records preserving consumed inputs,
+configuration, versions, scores, gates, ranking, explanations, and selected
+chain observations.
+
 ## Recommended Next Conversation
 
-Continue from `main` and read, in order:
+Continue with **Phase 4F — API and final merge gate** and read, in order:
 
 1. `AGENTS.md`
 2. `SPECIFICATION.md`
@@ -608,11 +624,7 @@ Continue from `main` and read, in order:
 5. `docs/acceptance/PHASE-3-INDICATORS.md`
 6. `docs/acceptance/PHASE-4-ENTRY-STRATEGY.md`
 
-The next implementation packet is **Phase 4A — Strategy Foundations and Input
-Contracts**.
-
-Do not implement later Phase 4 packets in 4A. In particular, 4A shall not
-implement CCOS, Contract Score, persistence, API endpoints, or position sizing.
+Do not begin Phase 5 position sizing until Phase 4F is complete.
 
 If implementation reveals a strategy ambiguity, update/clarify the
 specification before adding new financial behavior. Do not silently invent

@@ -802,17 +802,17 @@ A hybrid relational + structured-JSON representation is acceptable if required d
 
 Acceptance criteria:
 
-- [ ] New evaluation inserts a new immutable record.
-- [ ] Later evaluation never overwrites an earlier record.
-- [ ] Editing Holding after evaluation does not change historical evaluation retrieval.
-- [ ] Recalculating canonical Phase 3 snapshot does not change historical Phase 4 evaluation retrieval.
-- [ ] Newer option observations do not change historical Phase 4 evaluation retrieval.
-- [ ] Resolved configuration and versions round-trip exactly.
-- [ ] Rejected and insufficient-data contracts are retained.
-- [ ] Persistence stores more than final CCOS/ContractScore totals.
-- [ ] EF Core migration is included.
-- [ ] Clean database migration succeeds.
-- [ ] Existing Phase 3 database migrates forward successfully.
+- [x] New evaluation inserts a new immutable record.
+- [x] Later evaluation never overwrites an earlier record.
+- [x] Editing Holding after evaluation does not change historical evaluation retrieval.
+- [x] Recalculating canonical Phase 3 snapshot does not change historical Phase 4 evaluation retrieval.
+- [x] Newer option observations do not change historical Phase 4 evaluation retrieval.
+- [x] Resolved configuration and versions round-trip exactly.
+- [x] Rejected and insufficient-data contracts are retained.
+- [x] Persistence stores more than final CCOS/ContractScore totals.
+- [x] EF Core migration is included.
+- [x] Clean database migration succeeds.
+- [x] Existing Phase 3 database migrates forward successfully.
 
 ---
 

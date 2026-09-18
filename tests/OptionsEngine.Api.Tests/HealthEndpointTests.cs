@@ -64,6 +64,8 @@ public sealed class HealthEndpointTests : IAsyncLifetime
             Assert.NotNull(scope.ServiceProvider.GetRequiredService<IHoldingRepository>());
             Assert.NotNull(scope.ServiceProvider.GetRequiredService<IEntryStrategyMarketDataRepository>());
             Assert.NotNull(scope.ServiceProvider.GetRequiredService<IEarningsDateSource>());
+            Assert.NotNull(scope.ServiceProvider.GetRequiredService<IEntryStrategyEvaluationRepository>());
+            Assert.NotNull(scope.ServiceProvider.GetRequiredService<EntryStrategyEvaluationPersistenceService>());
         }
         finally
         {

@@ -45,6 +45,8 @@ builder.Services.AddSingleton<IEarningsDateSource, ConfiguredEarningsDateSource>
 builder.Services.AddScoped<IHoldingRepository, SqliteHoldingRepository>();
 builder.Services.AddScoped<IEntryStrategyMarketDataRepository, SqliteEntryStrategyMarketDataRepository>();
 builder.Services.AddScoped<EntryStrategyEvaluationOrchestrator>();
+builder.Services.AddScoped<IEntryStrategyEvaluationRepository, SqliteEntryStrategyEvaluationRepository>();
+builder.Services.AddScoped<EntryStrategyEvaluationPersistenceService>();
 builder.Services.AddSingleton(TimeProvider.System);
 builder.Services.AddHealthChecks().AddCheck<DatabaseHealthCheck>("database");
 

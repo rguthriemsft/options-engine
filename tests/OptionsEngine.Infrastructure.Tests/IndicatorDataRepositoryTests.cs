@@ -33,10 +33,11 @@ public sealed class IndicatorDataRepositoryTests : IAsyncLifetime
     {
         await using var db = CreateContext();
         var applied = (await db.Database.GetAppliedMigrationsAsync()).ToArray();
-        Assert.Equal(3, applied.Length);
+        Assert.Equal(4, applied.Length);
         Assert.EndsWith("_InitialCreate", applied[0], StringComparison.Ordinal);
         Assert.EndsWith("_AddMarketData", applied[1], StringComparison.Ordinal);
         Assert.EndsWith("_AddIndicatorSnapshots", applied[2], StringComparison.Ordinal);
+        Assert.EndsWith("_AddEntryStrategyEvaluations", applied[3], StringComparison.Ordinal);
         Assert.Empty(await db.Database.GetPendingMigrationsAsync());
         Assert.Equal(0, await db.IndicatorSnapshots.CountAsync());
         Assert.Equal(0, await db.EmptyOptionChainSnapshots.CountAsync());
@@ -253,7 +254,10 @@ public sealed class IndicatorDataRepositoryTests : IAsyncLifetime
                 Assert.Single(await phaseThree.HistoricalPriceBars.ToListAsync());
                 Assert.Equal(2, await phaseThree.OptionContractSnapshots.CountAsync());
                 Assert.Contains(await phaseThree.Database.GetAppliedMigrationsAsync(), x => x.EndsWith("_AddIndicatorSnapshots", StringComparison.Ordinal));
+                Assert.Contains(await phaseThree.Database.GetAppliedMigrationsAsync(), x => x.EndsWith("_AddEntryStrategyEvaluations", StringComparison.Ordinal));
                 Assert.Equal(0, await phaseThree.IndicatorSnapshots.CountAsync());
+                Assert.Equal(0, await phaseThree.EntryStrategyEvaluations.CountAsync());
+                Assert.Empty(await phaseThree.Database.GetPendingMigrationsAsync());
             }
         }
         finally
