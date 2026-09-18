@@ -146,6 +146,39 @@ public sealed record ImpliedVolatilityConfiguration
     }
 }
 
+public sealed record ResistanceConfiguration
+{
+    public int SwingWindow { get; init; } = 3;
+    public int LookbackTradingDays { get; init; } = 120;
+    public double ClusterDistanceAtrMultiplier { get; init; } = 0.75;
+    public int MinimumResistanceTouches { get; init; } = 2;
+
+    internal void Validate()
+    {
+        if (SwingWindow < 1) throw new ArgumentOutOfRangeException(nameof(SwingWindow));
+        if (LookbackTradingDays < 1) throw new ArgumentOutOfRangeException(nameof(LookbackTradingDays));
+        if (!double.IsFinite(ClusterDistanceAtrMultiplier) || ClusterDistanceAtrMultiplier < 0)
+            throw new ArgumentOutOfRangeException(nameof(ClusterDistanceAtrMultiplier));
+        if (MinimumResistanceTouches < 1) throw new ArgumentOutOfRangeException(nameof(MinimumResistanceTouches));
+    }
+}
+
+public sealed record RegimeConfiguration
+{
+    public int FastSmaPeriod { get; init; } = 50;
+    public int LongSmaPeriod { get; init; } = 200;
+    public int SlopeLookbackTradingDays { get; init; } = 20;
+    public string MarketBenchmark { get; init; } = "SPY";
+
+    internal void Validate()
+    {
+        if (FastSmaPeriod < 1) throw new ArgumentOutOfRangeException(nameof(FastSmaPeriod));
+        if (LongSmaPeriod <= FastSmaPeriod) throw new ArgumentOutOfRangeException(nameof(LongSmaPeriod));
+        if (SlopeLookbackTradingDays < 1) throw new ArgumentOutOfRangeException(nameof(SlopeLookbackTradingDays));
+        if (string.IsNullOrWhiteSpace(MarketBenchmark)) throw new ArgumentException("A market benchmark is required.", nameof(MarketBenchmark));
+    }
+}
+
 /// <summary>
 /// Versioned Phase 3 indicator configuration.
 /// </summary>
@@ -159,6 +192,8 @@ public sealed record IndicatorConfiguration
     public AverageTrueRangeConfiguration AverageTrueRange { get; init; } = new();
     public RealizedVolatilityConfiguration RealizedVolatility { get; init; } = new();
     public ImpliedVolatilityConfiguration ImpliedVolatility { get; init; } = new();
+    public ResistanceConfiguration Resistance { get; init; } = new();
+    public RegimeConfiguration Regime { get; init; } = new();
 
     internal void Validate()
     {
@@ -170,6 +205,8 @@ public sealed record IndicatorConfiguration
         AverageTrueRange.Validate();
         RealizedVolatility.Validate();
         ImpliedVolatility.Validate();
+        Resistance.Validate();
+        Regime.Validate();
     }
 }
 
@@ -182,7 +219,7 @@ public sealed record IndicatorCalculationRequest(
     DateTimeOffset CalculatedAt);
 
 /// <summary>
-/// Provider-independent Phase 3 calculated facts as of a date. Fields for later Phase 3 slices are deliberately absent.
+/// Provider-independent Phase 3 calculated facts as of a date. Uncalculated context remains explicitly unavailable.
 /// </summary>
 public sealed record IndicatorSnapshot(
     string Symbol,
@@ -211,6 +248,14 @@ public sealed record IndicatorSnapshot(
     public IndicatorValue<double> IvRank { get; init; } = IndicatorValue<double>.InsufficientData();
     public IndicatorValue<double> IvPercentile { get; init; } = IndicatorValue<double>.InsufficientData();
     public Iv30UnavailableReason? Iv30UnavailableReason { get; init; }
+    public IndicatorValue<decimal> ResistancePrice { get; init; } = IndicatorValue<decimal>.InsufficientData();
+    public IndicatorValue<decimal> DistanceToResistance { get; init; } = IndicatorValue<decimal>.InsufficientData();
+    public IndicatorValue<double> DistanceToResistancePercent { get; init; } = IndicatorValue<double>.InsufficientData();
+    public IndicatorValue<int> ResistanceTouchCount { get; init; } = IndicatorValue<int>.InsufficientData();
+    public IndicatorValue<DateOnly> ResistanceLastTouchDate { get; init; } = IndicatorValue<DateOnly>.InsufficientData();
+    public IndicatorValue<int> ResistanceAgeTradingDays { get; init; } = IndicatorValue<int>.InsufficientData();
+    public MarketRegime MarketRegime { get; init; } = MarketRegime.InsufficientData;
+    public MarketRegime SectorRegime { get; init; } = MarketRegime.InsufficientData;
 }
 
 public interface IIndicatorCalculator
