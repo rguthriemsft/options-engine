@@ -80,6 +80,46 @@ public sealed class RegimeIndicatorCalculatorTests
     }
 
     [Fact]
+    public void AsOfDateAfterLatestTradingObservationRetainsRequestedIdentityAndRegimes()
+    {
+        var market = Bars("SPY", 220, 1);
+        var sector = Bars("XLK", 220, -1);
+        var latestTradingDate = market[^1].TradingDate;
+        var requestedAsOfDate = latestTradingDate.AddDays(3);
+
+        var atLastObservation = Calculate(market, "XLK", sector, asOf: latestTradingDate);
+        var afterLastObservation = Calculate(market, "XLK", sector, asOf: requestedAsOfDate);
+
+        Assert.Equal(requestedAsOfDate, afterLastObservation.AsOfDate);
+        Assert.Equal(MarketRegime.Bullish, afterLastObservation.MarketRegime);
+        Assert.Equal(MarketRegime.Bearish, afterLastObservation.SectorRegime);
+        Assert.Equal(atLastObservation.MarketRegime, afterLastObservation.MarketRegime);
+        Assert.Equal(atLastObservation.SectorRegime, afterLastObservation.SectorRegime);
+    }
+
+    [Fact]
+    public void CalendarGapAsOfDateUsesPrecedingMarketAndSectorBarsAndExcludesFutureBars()
+    {
+        var market = Bars("SPY", 220, 1).Select((bar, index) => bar with { TradingDate = Start.AddDays(index * 2) }).ToArray();
+        var sector = Bars("XLK", 220, -1).Select((bar, index) => bar with { TradingDate = Start.AddDays(index * 2) }).ToArray();
+        var latestTradingDate = market[^1].TradingDate;
+        var requestedAsOfDate = latestTradingDate.AddDays(1);
+        var atLastObservation = Calculate(market, "XLK", sector, asOf: latestTradingDate);
+        var inGap = Calculate(market, "XLK", sector, asOf: requestedAsOfDate);
+        var futureMarket = new IndicatorPriceObservation("SPY", requestedAsOfDate.AddDays(1), 1m, 1m, 1m, 1m, 1000);
+        var futureSector = new IndicatorPriceObservation("XLK", requestedAsOfDate.AddDays(1), 1000m, 1000m, 1000m, 1000m, 1000);
+        var withFuture = Calculate(market.Append(futureMarket).ToArray(), "XLK", sector.Append(futureSector).ToArray(),
+            asOf: requestedAsOfDate);
+
+        Assert.Equal(requestedAsOfDate, inGap.AsOfDate);
+        Assert.Equal(MarketRegime.Bullish, inGap.MarketRegime);
+        Assert.Equal(MarketRegime.Bearish, inGap.SectorRegime);
+        Assert.Equal(atLastObservation.MarketRegime, inGap.MarketRegime);
+        Assert.Equal(atLastObservation.SectorRegime, inGap.SectorRegime);
+        Assert.Equal(inGap, withFuture);
+    }
+
+    [Fact]
     public void VersionsAndSnapshotApplicationArePreserved()
     {
         var market = Bars("SPY", 220, 1);

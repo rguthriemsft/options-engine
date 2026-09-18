@@ -83,7 +83,7 @@ public sealed class RegimeIndicatorCalculator
         IndicatorSnapshot SmaAt(DateOnly date) => _sma.Calculate(new IndicatorCalculationRequest(symbol, date, observations,
             smaConfiguration, request.IndicatorCalculationVersion, request.CalculatedAt));
 
-        var current = SmaAt(observations[^1].TradingDate);
+        var current = SmaAt(request.AsOfDate);
         var prior = SmaAt(observations[observations.Length - 1 - settings.SlopeLookbackTradingDays].TradingDate);
         if (current.Sma50.Value is not { } fast || current.Sma200.Value is not { } slow || prior.Sma50.Value is not { } priorFast)
             return MarketRegime.InsufficientData;
