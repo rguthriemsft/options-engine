@@ -129,6 +129,23 @@ public sealed record RealizedVolatilityConfiguration
     }
 }
 
+public sealed record ImpliedVolatilityConfiguration
+{
+    public int TargetDteCalendarDays { get; init; } = 30;
+    public decimal MaxAtmStrikeDistanceRatio { get; init; } = 0.05m;
+    public int HistoricalLookbackValidObservations { get; init; } = 252;
+    public int MinimumHistoricalValidObservations { get; init; } = 126;
+
+    internal void Validate()
+    {
+        if (TargetDteCalendarDays < 1) throw new ArgumentOutOfRangeException(nameof(TargetDteCalendarDays));
+        if (MaxAtmStrikeDistanceRatio < 0) throw new ArgumentOutOfRangeException(nameof(MaxAtmStrikeDistanceRatio));
+        if (HistoricalLookbackValidObservations < 1) throw new ArgumentOutOfRangeException(nameof(HistoricalLookbackValidObservations));
+        if (MinimumHistoricalValidObservations < 1 || MinimumHistoricalValidObservations > HistoricalLookbackValidObservations)
+            throw new ArgumentOutOfRangeException(nameof(MinimumHistoricalValidObservations));
+    }
+}
+
 /// <summary>
 /// Versioned Phase 3 indicator configuration.
 /// </summary>
@@ -141,6 +158,7 @@ public sealed record IndicatorConfiguration
     public MovingAverageConvergenceDivergenceConfiguration Macd { get; init; } = new();
     public AverageTrueRangeConfiguration AverageTrueRange { get; init; } = new();
     public RealizedVolatilityConfiguration RealizedVolatility { get; init; } = new();
+    public ImpliedVolatilityConfiguration ImpliedVolatility { get; init; } = new();
 
     internal void Validate()
     {
@@ -151,6 +169,7 @@ public sealed record IndicatorConfiguration
         Macd.Validate();
         AverageTrueRange.Validate();
         RealizedVolatility.Validate();
+        ImpliedVolatility.Validate();
     }
 }
 
@@ -186,7 +205,13 @@ public sealed record IndicatorSnapshot(
     IndicatorValue<double> RealizedVolatility30,
     IndicatorCalculationVersion IndicatorCalculationVersion,
     ConfigurationVersion ConfigurationVersion,
-    DateTimeOffset CalculatedAt);
+    DateTimeOffset CalculatedAt)
+{
+    public IndicatorValue<double> Iv30 { get; init; } = IndicatorValue<double>.InsufficientData();
+    public IndicatorValue<double> IvRank { get; init; } = IndicatorValue<double>.InsufficientData();
+    public IndicatorValue<double> IvPercentile { get; init; } = IndicatorValue<double>.InsufficientData();
+    public Iv30UnavailableReason? Iv30UnavailableReason { get; init; }
+}
 
 public interface IIndicatorCalculator
 {

@@ -19,6 +19,8 @@ OptionsEngine.Api (composition root)
 
 `OptionsEngine.Domain` contains provider- and persistence-independent account, holding, and tax-lot models. `OptionsEngine.Strategy` depends only on Domain and remains infrastructure-independent; its indicator boundary accepts provider-independent daily observations and produces versioned, as-of indicator snapshots. `OptionsEngine.MarketData` owns normalized market-data records and `IMarketDataProvider`; its Tradier adapter maps production HTTP payloads at the boundary. `OptionsEngine.Application` orchestrates the provider abstraction and SQLite cache. `OptionsEngine.Infrastructure` owns EF Core/SQLite snapshot persistence. The API composes these layers.
 
+Phase 3C IV context uses normalized option-chain observations mapped by Application into the pure Strategy calculator. The calculator produces IV30, IV Rank, and IV Percentile using an explicit as-of date, versioned configuration, and version-matched historical IV30 observations. Historical chain retrieval and indicator persistence are not yet exposed by the application.
+
 ## Prerequisites and setup
 
 Install the .NET 10 SDK, clone the repository, then run:
