@@ -227,9 +227,220 @@ public sealed class PositionSizingEngineTests
         Assert.Equal(2, result.PhysicalLimitedAdditionalContracts);
         Assert.Equal(2, result.AdditionalContracts);
         Assert.Equal(4, result.ResultingTotalContracts);
+        Assert.Equal(20, result.ExistingDeltaShares);
+        Assert.Equal(.02, result.ExistingDer);
+        Assert.Equal(.25, result.MaximumDer);
+        Assert.Equal(2, result.DerLimitedAdditionalContracts);
+    }
+
+    [Fact]
+    public void NoExistingCallsRequireNoObservationAndProduceZeroExistingDer()
+    {
+        var result = Engine.Evaluate(Input() with { ExistingShortCallDeltaObservations = default });
+
+        Assert.Equal(PositionSizingStatus.Available, result.Status);
+        Assert.Equal(0, result.ExistingDeltaShares);
+        Assert.Equal(0, result.ExistingDer);
+        Assert.DoesNotContain(PositionSizingMissingInputCode.ExistingShortCallDelta, result.MissingInputs);
+    }
+
+    [Fact]
+    public void ExistingDeltaSharesUseEachOptionSymbolsOwnObservation()
+    {
+        var input = Input(maximumDer: .50) with
+        {
+            ExistingShortCallExposure =
+            [
+                Exposure("MSFT261023C00500000", 1),
+                Exposure("MSFT261120C00510000", 2)
+            ],
+            ExistingShortCallDeltaObservations =
+            [
+                Observation("MSFT261023C00500000", .10),
+                Observation("MSFT261120C00510000", .20)
+            ]
+        };
+
+        var result = Engine.Evaluate(input);
+
+        Assert.Equal(PositionSizingStatus.Available, result.Status);
+        Assert.Equal(50, result.ExistingDeltaShares);
+        Assert.Equal(.05, result.ExistingDer);
+    }
+
+    [Fact]
+    public void MissingExistingCallDeltaIsInsufficientWithoutZeroSubstitution()
+    {
+        var result = Engine.Evaluate(Input(existingContracts: 1) with
+        {
+            ExistingShortCallDeltaObservations = []
+        });
+
+        Assert.Equal(PositionSizingStatus.InsufficientData, result.Status);
+        Assert.Contains(PositionSizingMissingInputCode.ExistingShortCallDelta, result.MissingInputs);
+        Assert.Null(result.ExistingDeltaShares);
         Assert.Null(result.ExistingDer);
-        Assert.Null(result.MaximumDer);
-        Assert.Null(result.DerLimitedAdditionalContracts);
+        Assert.Null(result.AdditionalContracts);
+    }
+
+    [Theory]
+    [InlineData(-.01)]
+    [InlineData(1.01)]
+    [InlineData(double.NaN)]
+    [InlineData(double.PositiveInfinity)]
+    public void InvalidExistingCallDeltaIsInsufficientWithoutRepair(double delta)
+    {
+        var result = Engine.Evaluate(Input(existingContracts: 1) with
+        {
+            ExistingShortCallDeltaObservations = [Observation("MSFT261023C00500000", delta)]
+        });
+
+        Assert.Equal(PositionSizingStatus.InsufficientData, result.Status);
+        Assert.Contains(PositionSizingMissingInputCode.ExistingShortCallDelta, result.MissingInputs);
+        Assert.Null(result.AdditionalContracts);
+    }
+
+    [Fact]
+    public void FutureExistingCallObservationIsUnusable()
+    {
+        var result = Engine.Evaluate(Input(existingContracts: 1) with
+        {
+            ExistingShortCallDeltaObservations =
+                [Observation("MSFT261023C00500000", .10, SizingTimestamp.AddTicks(1))]
+        });
+
+        Assert.Equal(PositionSizingStatus.InsufficientData, result.Status);
+        Assert.Contains(PositionSizingMissingInputCode.ExistingShortCallDelta, result.MissingInputs);
+    }
+
+    [Theory]
+    [InlineData(0)]
+    [InlineData(-3650)]
+    public void ExistingCallObservationAtOrBeforeCutoffIsEligibleWithoutFreshnessThreshold(int daysFromCutoff)
+    {
+        var result = Engine.Evaluate(Input(existingContracts: 1) with
+        {
+            ExistingShortCallDeltaObservations =
+                [Observation("MSFT261023C00500000", .10, SizingTimestamp.AddDays(daysFromCutoff))]
+        });
+
+        Assert.Equal(PositionSizingStatus.Available, result.Status);
+        Assert.Equal(10, result.ExistingDeltaShares);
+    }
+
+    [Fact]
+    public void MultipleObservationsForRequiredSymbolFailStructuralValidation()
+    {
+        var input = Input(existingContracts: 1) with
+        {
+            ExistingShortCallDeltaObservations =
+            [
+                Observation("MSFT261023C00500000", .10),
+                Observation("MSFT261023C00500000", .11)
+            ]
+        };
+
+        Assert.Throws<ArgumentException>(() => Engine.Evaluate(input));
+    }
+
+    [Theory]
+    [InlineData(null)]
+    [InlineData(-.01)]
+    [InlineData(1.01)]
+    [InlineData(double.NaN)]
+    [InlineData(double.PositiveInfinity)]
+    public void MissingOrInvalidPreferredDeltaIsInsufficientWithoutRepair(double? delta)
+    {
+        var result = Engine.Evaluate(Input(preferredDelta: delta));
+
+        Assert.Equal(PositionSizingStatus.InsufficientData, result.Status);
+        Assert.Contains(PositionSizingMissingInputCode.PreferredContractDelta, result.MissingInputs);
+        Assert.Null(result.AdditionalContracts);
+    }
+
+    [Fact]
+    public void DerBelowMaximumLeavesPhysicalActionUnchanged()
+    {
+        var result = Engine.Evaluate(Input(maximumDer: .25));
+
+        Assert.Equal(4, result.PhysicalLimitedAdditionalContracts);
+        Assert.Equal(4, result.DerLimitedAdditionalContracts);
+        Assert.Equal(4, result.AdditionalContracts);
+        Assert.DoesNotContain(PositionSizingReasonCode.DeltaExposureLimit, result.ReasonCodes);
+    }
+
+    [Fact]
+    public void DerAcceptsExactMaximumAndRejectsNextPhysicalContract()
+    {
+        var result = Engine.Evaluate(Input(
+            ccos: 100,
+            shares: 1_000m,
+            preferredDelta: .20,
+            maximumDer: .10));
+
+        Assert.Equal(7, result.PhysicalLimitedAdditionalContracts);
+        Assert.Equal(5, result.DerLimitedAdditionalContracts);
+        Assert.Equal(5, result.AdditionalContracts);
+        Assert.Equal(5, result.ResultingTotalContracts);
+        Assert.Contains(PositionSizingReasonCode.DeltaExposureLimit, result.ReasonCodes);
+        Assert.Contains(result.LimitingFactors,
+            factor => factor.Code == PositionSizingReasonCode.DeltaExposureLimit);
+        Assert.Equal(.10, 5 * .20 * 100 / 1_000, 12);
+        Assert.True(6 * .20 * 100 / 1_000 > .10);
+    }
+
+    [Theory]
+    [InlineData(0, 0)]
+    [InlineData(1, 1)]
+    public void ZeroPreferredDeltaWithinMaximumNeverReducesPhysicalAction(
+        int existingContracts,
+        double existingDelta)
+    {
+        var result = Engine.Evaluate(Input(
+            existingContracts: existingContracts,
+            existingDelta: existingDelta,
+            preferredDelta: 0,
+            maximumDer: .10));
+
+        Assert.Equal(result.PhysicalLimitedAdditionalContracts, result.DerLimitedAdditionalContracts);
+        Assert.Equal(result.PhysicalLimitedAdditionalContracts, result.AdditionalContracts);
+        Assert.DoesNotContain(PositionSizingReasonCode.DeltaExposureLimit, result.ReasonCodes);
+        Assert.DoesNotContain(PositionSizingReasonCode.ExistingDerAtOrAboveMaximum, result.ReasonCodes);
+    }
+
+    [Fact]
+    public void ExistingDerAtMaximumWithPositivePreferredDeltaAllowsNoAddition()
+    {
+        var result = Engine.Evaluate(Input(
+            existingContracts: 1,
+            existingDelta: 1,
+            preferredDelta: .10,
+            maximumDer: .10));
+
+        Assert.Equal(.10, result.ExistingDer);
+        Assert.Equal(0, result.DerLimitedAdditionalContracts);
+        Assert.Equal(0, result.AdditionalContracts);
+        Assert.Equal(1, result.ResultingTotalContracts);
+        Assert.Contains(PositionSizingReasonCode.ExistingDerAtOrAboveMaximum, result.ReasonCodes);
+        Assert.Contains(PositionSizingReasonCode.DeltaExposureLimit, result.ReasonCodes);
+    }
+
+    [Fact]
+    public void ExistingDerAboveMaximumAllowsNoAdditionEvenForZeroPreferredDelta()
+    {
+        var result = Engine.Evaluate(Input(
+            existingContracts: 2,
+            existingDelta: 1,
+            preferredDelta: 0,
+            maximumDer: .10));
+
+        Assert.Equal(.20, result.ExistingDer);
+        Assert.Equal(0, result.DerLimitedAdditionalContracts);
+        Assert.Equal(0, result.AdditionalContracts);
+        Assert.Equal(2, result.ResultingTotalContracts);
+        Assert.Contains(PositionSizingReasonCode.ExistingDerAtOrAboveMaximum, result.ReasonCodes);
+        Assert.Contains(result.LimitingFactors,
+            factor => factor.Code == PositionSizingReasonCode.ExistingDerAtOrAboveMaximum);
     }
 
     [Theory]
@@ -284,6 +495,20 @@ public sealed class PositionSizingEngineTests
         Assert.Null(result.ExistingDer);
         Assert.Contains(PositionSizingReasonCode.InconsistentZeroShareExposure, result.ReasonCodes);
         Assert.Contains(PositionSizingReasonCode.ExistingExposureExceedsPhysicalCapacity, result.ReasonCodes);
+    }
+
+    [Fact]
+    public void ZeroSharesWithoutExistingExposureIsValidWithoutDerDivision()
+    {
+        var result = Engine.Evaluate(Input(shares: 0, preferredDelta: null));
+
+        Assert.Equal(PositionSizingStatus.Available, result.Status);
+        Assert.Equal(0, result.ExistingDeltaShares);
+        Assert.Null(result.ExistingDer);
+        Assert.Null(result.MaximumDer);
+        Assert.Null(result.DerLimitedAdditionalContracts);
+        Assert.Equal(0, result.AdditionalContracts);
+        Assert.DoesNotContain(PositionSizingMissingInputCode.PreferredContractDelta, result.MissingInputs);
     }
 
     [Fact]
@@ -457,14 +682,18 @@ public sealed class PositionSizingEngineTests
         bool entryCandidateExists = true,
         PositionSizingConfiguration? configuration = null,
         EntryStrategyEvaluation? source = null,
-        AssetType assetType = AssetType.Stock) => new(
-            source ?? SourceEvaluation(ccos, contractScore, entryCandidateExists),
-            Holding(shares, sensitivity, maximumCoverage, assetType),
+        AssetType assetType = AssetType.Stock,
+        double? preferredDelta = .25,
+        double existingDelta = .10,
+        double maximumDer = .25) => new(
+            source ?? SourceEvaluation(ccos, contractScore, entryCandidateExists, preferredDelta: preferredDelta),
+            Holding(shares, sensitivity, maximumCoverage, assetType, maximumDer),
             existingContracts == 0
                 ? []
-                : [new ExistingShortCallExposure(HoldingId, "MSFT261023C00500000", existingContracts, 500m,
-                    new DateOnly(2026, 10, 23))],
-            [],
+                : [Exposure("MSFT261023C00500000", existingContracts)],
+            existingContracts == 0
+                ? []
+                : [Observation("MSFT261023C00500000", existingDelta)],
             ConcentrationContext(shares, concentrationWeight),
             SizingTimestamp,
             configuration ?? DefaultConfiguration(),
@@ -496,7 +725,8 @@ public sealed class PositionSizingEngineTests
         decimal shares,
         AssignmentSensitivity sensitivity = AssignmentSensitivity.Level3,
         decimal maximumCoverage = 1m,
-        AssetType assetType = AssetType.Stock) => new(
+        AssetType assetType = AssetType.Stock,
+        double maximumDer = .25) => new(
             HoldingId,
             AccountId,
             "MSFT",
@@ -505,19 +735,20 @@ public sealed class PositionSizingEngineTests
             sensitivity,
             TaxSensitivity.Moderate,
             maximumCoverage,
-            .25);
+            maximumDer);
 
     private static EntryStrategyEvaluation SourceEvaluation(
         double? ccos,
         double? preferredScore,
         bool entryCandidateExists,
         bool includePreferred = true,
-        bool includeHigherScoredAlternate = false)
+        bool includeHigherScoredAlternate = false,
+        double? preferredDelta = .25)
     {
-        var preferred = Contract("PREFERRED", preferredScore, rank: 1);
+        var preferred = Contract("PREFERRED", preferredScore, rank: 1, preferredDelta);
         IReadOnlyList<ContractEvaluation> contracts = includePreferred
             ? includeHigherScoredAlternate
-                ? [preferred, Contract("ALTERNATE", 100, rank: 2)]
+                ? [preferred, Contract("ALTERNATE", 100, rank: 2, .25)]
                 : [preferred]
             : [];
 
@@ -538,11 +769,11 @@ public sealed class PositionSizingEngineTests
             []);
     }
 
-    private static ContractEvaluation Contract(string optionSymbol, double? score, int rank)
+    private static ContractEvaluation Contract(string optionSymbol, double? score, int rank, double? delta)
     {
         var contract = new OptionContractContext(optionSymbol, "MSFT", SizingTimestamp.AddMinutes(-2),
             new DateOnly(2026, 10, 23), 500m, OptionContractType.Call, 1.9m, 2.1m, 500,
-            .25, .30, -.04, 450m, 2m, 100, "TestProvider");
+            .30, delta, -.04, 450m, 2m, 100, "TestProvider");
         return new ContractEvaluation(contract, new ContractDerivedMetrics(null, null, null, null, null, null,
             null, null, null), [], Score(score), true, true, rank, [], []);
     }
@@ -550,6 +781,15 @@ public sealed class PositionSizingEngineTests
     private static ScoreResult? Score(double? score) => score is null
         ? null
         : new ScoreResult(ScoreStatus.Available, score, 100, null, 0, true, [], [], "Persisted score.");
+
+    private static ExistingShortCallExposure Exposure(string optionSymbol, int contracts) =>
+        new(HoldingId, optionSymbol, contracts, 500m, new DateOnly(2026, 10, 23));
+
+    private static ExistingShortCallDeltaObservation Observation(
+        string optionSymbol,
+        double? delta,
+        DateTimeOffset? observedAt = null) =>
+        new(optionSymbol, delta, observedAt ?? SizingTimestamp.AddMinutes(-1));
 
     private static PositionSizingConfiguration DefaultConfiguration() => new()
     {

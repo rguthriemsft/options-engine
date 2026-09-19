@@ -9,7 +9,7 @@ public interface IPositionSizingEngine
     PositionSizingResult Evaluate(PositionSizingInput input);
 }
 
-/// <summary>Pure Position Sizing calculation through Phase 5C. DER remains owned by Phase 5D.</summary>
+/// <summary>Pure Position Sizing calculation through Phase 5D.</summary>
 public sealed class PositionSizingEngine : IPositionSizingEngine
 {
     private readonly PortfolioConcentrationCalculator _concentrationCalculator;
@@ -131,6 +131,43 @@ public sealed class PositionSizingEngine : IPositionSizingEngine
         var desiredAdditional = Math.Max(0, desiredTotal - existingContracts.Value);
         var physicalLimitedAdditional = Math.Min(desiredAdditional, availableContracts);
 
+        double? existingDeltaShares = null;
+        double? existingDer = null;
+        double? maximumDer = null;
+        int? derLimitedAdditional = null;
+        if (holding.SharesOwned > 0)
+        {
+            existingDeltaShares = TryCalculateExistingDeltaShares(
+                input.ExistingShortCallExposure,
+                input.ExistingShortCallDeltaObservations,
+                input.SizingTimestampUtc,
+                missingInputs);
+
+            var preferredDelta = preferredContract!.Contract.Delta;
+            if (!IsUsableDelta(preferredDelta))
+                AddMissing(missingInputs, PositionSizingMissingInputCode.PreferredContractDelta);
+
+            if (missingInputs.Count > 0)
+            {
+                return Insufficient(
+                    [.. missingInputs],
+                    holding.SharesOwned,
+                    existingContracts,
+                    ccos,
+                    preferredContractScore,
+                    concentration);
+            }
+
+            existingDer = existingDeltaShares!.Value / decimal.ToDouble(holding.SharesOwned);
+            maximumDer = holding.MaximumDeltaExposureRatio;
+            derLimitedAdditional = CalculateDerLimitedAdditionalContracts(
+                existingDeltaShares.Value,
+                decimal.ToDouble(holding.SharesOwned),
+                preferredDelta!.Value,
+                maximumDer.Value,
+                physicalLimitedAdditional);
+        }
+
         var reasons = new List<PositionSizingReasonCode>();
         var limitingFactors = new List<PositionSizingLimitingFactor>();
         if (ccosBaseCoverage == 0)
@@ -161,7 +198,22 @@ public sealed class PositionSizingEngine : IPositionSizingEngine
         if (existingContracts.Value > desiredTotal)
             AddReason(reasons, PositionSizingReasonCode.ExistingCoverageAboveTarget);
 
-        var explanation = Explain(reasons, existingContracts.Value, desiredTotal, physicalLimitedAdditional);
+        if (existingDer is not null && maximumDer is not null && derLimitedAdditional is not null)
+        {
+            var preferredDelta = preferredContract!.Contract.Delta!.Value;
+            if (existingDer > maximumDer || existingDer == maximumDer && preferredDelta > 0)
+                AddLimit(reasons, limitingFactors, PositionSizingReasonCode.ExistingDerAtOrAboveMaximum,
+                    "Existing Delta exposure is at or above the Holding maximum.");
+            if (derLimitedAdditional < physicalLimitedAdditional)
+                AddLimit(reasons, limitingFactors, PositionSizingReasonCode.DeltaExposureLimit,
+                    "The Holding maximum Delta exposure ratio limits additional contracts.");
+        }
+
+        var additionalContracts = derLimitedAdditional is null
+            ? physicalLimitedAdditional
+            : Math.Min(physicalLimitedAdditional, derLimitedAdditional.Value);
+
+        var explanation = Explain(reasons, existingContracts.Value, desiredTotal, additionalContracts);
         return new PositionSizingResult
         {
             Status = PositionSizingStatus.Available,
@@ -187,11 +239,12 @@ public sealed class PositionSizingEngine : IPositionSizingEngine
             DesiredTotalContracts = desiredTotal,
             DesiredAdditionalContracts = desiredAdditional,
             PhysicalLimitedAdditionalContracts = physicalLimitedAdditional,
-            ExistingDer = null,
-            MaximumDer = null,
-            DerLimitedAdditionalContracts = null,
-            AdditionalContracts = physicalLimitedAdditional,
-            ResultingTotalContracts = existingContracts + physicalLimitedAdditional,
+            ExistingDeltaShares = existingDeltaShares ?? (existingContracts.Value == 0 ? 0 : null),
+            ExistingDer = existingDer,
+            MaximumDer = maximumDer,
+            DerLimitedAdditionalContracts = derLimitedAdditional,
+            AdditionalContracts = additionalContracts,
+            ResultingTotalContracts = existingContracts + additionalContracts,
             LimitingFactors = [.. limitingFactors],
             Explanation = explanation
         };
@@ -259,8 +312,82 @@ public sealed class PositionSizingEngine : IPositionSizingEngine
                     nameof(exposures));
             if (exposure.Contracts < 0)
                 throw new ArgumentOutOfRangeException(nameof(exposures), "Existing contract counts cannot be negative.");
+            if (string.IsNullOrWhiteSpace(exposure.OptionSymbol))
+                throw new ArgumentException("Every existing short-call exposure must have an option symbol.",
+                    nameof(exposures));
         }
     }
+
+    private static double? TryCalculateExistingDeltaShares(
+        ImmutableArray<ExistingShortCallExposure> exposures,
+        ImmutableArray<ExistingShortCallDeltaObservation> observations,
+        DateTimeOffset sizingTimestampUtc,
+        List<PositionSizingMissingInputCode> missingInputs)
+    {
+        var requiredExposures = exposures.Where(exposure => exposure.Contracts > 0).ToArray();
+        if (requiredExposures.Length == 0)
+            return 0;
+
+        double deltaShares = 0;
+        foreach (var symbolGroup in requiredExposures.GroupBy(
+                     exposure => exposure.OptionSymbol,
+                     StringComparer.Ordinal))
+        {
+            var matches = observations.IsDefault
+                ? []
+                : observations.Where(observation => string.Equals(
+                    observation.OptionSymbol,
+                    symbolGroup.Key,
+                    StringComparison.Ordinal)).ToArray();
+            if (matches.Length > 1)
+                throw new ArgumentException(
+                    $"Multiple existing-call Delta observations were supplied for option symbol {symbolGroup.Key}.",
+                    nameof(observations));
+            if (matches.Length == 0 || !IsUsableDelta(matches[0].Delta) ||
+                matches[0].ObservationTimestampUtc > sizingTimestampUtc)
+            {
+                AddMissing(missingInputs, PositionSizingMissingInputCode.ExistingShortCallDelta);
+                continue;
+            }
+
+            deltaShares += symbolGroup.Sum(exposure => exposure.Contracts) * matches[0].Delta!.Value * 100;
+        }
+
+        return missingInputs.Contains(PositionSizingMissingInputCode.ExistingShortCallDelta)
+            ? null
+            : deltaShares;
+    }
+
+    private static int CalculateDerLimitedAdditionalContracts(
+        double existingDeltaShares,
+        double sharesOwned,
+        double preferredDelta,
+        double maximumDer,
+        int physicalLimitedAdditionalContracts)
+    {
+        var existingDer = existingDeltaShares / sharesOwned;
+        if (existingDer > maximumDer)
+            return 0;
+        if (preferredDelta == 0)
+            return physicalLimitedAdditionalContracts;
+
+        var minimum = 0;
+        var maximum = physicalLimitedAdditionalContracts;
+        while (minimum < maximum)
+        {
+            var candidate = minimum + (maximum - minimum + 1) / 2;
+            var proposedDer = (existingDeltaShares + candidate * preferredDelta * 100) / sharesOwned;
+            if (proposedDer <= maximumDer)
+                minimum = candidate;
+            else
+                maximum = candidate - 1;
+        }
+
+        return minimum;
+    }
+
+    private static bool IsUsableDelta(double? delta) =>
+        delta is >= 0 and <= 1 && double.IsFinite(delta.Value);
 
     private static void AddMissing(List<PositionSizingMissingInputCode> inputs, PositionSizingMissingInputCode code)
     {

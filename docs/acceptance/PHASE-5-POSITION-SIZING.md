@@ -80,7 +80,7 @@ Acceptance criteria:
 
 - [ ] Given identical inputs, configuration, and strategy version, sizing is deterministic.
 - [ ] Strategy is provider-independent.
-- [ ] Strategy does not fetch current data.
+- [x] Strategy does not fetch current data.
 - [ ] Application owns persistence/provider/current-state orchestration.
 - [ ] Phase 4 evaluations are never modified by Phase 5.
 
@@ -161,7 +161,7 @@ Acceptance criteria:
 - [x] Phase 5 never reranks contracts.
 - [x] Phase 5 never selects an alternate contract.
 - [x] Preferred Contract Score comes from persisted Phase 4 output.
-- [ ] Preferred-contract Delta comes from the persisted Phase 4 option observation.
+- [x] Preferred-contract Delta comes from the persisted Phase 4 option observation.
 
 If:
 
@@ -474,12 +474,12 @@ ResultingTotalContracts =
 
 Acceptance criteria:
 
-- [ ] Calculation follows this exact order.
+- [x] Calculation follows this exact order.
 - [x] Caps apply after multiplicative modifiers.
 - [x] Whole-contract conversion floors.
 - [x] Existing contracts are subtracted from desired total before computing action.
 - [x] Final additional count cannot exceed available physical capacity.
-- [ ] Final additional count cannot exceed DER capacity.
+- [x] Final additional count cannot exceed DER capacity.
 
 ---
 
@@ -549,28 +549,28 @@ DERLimitedAdditionalContracts =
 
 Acceptance criteria:
 
-- [ ] DER sums different existing positions using their own Deltas.
-- [ ] DER evaluates only `0 <= N <= PhysicalLimitedAdditionalContracts`.
-- [ ] Preferred contract Delta = 0 with existing DER within maximum returns `DERLimitedAdditionalContracts = PhysicalLimitedAdditionalContracts`.
-- [ ] DER never represents an unbounded/infinite theoretical contract capacity.
-- [ ] Equality with MaximumDeltaExposureRatio is allowed.
-- [ ] Proposed DER immediately above maximum rejects that additional count.
-- [ ] Existing DER at maximum with positive preferred Delta permits zero additional contracts.
-- [ ] Existing DER at maximum with preferred Delta = 0 preserves `PhysicalLimitedAdditionalContracts`.
-- [ ] Existing DER above maximum permits zero additional contracts.
-- [ ] Phase 5 does not generate a close recommendation because DER is already high.
-- [ ] Preferred new-call Delta comes from persisted Phase 4 preferred-contract observation.
-- [ ] Delta must be finite and within [0,1].
-- [ ] Malformed Delta is not repaired with absolute value.
-- [ ] Missing required Delta produces InsufficientData.
+- [x] DER sums different existing positions using their own Deltas.
+- [x] DER evaluates only `0 <= N <= PhysicalLimitedAdditionalContracts`.
+- [x] Preferred contract Delta = 0 with existing DER within maximum returns `DERLimitedAdditionalContracts = PhysicalLimitedAdditionalContracts`.
+- [x] DER never represents an unbounded/infinite theoretical contract capacity.
+- [x] Equality with MaximumDeltaExposureRatio is allowed.
+- [x] Proposed DER immediately above maximum rejects that additional count.
+- [x] Existing DER at maximum with positive preferred Delta permits zero additional contracts.
+- [x] Existing DER at maximum with preferred Delta = 0 preserves `PhysicalLimitedAdditionalContracts`.
+- [x] Existing DER above maximum permits zero additional contracts.
+- [x] Phase 5 does not generate a close recommendation because DER is already high.
+- [x] Preferred new-call Delta comes from persisted Phase 4 preferred-contract observation.
+- [x] Delta must be finite and within [0,1].
+- [x] Malformed Delta is not repaired with absolute value.
+- [x] Missing required Delta produces InsufficientData.
 
 Existing-call observation semantics:
 
 - [ ] Use latest persisted normalized option observation for the option symbol at/before `SizingTimestampUtc`.
-- [ ] Future observations are excluded.
+- [x] Future observations are excluded.
 - [ ] Actual Delta observation/timestamp consumed is retained in the immutable sizing evaluation.
-- [ ] Strategy does not fetch provider data.
-- [ ] No undocumented freshness threshold exists.
+- [x] Strategy does not fetch provider data.
+- [x] No undocumented freshness threshold exists.
 
 ---
 

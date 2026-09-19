@@ -41,6 +41,7 @@ public sealed record PositionSizingResult
     public int? DesiredAdditionalContracts { get; init; }
     public int? PhysicalLimitedAdditionalContracts { get; init; }
 
+    public double? ExistingDeltaShares { get; init; }
     public double? ExistingDer { get; init; }
     public double? MaximumDer { get; init; }
     public int? DerLimitedAdditionalContracts { get; init; }
