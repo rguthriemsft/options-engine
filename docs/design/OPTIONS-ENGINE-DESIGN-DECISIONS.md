@@ -1040,8 +1040,10 @@ ProposedDER(N) =
     / SharesOwned
 ```
 
-- Choose the largest non-negative integer `N` for which `ProposedDER(N) <= MaximumDeltaExposureRatio`.
+- DER constrains only the already-calculated physically eligible action.
+- Choose the largest integer `N` in `0 <= N <= PhysicalLimitedAdditionalContracts` for which `ProposedDER(N) <= MaximumDeltaExposureRatio`.
 - Equality is allowed.
+- If `PreferredContractDelta == 0` and existing DER is within the maximum, `DERLimitedAdditionalContracts = PhysicalLimitedAdditionalContracts`; no artificial infinite/unbounded DER capacity is represented.
 - Existing positions use their own Deltas.
 - Call Delta must be finite and in `[0,1]`; do not repair malformed Delta with `abs()`.
 - Proposed new-contract Delta comes from the immutable Phase 4 preferred-contract observation.
