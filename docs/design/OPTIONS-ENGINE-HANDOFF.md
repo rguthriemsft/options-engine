@@ -598,7 +598,7 @@ actual `EarningsContext` used. A provider-backed adapter is deferred until an
 authoritative contract or sanitized captured fixture is available.
 
 
-### Phase 5 --- Design Approved / Documentation Reconciliation
+### Phase 5 --- Design and Acceptance Ready
 
 Phase 5 owns Position Sizing.
 
@@ -645,7 +645,7 @@ Approved Phase 5 packet sequence:
 5G — API and merge gate
 ```
 
-Phase 5 implementation must not begin until the specification, decision register, and acceptance checklist are mutually consistent.
+The specification, decision register, and acceptance checklist are mutually consistent. Phase 5 implementation may proceed through the approved 5A–5G packets.
 
 ## Current Phase Status
 
@@ -660,7 +660,7 @@ The Phase 4 merge gate passed with:
 Release build: 0 warnings / 0 errors
 ```
 
-Phase 5 design is approved and the repository documentation is being reconciled before implementation.
+Phase 5 design is approved and the specification, durable decision register, handoff, and acceptance checklist are reconciled for implementation planning.
 
 Phase 3 canonical indicator snapshots remain replaceable; Phase 4 evaluations remain append-only immutable historical records.
 
