@@ -566,9 +566,9 @@ Acceptance criteria:
 
 Existing-call observation semantics:
 
-- [ ] Use latest persisted normalized option observation for the option symbol at/before `SizingTimestampUtc`.
+- [x] Use latest persisted normalized option observation for the option symbol at/before `SizingTimestampUtc`.
 - [x] Future observations are excluded.
-- [ ] Actual Delta observation/timestamp consumed is retained in the immutable sizing evaluation.
+- [x] Actual Delta observation/timestamp consumed is retained in the immutable sizing evaluation.
 - [x] Strategy does not fetch provider data.
 - [x] No undocumented freshness threshold exists.
 

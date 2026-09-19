@@ -17,13 +17,20 @@ public sealed class PositionSizingEvaluationPersistenceService(
         CancellationToken cancellationToken = default)
     {
         var bundle = await orchestrator.EvaluateAsync(entryStrategyEvaluationId, sizingTimestampUtc, cancellationToken);
+        if (bundle.SourceEvaluation is null)
+            throw new PositionSizingSourceInconsistencyException(
+                "Position Sizing orchestration must provide the immutable source entry strategy evaluation.");
+        var actualSourceId = bundle.SourceEvaluation.Evaluation.EntryStrategyEvaluationId;
+        if (actualSourceId != entryStrategyEvaluationId)
+            throw new PositionSizingSourceInconsistencyException(
+                "Position Sizing orchestration returned a source entry strategy evaluation that does not match the requested ID.");
         var input = bundle.Input;
         ArgumentNullException.ThrowIfNull(input.Configuration);
         ArgumentNullException.ThrowIfNull(input.StrategyVersion);
 
         var evaluation = new PositionSizingEvaluation(
             Guid.NewGuid(),
-            entryStrategyEvaluationId,
+            actualSourceId,
             timeProvider.GetUtcNow(),
             input.SizingTimestampUtc,
             input.Holding,

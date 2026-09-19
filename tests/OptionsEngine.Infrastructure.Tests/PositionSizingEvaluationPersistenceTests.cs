@@ -1,9 +1,11 @@
 using System.Collections.Immutable;
 using Microsoft.EntityFrameworkCore;
+using OptionsEngine.Application.EntryStrategy;
 using OptionsEngine.Application.PositionSizing;
 using OptionsEngine.Domain.Accounts;
 using OptionsEngine.Infrastructure.Persistence;
 using OptionsEngine.Strategy.Indicators;
+using OptionsEngine.Strategy.EntryStrategy;
 using OptionsEngine.Strategy.PositionSizing;
 
 namespace OptionsEngine.Infrastructure.Tests;
@@ -151,18 +153,41 @@ public sealed class PositionSizingEvaluationPersistenceTests : IAsyncLifetime
             var input = new PositionSizingInput(null, expected.HoldingContext, expected.ExistingShortCallExposure,
                 expected.ExistingShortCallDeltaObservations, expected.PortfolioConcentrationContext, expected.SizingTimestampUtc,
                 expected.ResolvedConfiguration, expected.ConfigurationVersion, expected.StrategyVersion);
-            var orchestrator = new RecordingOrchestrator(new PositionSizingEvaluationBundle(null!, input, expected.Result));
+            var orchestrator = new RecordingOrchestrator(new PositionSizingEvaluationBundle(BundleSource(SourceId), input, expected.Result));
             var repository = new CapturingRepository();
             var writer = new PositionSizingEvaluationPersistenceService(orchestrator, repository, new FixedTimeProvider(At.AddHours(1)));
             var actual = await writer.CreateAsync(SourceId, expected.SizingTimestampUtc);
             Assert.Equal(1, orchestrator.CallCount);
             Assert.Same(actual, repository.Value);
+            Assert.Equal(1, repository.InsertCallCount);
             Assert.Equal(SourceId, actual.EntryStrategyEvaluationId);
             Assert.Equal(At.AddHours(1), actual.CalculatedAtUtc);
             Assert.Equal(expected.HoldingContext, actual.HoldingContext);
             Assert.Equal(expected.PortfolioConcentrationContext, actual.PortfolioConcentrationContext);
             Assert.Equal(expected.Result, actual.Result);
         }
+    }
+
+    [Fact]
+    public async Task WriterRejectsMismatchedBundleSourceIdWithoutPersisting()
+    {
+        var expected = Available();
+        var requestedId = SourceId;
+        var actualSourceId = Guid.NewGuid();
+        var input = new PositionSizingInput(null, expected.HoldingContext, expected.ExistingShortCallExposure,
+            expected.ExistingShortCallDeltaObservations, expected.PortfolioConcentrationContext, expected.SizingTimestampUtc,
+            expected.ResolvedConfiguration, expected.ConfigurationVersion, expected.StrategyVersion);
+        var orchestrator = new RecordingOrchestrator(new PositionSizingEvaluationBundle(
+            BundleSource(actualSourceId), input, expected.Result));
+        var repository = new CapturingRepository();
+        var writer = new PositionSizingEvaluationPersistenceService(orchestrator, repository, new FixedTimeProvider(At));
+
+        await Assert.ThrowsAsync<PositionSizingSourceInconsistencyException>(() =>
+            writer.CreateAsync(requestedId, expected.SizingTimestampUtc));
+
+        Assert.Equal(1, orchestrator.CallCount);
+        Assert.Equal(0, repository.InsertCallCount);
+        Assert.Null(repository.Value);
     }
 
     [Fact]
@@ -210,6 +235,10 @@ public sealed class PositionSizingEvaluationPersistenceTests : IAsyncLifetime
         DispositionReason = "EntryCandidate", EvaluationJson = "{}"
     };
 
+    private static PersistedEntryStrategyEvaluation BundleSource(Guid evaluationId) => new(
+        new EntryStrategyEvaluation(evaluationId, At, null!, null, [], [], false, null, null, null, null,
+            DispositionReasonCode.InsufficientData, [], []), [], []);
+
     private static PositionSizingEvaluation Available() => new(Guid.NewGuid(), SourceId, At, At.AddMinutes(-5),
         new PositionSizingHoldingContext(HoldingId, AccountId, "MSFT", AssetType.Stock, 250m, AssignmentSensitivity.Level3,
             TaxSensitivity.Moderate, .8m, .3),
@@ -252,8 +281,9 @@ public sealed class PositionSizingEvaluationPersistenceTests : IAsyncLifetime
     private sealed class CapturingRepository : IPositionSizingEvaluationRepository
     {
         public PositionSizingEvaluation? Value { get; private set; }
+        public int InsertCallCount { get; private set; }
         public Task InsertAsync(PositionSizingEvaluation evaluation, CancellationToken cancellationToken = default)
-        { Value = evaluation; return Task.CompletedTask; }
+        { InsertCallCount++; Value = evaluation; return Task.CompletedTask; }
         public Task<PositionSizingEvaluation?> GetByIdAsync(Guid id, CancellationToken cancellationToken = default) => Task.FromResult(Value);
     }
 
