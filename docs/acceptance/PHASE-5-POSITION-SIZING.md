@@ -525,16 +525,34 @@ ProposedDER(N) =
     / SharesOwned
 ```
 
-DER-limited count is the largest non-negative integer `N` satisfying:
+DER limits only the already-calculated physically eligible action.
+
+DER-limited count is the largest integer `N` in:
+
+```text
+0 <= N <= PhysicalLimitedAdditionalContracts
+```
+
+satisfying:
 
 ```text
 ProposedDER(N)
     <= Holding.MaximumDeltaExposureRatio
 ```
 
+If `PreferredContractDelta == 0` and existing DER is within the configured maximum:
+
+```text
+DERLimitedAdditionalContracts =
+    PhysicalLimitedAdditionalContracts
+```
+
 Acceptance criteria:
 
 - [ ] DER sums different existing positions using their own Deltas.
+- [ ] DER evaluates only `0 <= N <= PhysicalLimitedAdditionalContracts`.
+- [ ] Preferred contract Delta = 0 with existing DER within maximum returns `DERLimitedAdditionalContracts = PhysicalLimitedAdditionalContracts`.
+- [ ] DER never represents an unbounded/infinite theoretical contract capacity.
 - [ ] Equality with MaximumDeltaExposureRatio is allowed.
 - [ ] Proposed DER immediately above maximum rejects that additional count.
 - [ ] Existing DER at maximum permits zero additional contracts.
