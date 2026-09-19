@@ -555,7 +555,8 @@ Acceptance criteria:
 - [ ] DER never represents an unbounded/infinite theoretical contract capacity.
 - [ ] Equality with MaximumDeltaExposureRatio is allowed.
 - [ ] Proposed DER immediately above maximum rejects that additional count.
-- [ ] Existing DER at maximum permits zero additional contracts.
+- [ ] Existing DER at maximum with positive preferred Delta permits zero additional contracts.
+- [ ] Existing DER at maximum with preferred Delta = 0 preserves `PhysicalLimitedAdditionalContracts`.
 - [ ] Existing DER above maximum permits zero additional contracts.
 - [ ] Phase 5 does not generate a close recommendation because DER is already high.
 - [ ] Preferred new-call Delta comes from persisted Phase 4 preferred-contract observation.
