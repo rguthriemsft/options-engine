@@ -39,6 +39,7 @@ public sealed class ResistanceIndicatorCalculatorTests
 
         Assert.Equal(expectedClusters, result.Clusters.Count);
         Assert.Equal(qualified ? IndicatorValueStatus.Available : IndicatorValueStatus.InsufficientData, result.ResistancePrice.Status);
+        Assert.Equal(qualified ? null : ResistanceUnavailableReason.NoQualifiedResistance, result.ResistanceUnavailableReason);
     }
 
     [Fact]
@@ -52,6 +53,7 @@ public sealed class ResistanceIndicatorCalculatorTests
         Assert.Null(unavailable.ResistanceTouchCount.Value);
         Assert.Null(unavailable.ResistanceLastTouchDate.Value);
         Assert.Null(unavailable.ResistanceAgeTradingDays.Value);
+        Assert.Equal(ResistanceUnavailableReason.NoQualifiedResistance, unavailable.ResistanceUnavailableReason);
         Assert.Equal(100m, Calculate(bars, resistance: new ResistanceConfiguration { LookbackTradingDays = 40, MinimumResistanceTouches = 1 }).ResistancePrice.Value);
         Assert.Null(Calculate(Bars(40, (5, 100m), (15, 100.6m)), currentClose: 100.3m).ResistancePrice.Value);
         Assert.Equal(101.3m, Calculate(Bars(50, (5, 100m), (15, 100.6m), (25, 101m), (35, 101.6m)),
@@ -129,6 +131,7 @@ public sealed class ResistanceIndicatorCalculatorTests
         var result = Calculate(bars);
         Assert.Empty(result.Clusters);
         Assert.Null(result.ResistancePrice.Value);
+        Assert.Equal(ResistanceUnavailableReason.InsufficientData, result.ResistanceUnavailableReason);
         var withFuture = Calculate(bars.Concat(Bars(3, dateOffset: 40)), asOf: Start.AddDays(39));
         Assert.Equal(result.Clusters.ToArray(), withFuture.Clusters.ToArray());
         Assert.Equal(result.ResistancePrice, withFuture.ResistancePrice);
@@ -163,6 +166,7 @@ public sealed class ResistanceIndicatorCalculatorTests
         var settings = new ResistanceConfiguration();
         Assert.Empty(Calculate(bars, resistance: settings).Clusters);
         Assert.Null(Calculate(bars, resistance: settings).ResistancePrice.Value);
+        Assert.Equal(ResistanceUnavailableReason.InsufficientData, Calculate(bars, resistance: settings).ResistanceUnavailableReason);
         Assert.Equal(100.3m, Calculate(Bars(120, (20, 100m), (40, 100.6m)), resistance: settings).ResistancePrice.Value);
     }
 

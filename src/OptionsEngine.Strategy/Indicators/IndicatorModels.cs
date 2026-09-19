@@ -19,6 +19,16 @@ public enum IndicatorValueStatus
 }
 
 /// <summary>
+/// Explains why resistance facts are unavailable. No qualified overhead resistance is a
+/// valid market-structure result; insufficient data is not.
+/// </summary>
+public enum ResistanceUnavailableReason
+{
+    NoQualifiedResistance,
+    InsufficientData
+}
+
+/// <summary>
 /// A numeric indicator value whose status makes unavailable data distinct from a valid numeric zero.
 /// </summary>
 public sealed record IndicatorValue<T>(T? Value, IndicatorValueStatus Status) where T : struct
@@ -254,6 +264,7 @@ public sealed record IndicatorSnapshot(
     public IndicatorValue<int> ResistanceTouchCount { get; init; } = IndicatorValue<int>.InsufficientData();
     public IndicatorValue<DateOnly> ResistanceLastTouchDate { get; init; } = IndicatorValue<DateOnly>.InsufficientData();
     public IndicatorValue<int> ResistanceAgeTradingDays { get; init; } = IndicatorValue<int>.InsufficientData();
+    public ResistanceUnavailableReason? ResistanceUnavailableReason { get; init; }
     public MarketRegime MarketRegime { get; init; } = MarketRegime.InsufficientData;
     public MarketRegime SectorRegime { get; init; } = MarketRegime.InsufficientData;
 }

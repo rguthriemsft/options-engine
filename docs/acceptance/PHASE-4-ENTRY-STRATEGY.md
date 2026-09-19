@@ -97,9 +97,9 @@ brokerage order
 
 Acceptance criteria:
 
-- [ ] Disabled holding is not passed to the Phase 4 strategy engine.
-- [ ] Disabled holding POST returns `409 HOLDING_DISABLED`.
-- [ ] No Phase 4 class or API returns a final recommended contract count.
+- [x] Disabled holding is not passed to the Phase 4 strategy engine.
+- [x] Disabled holding POST returns `409 HOLDING_DISABLED`.
+- [x] No Phase 4 class or API returns a final recommended contract count.
 
 ---
 
@@ -134,15 +134,15 @@ The resistance algorithm itself shall not change in Phase 4A.
 
 Acceptance criteria:
 
-- [ ] Phase 4 configuration is strongly typed.
-- [ ] Invalid configuration fails clearly at startup/load time.
-- [ ] `PreferredDeltaMinimum > EffectivePreferredDeltaMaximum` is invalid configuration.
-- [ ] `MinimumAnnualizedYield <= 0` is invalid configuration.
-- [ ] Result contracts represent Available/Unavailable explicitly.
-- [ ] Gate result states include Passed, Failed, Unavailable, and NotApplicable.
-- [ ] Missing data is never represented as numeric zero.
-- [ ] `NoQualifiedResistance` is distinct from `InsufficientData`.
-- [ ] Strategy project contains no provider, persistence, or HTTP dependency.
+- [x] Phase 4 configuration is strongly typed.
+- [x] Invalid configuration fails clearly at startup/load time.
+- [x] `PreferredDeltaMinimum > EffectivePreferredDeltaMaximum` is invalid configuration.
+- [x] `MinimumAnnualizedYield <= 0` is invalid configuration.
+- [x] Result contracts represent Available/Unavailable explicitly.
+- [x] Gate result states include Passed, Failed, Unavailable, and NotApplicable.
+- [x] Missing data is never represented as numeric zero.
+- [x] `NoQualifiedResistance` is distinct from `InsufficientData`.
+- [x] Strategy project contains no provider, persistence, or HTTP dependency.
 
 ---
 
@@ -173,11 +173,11 @@ ExpirationDate - EvaluationDate
 
 Acceptance criteria:
 
-- [ ] Monday evaluation may consume a Friday IndicatorAsOfDate.
-- [ ] DTE uses New York calendar date, not UTC date subtraction.
-- [ ] Historical evaluation never consumes a Phase 3 fact after IndicatorAsOfDate.
-- [ ] Historical evaluation never consumes an option observation after EvaluationTimestampUtc.
-- [ ] Tests do not depend on machine local timezone.
+- [x] Monday evaluation may consume a Friday IndicatorAsOfDate.
+- [x] DTE uses New York calendar date, not UTC date subtraction.
+- [x] Historical evaluation never consumes a Phase 3 fact after IndicatorAsOfDate.
+- [x] Historical evaluation never consumes an option observation after EvaluationTimestampUtc.
+- [x] Tests do not depend on machine local timezone.
 
 ---
 
@@ -191,13 +191,13 @@ ChainTimestamp <= EvaluationTimestampUtc
 
 Acceptance criteria:
 
-- [ ] Contracts from different chain timestamps are never mixed within one expiration.
-- [ ] A newer empty chain supersedes an older populated chain.
-- [ ] No fallback occurs from a newer empty chain to an older populated chain.
-- [ ] Future chain observations are excluded.
-- [ ] Input enumeration order cannot change the selected chain.
-- [ ] Contract calculations use the selected chain's provider-supplied `UnderlyingPrice`.
-- [ ] Missing `UnderlyingPrice` is never replaced with daily Close, a quote, Last, or zero.
+- [x] Contracts from different chain timestamps are never mixed within one expiration.
+- [x] A newer empty chain supersedes an older populated chain.
+- [x] No fallback occurs from a newer empty chain to an older populated chain.
+- [x] Future chain observations are excluded.
+- [x] Input enumeration order cannot change the selected chain.
+- [x] Contract calculations use the selected chain's provider-supplied `UnderlyingPrice`.
+- [x] Missing `UnderlyingPrice` is never replaced with daily Close, a quote, Last, or zero.
 
 ---
 
@@ -215,14 +215,14 @@ renormalized score
 
 Acceptance criteria:
 
-- [ ] Missing required CCOS component input makes CCOS unavailable.
-- [ ] CCOS weights are never renormalized around missing components.
-- [ ] Missing required Contract Score component input makes that contract's score unavailable.
-- [ ] Contract Score weights are never renormalized.
-- [ ] One unavailable contract does not poison independent contracts.
-- [ ] Missing gate input produces `INSUFFICIENT_DATA`, not the threshold failure code.
-- [ ] `INSUFFICIENT_DATA` records exact machine-readable MissingInputs.
-- [ ] NotApplicable is distinct from Unavailable.
+- [x] Missing required CCOS component input makes CCOS unavailable.
+- [x] CCOS weights are never renormalized around missing components.
+- [x] Missing required Contract Score component input makes that contract's score unavailable.
+- [x] Contract Score weights are never renormalized.
+- [x] One unavailable contract does not poison independent contracts.
+- [x] Missing gate input produces `INSUFFICIENT_DATA`, not the threshold failure code.
+- [x] `INSUFFICIENT_DATA` records exact machine-readable MissingInputs.
+- [x] NotApplicable is distinct from Unavailable.
 
 ---
 
@@ -261,73 +261,74 @@ Explicit terminal `<` and `>` endpoints remain strict.
 
 Acceptance criteria:
 
-- [ ] Every CCOS numeric threshold has tests immediately below, exactly at, and immediately above.
-- [ ] Classification boundaries have deterministic tests.
-- [ ] Classification does not itself determine entry eligibility.
+- [x] Every CCOS numeric threshold has tests immediately below, exactly at, and immediately above.
+- [x] Classification boundaries have deterministic tests.
+- [x] Classification does not itself determine entry eligibility.
 
 ## 7.2 Volatility — 25
 
 Acceptance criteria:
 
-- [ ] `VolatilityScore = IVPercentileScore + IV30ToRV30Score`.
-- [ ] IV Percentile points match SPECIFICATION Section 23 exactly.
-- [ ] IV30/RV30 points match SPECIFICATION Section 23 exactly.
-- [ ] `IV30/RV30 = 1.35` receives 8, while a value above 1.35 receives 10.
-- [ ] Missing IV30, IVPercentile, or RV30 makes the component unavailable.
-- [ ] `RV30 <= 0` makes the component unavailable.
-- [ ] IVRank does not contribute to CCOS V1.
+- [x] `VolatilityScore = IVPercentileScore + IV30ToRV30Score`.
+- [x] IV Percentile points match SPECIFICATION Section 23 exactly.
+- [x] IV30/RV30 points match SPECIFICATION Section 23 exactly.
+- [x] `IV30/RV30 = 1.35` receives 8, while a value above 1.35 receives 10.
+- [x] Missing IV30, IVPercentile, or RV30 makes the component unavailable.
+- [x] `RV30 <= 0` makes the component unavailable.
+- [x] IVRank does not contribute to CCOS V1.
 
 ## 7.3 RSI — 15
 
 Acceptance criteria:
 
-- [ ] RSI scoring matches SPECIFICATION Section 24 exactly.
-- [ ] RSI 70 enters the 70–75 band.
-- [ ] RSI 75 enters the 75–80 band.
-- [ ] RSI 80 remains in the 75–80 band.
-- [ ] RSI above 80 receives the >80 score.
-- [ ] RSI outside 0–100 is invalid/unavailable.
+- [x] RSI scoring matches SPECIFICATION Section 24 exactly.
+- [x] RSI 70 enters the 70–75 band.
+- [x] RSI 75 enters the 75–80 band.
+- [x] RSI 80 remains in the 75–80 band.
+- [x] RSI above 80 receives the >80 score.
+- [x] RSI outside 0–100 is invalid/unavailable.
 
 ## 7.4 Bollinger — 15
 
 Acceptance criteria:
 
-- [ ] %B scoring matches SPECIFICATION Section 25.1 exactly.
-- [ ] %B 1.15 receives 7 points; a value above 1.15 receives 3.
-- [ ] Available Bollinger bandwidth contributes exactly 5 points.
-- [ ] Phase 4 does not calculate bandwidth slope/expansion rate.
-- [ ] Missing %B or bandwidth makes the component unavailable.
+- [x] %B scoring matches SPECIFICATION Section 25.1 exactly.
+- [x] %B 1.15 receives 7 points; a value above 1.15 receives 3.
+- [x] Available Bollinger bandwidth contributes exactly 5 points.
+- [x] Phase 4 does not calculate bandwidth slope/expansion rate.
+- [x] Missing %B or bandwidth makes the component unavailable.
 
 ## 7.5 Trend/Momentum — 15
 
 Acceptance criteria:
 
-- [ ] `SMA20 > SMA50` contributes 5.
-- [ ] `SMA50 > SMA200` contributes 5.
-- [ ] `MACDHistogram > 0` contributes 5.
-- [ ] Equality contributes zero for the applicable check.
-- [ ] Missing any required input makes the entire component unavailable.
+- [x] `SMA20 > SMA50` contributes 5.
+- [x] `SMA50 > SMA200` contributes 5.
+- [x] `MACDHistogram > 0` contributes 5.
+- [x] Equality contributes zero for the applicable check.
+- [x] Missing any required input makes the entire component unavailable.
 
 ## 7.6 Resistance/Structure — 15
 
 Acceptance criteria:
 
-- [ ] `NoQualifiedResistance` is a valid state and scores 0/15.
-- [ ] `InsufficientData` makes the component unavailable.
-- [ ] Distance scoring matches SPECIFICATION Section 25.3.
-- [ ] Touch scoring matches SPECIFICATION Section 25.3.
-- [ ] Recency scoring matches SPECIFICATION Section 25.3.
-- [ ] Resistance facts are consumed from Phase 3 as-of context.
-- [ ] Phase 4 does not recompute resistance distance from intraday chain UnderlyingPrice.
+- [x] `NoQualifiedResistance` is a valid state and scores 0/15.
+- [x] `InsufficientData` makes the component unavailable.
+- [x] Distance scoring matches SPECIFICATION Section 25.3.
+- [x] A qualified one-touch resistance scores 0 for touches while its distance and recency remain scorable.
+- [x] Touch scoring matches SPECIFICATION Section 25.3.
+- [x] Recency scoring matches SPECIFICATION Section 25.3.
+- [x] Resistance facts are consumed from Phase 3 as-of context.
+- [x] Phase 4 does not recompute resistance distance from intraday chain UnderlyingPrice.
 
 ## 7.7 Market/Sector Regime — 15
 
 Acceptance criteria:
 
-- [ ] Market NEUTRAL/BULLISH/BEARISH scores 8/4/0.
-- [ ] Sector NEUTRAL/BULLISH/BEARISH scores 7/3/0.
-- [ ] Missing either regime makes the entire component unavailable.
-- [ ] Phase 4 does not recalculate regime from benchmark SMA data.
+- [x] Market NEUTRAL/BULLISH/BEARISH scores 8/4/0.
+- [x] Sector NEUTRAL/BULLISH/BEARISH scores 7/3/0.
+- [x] Missing either regime makes the entire component unavailable.
+- [x] Phase 4 does not recalculate regime from benchmark SMA data.
 
 ---
 
@@ -343,14 +344,14 @@ AND MACDHistogram > 0
 
 Acceptance criteria:
 
-- [ ] All three conditions are required.
-- [ ] %B exactly 1.15 does not veto.
-- [ ] RSI exactly 75 satisfies the RSI condition.
-- [ ] MACDHistogram exactly 0 does not veto.
-- [ ] Veto produces `BREAKOUT_VETO`.
-- [ ] Available CCOS remains retained for explanation.
-- [ ] Veto prevents EntryCandidateExists.
-- [ ] No additional V1 breakout rule exists.
+- [x] All three conditions are required.
+- [x] %B exactly 1.15 does not veto.
+- [x] RSI exactly 75 satisfies the RSI condition.
+- [x] MACDHistogram exactly 0 does not veto.
+- [x] Veto produces `BREAKOUT_VETO`.
+- [x] Available CCOS remains retained for explanation.
+- [x] Veto prevents EntryCandidateExists.
+- [x] No additional V1 breakout rule exists.
 
 ---
 
@@ -375,12 +376,12 @@ AnnualizedPremiumYield = DailyPremiumYield * 365
 
 Acceptance criteria:
 
-- [ ] Puts are excluded from the candidate universe.
-- [ ] Rejected calls remain observable with reasons.
-- [ ] ReferencePremium is Bid, not Mid or Last.
-- [ ] Equality/rounding behavior is deterministic.
-- [ ] Missing required price/premium inputs produces explicit unavailable state.
-- [ ] Phase 4 V1 does not require DeltaAdjustedYield, ExpectedMove, ExpectedMoveRatio, or StrikeVsResistance.
+- [x] Puts are excluded from the candidate universe.
+- [x] Rejected calls remain observable with reasons.
+- [x] ReferencePremium is Bid, not Mid or Last.
+- [x] Equality/rounding behavior is deterministic.
+- [x] Missing required price/premium inputs produces explicit unavailable state.
+- [x] Phase 4 V1 does not require DeltaAdjustedYield, ExpectedMove, ExpectedMoveRatio, or StrikeVsResistance.
 
 ---
 
@@ -396,11 +397,11 @@ A call is hard-gate eligible only if every required gate passes.
 
 Tests:
 
-- [ ] 13 rejects.
-- [ ] 14 passes.
-- [ ] 45 passes.
-- [ ] 46 rejects.
-- [ ] Failure code is `DTE_OUTSIDE_RANGE`.
+- [x] 13 rejects.
+- [x] 14 passes.
+- [x] 45 passes.
+- [x] 46 rejects.
+- [x] Failure code is `DTE_OUTSIDE_RANGE`.
 
 ## 10.2 Strike
 
@@ -410,10 +411,10 @@ Strike > UnderlyingPrice
 
 Tests:
 
-- [ ] Strike below underlying rejects.
-- [ ] Strike equal to underlying rejects.
-- [ ] Strike strictly above underlying passes.
-- [ ] Failure code is `STRIKE_NOT_OTM`.
+- [x] Strike below underlying rejects.
+- [x] Strike equal to underlying rejects.
+- [x] Strike strictly above underlying passes.
+- [x] Failure code is `STRIKE_NOT_OTM`.
 
 ## 10.3 Effective Maximum Delta
 
@@ -432,26 +433,26 @@ Default High tax maximum = .20.
 
 Tests:
 
-- [ ] Holding may tighten the global limit.
-- [ ] Holding cannot loosen the global limit.
-- [ ] TaxSensitivity.High applies the .20 configured cap.
-- [ ] Delta equal to EffectiveMaximumDelta passes.
-- [ ] Delta immediately above rejects with `DELTA_EXCEEDS_MAXIMUM`.
-- [ ] Delta must be finite and in 0–1.
-- [ ] Invalid/missing Delta yields `INSUFFICIENT_DATA`.
-- [ ] Strategy never applies `abs(Delta)`.
+- [x] Holding may tighten the global limit.
+- [x] Holding cannot loosen the global limit.
+- [x] TaxSensitivity.High applies the .20 configured cap.
+- [x] Delta equal to EffectiveMaximumDelta passes.
+- [x] Delta immediately above rejects with `DELTA_EXCEEDS_MAXIMUM`.
+- [x] Delta must be finite and in 0–1.
+- [x] Invalid/missing Delta yields `INSUFFICIENT_DATA`.
+- [x] Strategy never applies `abs(Delta)`.
 
 ## 10.4 Earnings
 
 Tests:
 
-- [ ] Individual-stock earnings before expiration rejects.
-- [ ] Earnings on expiration date rejects.
-- [ ] Earnings after expiration passes.
-- [ ] Failure code is `EARNINGS_BEFORE_EXPIRATION`.
-- [ ] Missing required stock earnings produces `INSUFFICIENT_DATA`.
-- [ ] ETF earnings status is NotApplicable.
-- [ ] Dividend/ex-dividend/material-event rules do not affect Phase 4 V1 entry.
+- [x] Individual-stock earnings before expiration rejects.
+- [x] Earnings on expiration date rejects.
+- [x] Earnings after expiration passes.
+- [x] Failure code is `EARNINGS_BEFORE_EXPIRATION`.
+- [x] Missing required stock earnings produces `INSUFFICIENT_DATA`.
+- [x] ETF earnings status is NotApplicable.
+- [x] Dividend/ex-dividend/material-event rules do not affect Phase 4 V1 entry.
 
 ## 10.5 Liquidity
 
@@ -466,32 +467,32 @@ BidAskSpreadPercent <= 20%
 
 Tests:
 
-- [ ] OI 99 rejects.
-- [ ] OI 100 passes.
-- [ ] Spread immediately below 20% passes.
-- [ ] Spread exactly 20% passes.
-- [ ] Spread above 20% rejects.
-- [ ] Ask equal to Bid rejects.
-- [ ] Present values that fail thresholds use `INSUFFICIENT_LIQUIDITY`.
-- [ ] Missing Bid/Ask/OI uses `INSUFFICIENT_DATA`.
+- [x] OI 99 rejects.
+- [x] OI 100 passes.
+- [x] Spread immediately below 20% passes.
+- [x] Spread exactly 20% passes.
+- [x] Spread above 20% rejects.
+- [x] Ask equal to Bid rejects.
+- [x] Present values that fail thresholds use `INSUFFICIENT_LIQUIDITY`.
+- [x] Missing Bid/Ask/OI uses `INSUFFICIENT_DATA`.
 
 ## 10.6 Premium and Yield Floors
 
 Tests:
 
-- [ ] ReferencePremium below Holding.MinimumPremium rejects.
-- [ ] Equality passes.
-- [ ] Failure code is `PREMIUM_BELOW_MINIMUM`.
-- [ ] AnnualizedPremiumYield below Holding.MinimumAnnualizedYield rejects.
-- [ ] Equality passes.
-- [ ] Failure code is `ANNUALIZED_YIELD_BELOW_MINIMUM`.
+- [x] ReferencePremium below Holding.MinimumPremium rejects.
+- [x] Equality passes.
+- [x] Failure code is `PREMIUM_BELOW_MINIMUM`.
+- [x] AnnualizedPremiumYield below Holding.MinimumAnnualizedYield rejects.
+- [x] Equality passes.
+- [x] Failure code is `ANNUALIZED_YIELD_BELOW_MINIMUM`.
 
 ## 10.7 Multiple Failures
 
-- [ ] All determinable gate failures are retained.
-- [ ] Gate evaluation does not stop at the first failure.
-- [ ] Preferred delta range is not a hard gate.
-- [ ] Coverage/share-count/DER constraints are absent from Phase 4 hard gates.
+- [x] All determinable gate failures are retained.
+- [x] Gate evaluation does not stop at the first failure.
+- [x] Preferred delta range is not a hard gate.
+- [x] Coverage/share-count/DER constraints are absent from Phase 4 hard gates.
 
 ---
 
@@ -528,20 +529,20 @@ Every scoring threshold shall have below/at/above tests.
 
 Tests:
 
-- [ ] Below preferred range scores 20.
-- [ ] Preferred range, inclusive, scores 25.
-- [ ] Above preferred but within EffectiveMaximumDelta scores 10.
-- [ ] EffectivePreferredDeltaMaximum is capped by EffectiveMaximumDelta.
-- [ ] Invalid preferred range is rejected as configuration error.
+- [x] Below preferred range scores 20.
+- [x] Preferred range, inclusive, scores 25.
+- [x] Above preferred but within EffectiveMaximumDelta scores 10.
+- [x] EffectivePreferredDeltaMaximum is capped by EffectiveMaximumDelta.
+- [x] Invalid preferred range is rejected as configuration error.
 
 ## 11.2 Strike Safety — 20
 
 Tests:
 
-- [ ] OTM bands score 0/4/8/12/15/18/20 exactly as specified.
-- [ ] OTM 8% remains in the 18-point band.
-- [ ] Above 8% scores 20.
-- [ ] Resistance does not affect Contract Score V1.
+- [x] OTM bands score 0/4/8/12/15/18/20 exactly as specified.
+- [x] OTM 8% remains in the 18-point band.
+- [x] Above 8% scores 20.
+- [x] Resistance does not affect Contract Score V1.
 
 ## 11.3 Premium Efficiency — 20
 
@@ -552,20 +553,20 @@ AnnualizedPremiumYield / Holding.MinimumAnnualizedYield
 
 Tests:
 
-- [ ] Ratio bands score 0/5/10/15/20 exactly as specified.
-- [ ] Hard-gate-passing ratio exactly 1.00 scores 0.
-- [ ] Ratio exactly 2.00 scores 20.
-- [ ] MinimumPremium contributes no additional score.
-- [ ] MinimumAnnualizedYield must be > 0.
+- [x] Ratio bands score 0/5/10/15/20 exactly as specified.
+- [x] Hard-gate-passing ratio exactly 1.00 scores 0.
+- [x] Ratio exactly 2.00 scores 20.
+- [x] MinimumPremium contributes no additional score.
+- [x] MinimumAnnualizedYield must be > 0.
 
 ## 11.4 DTE Efficiency — 10
 
 Tests:
 
-- [ ] 14–20 scores 5.
-- [ ] 21–35 scores 10.
-- [ ] 36–45 scores 8.
-- [ ] No holding-specific preferred-DTE setting is added.
+- [x] 14–20 scores 5.
+- [x] 21–35 scores 10.
+- [x] 36–45 scores 8.
+- [x] No holding-specific preferred-DTE setting is added.
 
 ## 11.5 IV/Volatility Edge — 10
 
@@ -576,12 +577,12 @@ Contract.ImpliedVolatility / RV30
 
 Tests:
 
-- [ ] Bands score 0/2/4/6/8/10 exactly as specified.
-- [ ] Ratio exactly 1.35 scores 8.
-- [ ] Ratio above 1.35 scores 10.
-- [ ] Contract IV and RV30 must be finite and > 0.
-- [ ] IV30 and IVRank do not contribute to this component.
-- [ ] Phase 4 never reconstructs IV30.
+- [x] Bands score 0/2/4/6/8/10 exactly as specified.
+- [x] Ratio exactly 1.35 scores 8.
+- [x] Ratio above 1.35 scores 10.
+- [x] Contract IV and RV30 must be finite and > 0.
+- [x] IV30 and IVRank do not contribute to this component.
+- [x] Phase 4 never reconstructs IV30.
 
 ## 11.6 Liquidity — 10
 
@@ -592,10 +593,10 @@ SpreadScore + OpenInterestScore
 
 Tests:
 
-- [ ] Spread bands score 5/4/2/1 exactly as specified.
-- [ ] OI bands score 1/2/3/4/5 exactly as specified.
-- [ ] Every gate-eligible contract receives at least 2/10 liquidity points.
-- [ ] Daily option volume has no effect on eligibility or Contract Score.
+- [x] Spread bands score 5/4/2/1 exactly as specified.
+- [x] OI bands score 1/2/3/4/5 exactly as specified.
+- [x] Every gate-eligible contract receives at least 2/10 liquidity points.
+- [x] Daily option volume has no effect on eligibility or Contract Score.
 
 ## 11.7 Theta Efficiency — 5
 
@@ -606,10 +607,10 @@ ThetaEfficiencyRatio =
 
 Tests:
 
-- [ ] Ratio bands score 0/1/2/3/4/5 exactly as specified.
-- [ ] Theta must be finite and strictly negative.
-- [ ] Theta zero, positive, missing, or non-finite makes Contract Score unavailable.
-- [ ] Strategy never repairs Theta using absolute value.
+- [x] Ratio bands score 0/1/2/3/4/5 exactly as specified.
+- [x] Theta must be finite and strictly negative.
+- [x] Theta zero, positive, missing, or non-finite makes Contract Score unavailable.
+- [x] Strategy never repairs Theta using absolute value.
 
 ---
 
@@ -637,13 +638,13 @@ OptionSymbol ordinal ASC
 
 Acceptance criteria:
 
-- [ ] Contract Score is primary.
-- [ ] Each tie-break key has an isolated deterministic test.
-- [ ] Input/provider enumeration order cannot affect rank.
-- [ ] Hard-gate failures are not ranked.
-- [ ] Contracts with unavailable Contract Score are not ranked.
-- [ ] A ranked contract below MinimumContractScore is retained but EntryAcceptable=false.
-- [ ] Contract ranking may still be produced when CCOS is below its entry threshold.
+- [x] Contract Score is primary.
+- [x] Each tie-break key has an isolated deterministic test.
+- [x] Input/provider enumeration order cannot affect rank.
+- [x] Hard-gate failures are not ranked.
+- [x] Contracts with unavailable Contract Score are not ranked.
+- [x] A ranked contract below MinimumContractScore is retained but EntryAcceptable=false.
+- [x] Contract ranking may still be produced when CCOS is below its entry threshold.
 
 ---
 
@@ -672,13 +673,13 @@ ContractScore >= Holding.MinimumContractScore
 
 Acceptance criteria:
 
-- [ ] Preferred strike always equals preferred contract strike.
-- [ ] CCOS below threshold produces no preferred contract.
-- [ ] Breakout veto produces no preferred contract.
-- [ ] CCOS pass with no acceptable contract uses `NO_ACCEPTABLE_CONTRACT`.
-- [ ] Missing CCOS data uses `INSUFFICIENT_DATA`.
-- [ ] Contract details remain available where independently calculable.
-- [ ] Phase 4 uses terminology PreferredInitialContract/PreferredInitialStrike rather than final Recommendation/SELL semantics.
+- [x] Preferred strike always equals preferred contract strike.
+- [x] CCOS below threshold produces no preferred contract.
+- [x] Breakout veto produces no preferred contract.
+- [x] CCOS pass with no acceptable contract uses `NO_ACCEPTABLE_CONTRACT`.
+- [x] Missing CCOS data uses `INSUFFICIENT_DATA`.
+- [x] Contract details remain available where independently calculable.
+- [x] Phase 4 uses terminology PreferredInitialContract/PreferredInitialStrike rather than final Recommendation/SELL semantics.
 
 ---
 
@@ -707,13 +708,13 @@ Explanation
 
 Acceptance criteria:
 
-- [ ] All evaluated gate results are retained, not only failures.
-- [ ] Gate passes/failures/unavailable/not-applicable are distinguishable.
-- [ ] MissingInputs uses stable machine-readable codes.
-- [ ] Stable gate/component/reason codes are not reconstructed from human text.
-- [ ] Human explanations are persisted with the immutable evaluation.
-- [ ] API/UI does not need to recalculate score, eligibility, rank, or disposition.
-- [ ] A missing value never masquerades as a threshold failure.
+- [x] All evaluated gate results are retained, not only failures.
+- [x] Gate passes/failures/unavailable/not-applicable are distinguishable.
+- [x] MissingInputs uses stable machine-readable codes.
+- [x] Stable gate/component/reason codes are not reconstructed from human text.
+- [x] Human explanations are persisted with the immutable evaluation.
+- [x] API/UI does not need to recalculate score, eligibility, rank, or disposition.
+- [x] A missing value never masquerades as a threshold failure.
 
 ---
 
@@ -736,14 +737,18 @@ resolved Phase 4 configuration
 
 Acceptance criteria:
 
-- [ ] Application, not Strategy, performs persistence/provider access.
-- [ ] Strategy remains pure and synchronous.
-- [ ] Market freshness policy remains an Application/MarketData concern.
-- [ ] Phase 4 strategy does not independently refresh provider data.
-- [ ] Current evaluation uses server time supplied explicitly/injectably.
-- [ ] Historical deterministic orchestration can be tested without current time.
-- [ ] Earnings input is supplied through a provider-independent boundary.
-- [ ] V1 orchestration introduces no dividend/material-event strategy rule.
+- [x] Application, not Strategy, performs persistence/provider access.
+- [x] Strategy remains pure and synchronous.
+- [x] Market freshness policy remains an Application/MarketData concern.
+- [x] Phase 4 strategy does not independently refresh provider data.
+- [x] Current evaluation uses server time supplied explicitly/injectably.
+- [x] Historical deterministic orchestration can be tested without current time.
+- [x] Earnings input is supplied through a provider-independent boundary.
+- [x] V1 production current evaluation uses validated configuration-backed earnings dates; a provider-backed
+  source is deferred pending an authoritative provider contract or sanitized fixture.
+- [x] The configured source does not claim to reconstruct historical event knowledge; Phase 4E persists the
+  exact consumed EarningsContext.
+- [x] V1 orchestration introduces no dividend/material-event strategy rule.
 
 ---
 
@@ -759,13 +764,13 @@ StrategyVersion
 
 Acceptance criteria:
 
-- [ ] Phase 3 algorithm changes require IndicatorCalculationVersion review/change.
-- [ ] Numeric strategy parameter changes require ConfigurationVersion change.
-- [ ] Formula/component/gate/missing-data/ranking semantic changes require StrategyVersion change.
-- [ ] Holding-specific values are captured in HoldingContext, not treated as ConfigurationVersion.
-- [ ] Complete resolved configuration used by the evaluation is persisted.
-- [ ] V1 uses one shared ConfigurationVersion identity across Phase 3 and Phase 4.
-- [ ] Historical evaluations are not reinterpreted under newer versions.
+- [x] Phase 3 algorithm changes require IndicatorCalculationVersion review/change.
+- [x] Numeric strategy parameter changes require ConfigurationVersion change.
+- [x] Formula/component/gate/missing-data/ranking semantic changes require StrategyVersion change.
+- [x] Holding-specific values are captured in HoldingContext, not treated as ConfigurationVersion.
+- [x] Complete resolved configuration used by the evaluation is persisted.
+- [x] V1 uses one shared ConfigurationVersion identity across Phase 3 and Phase 4.
+- [x] Historical evaluations are not reinterpreted under newer versions.
 
 ---
 
@@ -797,17 +802,17 @@ A hybrid relational + structured-JSON representation is acceptable if required d
 
 Acceptance criteria:
 
-- [ ] New evaluation inserts a new immutable record.
-- [ ] Later evaluation never overwrites an earlier record.
-- [ ] Editing Holding after evaluation does not change historical evaluation retrieval.
-- [ ] Recalculating canonical Phase 3 snapshot does not change historical Phase 4 evaluation retrieval.
-- [ ] Newer option observations do not change historical Phase 4 evaluation retrieval.
-- [ ] Resolved configuration and versions round-trip exactly.
-- [ ] Rejected and insufficient-data contracts are retained.
-- [ ] Persistence stores more than final CCOS/ContractScore totals.
-- [ ] EF Core migration is included.
-- [ ] Clean database migration succeeds.
-- [ ] Existing Phase 3 database migrates forward successfully.
+- [x] New evaluation inserts a new immutable record.
+- [x] Later evaluation never overwrites an earlier record.
+- [x] Editing Holding after evaluation does not change historical evaluation retrieval.
+- [x] Recalculating canonical Phase 3 snapshot does not change historical Phase 4 evaluation retrieval.
+- [x] Newer option observations do not change historical Phase 4 evaluation retrieval.
+- [x] Resolved configuration and versions round-trip exactly.
+- [x] Rejected and insufficient-data contracts are retained.
+- [x] Persistence stores more than final CCOS/ContractScore totals.
+- [x] EF Core migration is included.
+- [x] Clean database migration succeeds.
+- [x] Existing Phase 3 database migrates forward successfully.
 
 ---
 
@@ -823,16 +828,16 @@ GET /api/holdings/{holdingId}/entry-evaluations
 
 Acceptance criteria:
 
-- [ ] POST evaluates current server-owned context and returns `201 Created`.
-- [ ] Successful POST persists exactly one immutable evaluation.
-- [ ] GET by ID is passive retrieval and performs no refresh/recalculation.
-- [ ] Holding history is lightweight and newest first.
-- [ ] Missing holding returns 404.
-- [ ] Disabled holding returns 409 `HOLDING_DISABLED`.
-- [ ] Strategy outcomes such as `INSUFFICIENT_DATA`, `CCOS_BELOW_MINIMUM`, `BREAKOUT_VETO`, or `NO_ACCEPTABLE_CONTRACT` remain successful persisted evaluations.
-- [ ] Public V1 POST does not expose arbitrary as-of/evaluation/version parameters.
-- [ ] No PUT, PATCH, or DELETE endpoint exists for EntryStrategyEvaluation.
-- [ ] API DTOs do not expose EF entities.
+- [x] POST evaluates current server-owned context and returns `201 Created`.
+- [x] Successful POST persists exactly one immutable evaluation.
+- [x] GET by ID is passive retrieval and performs no refresh/recalculation.
+- [x] Holding history is lightweight and newest first.
+- [x] Missing holding returns 404.
+- [x] Disabled holding returns 409 `HOLDING_DISABLED`.
+- [x] Strategy outcomes such as `INSUFFICIENT_DATA`, `CCOS_BELOW_MINIMUM`, `BREAKOUT_VETO`, or `NO_ACCEPTABLE_CONTRACT` remain successful persisted evaluations.
+- [x] Public V1 POST does not expose arbitrary as-of/evaluation/version parameters.
+- [x] No PUT, PATCH, or DELETE endpoint exists for EntryStrategyEvaluation.
+- [x] API DTOs do not expose EF entities.
 
 ---
 
@@ -844,60 +849,60 @@ Maintain fixed deterministic regression scenarios.
 
 Must prove:
 
-- [ ] CCOS meets threshold.
-- [ ] No underlying veto.
-- [ ] Multiple contracts are evaluated.
-- [ ] At least one contract meets MinimumContractScore.
-- [ ] Exact CCOS and all component scores are asserted.
-- [ ] Exact Contract Scores and all component scores are asserted.
-- [ ] Exact rank order is asserted.
-- [ ] Preferred contract/strike is deterministic.
-- [ ] `EntryCandidateExists=true`.
+- [x] CCOS meets threshold.
+- [x] No underlying veto.
+- [x] Multiple contracts are evaluated.
+- [x] At least one contract meets MinimumContractScore.
+- [x] Exact CCOS and all component scores are asserted.
+- [x] Exact Contract Scores and all component scores are asserted.
+- [x] Exact rank order is asserted.
+- [x] Preferred contract/strike is deterministic.
+- [x] `EntryCandidateExists=true`.
 
 ## BreakoutVeto
 
-- [ ] Otherwise valid/high CCOS retained.
-- [ ] Exact breakout formula fires.
-- [ ] `BREAKOUT_VETO` retained.
-- [ ] `EntryCandidateExists=false`.
+- [x] Otherwise valid/high CCOS retained.
+- [x] Exact breakout formula fires.
+- [x] `BREAKOUT_VETO` retained.
+- [x] `EntryCandidateExists=false`.
 
 ## InsufficientData
 
-- [ ] Remove at least one required CCOS input.
-- [ ] CCOS is unavailable.
-- [ ] Exact MissingInputs asserted.
-- [ ] `INSUFFICIENT_DATA`.
-- [ ] No preferred contract.
+- [x] Remove at least one required CCOS input.
+- [x] CCOS is unavailable.
+- [x] Exact MissingInputs asserted.
+- [x] `INSUFFICIENT_DATA`.
+- [x] No preferred contract.
 
 ## HighAssignmentRisk
 
-- [ ] Above-max Delta contract rejects with `DELTA_EXCEEDS_MAXIMUM`.
-- [ ] Independent lower-delta alternatives remain evaluable.
+- [x] Above-max Delta contract rejects with `DELTA_EXCEEDS_MAXIMUM`.
+- [x] Independent lower-delta alternatives remain evaluable.
 
 ## TaxSensitivePosition
 
-- [ ] TaxSensitivity.High applies configured .20 default cap.
-- [ ] Boundary at the effective maximum is tested.
+- [x] TaxSensitivity.High applies configured .20 default cap.
+- [x] Boundary at the effective maximum is tested.
 
 ## IlliquidContract
 
-- [ ] Otherwise-attractive contract fails liquidity.
-- [ ] `INSUFFICIENT_LIQUIDITY`.
-- [ ] Rejected contract is retained but not ranked.
+- [x] Otherwise-attractive contract fails liquidity.
+- [x] `INSUFFICIENT_LIQUIDITY`.
+- [x] Rejected contract is retained but not ranked.
 
 ## EarningsBeforeExpiration
 
-- [ ] Earnings before expiration rejects.
-- [ ] Same-day earnings rejects.
-- [ ] `EARNINGS_BEFORE_EXPIRATION`.
+- [x] Earnings before expiration rejects.
+- [x] Same-day earnings rejects.
+- [x] `EARNINGS_BEFORE_EXPIRATION`.
 
 ## NoAcceptableContract
 
-- [ ] CCOS passes.
-- [ ] Contract analysis is produced.
-- [ ] No contract meets complete entry requirements.
-- [ ] `NO_ACCEPTABLE_CONTRACT`.
-- [ ] Detailed per-contract results are retained.
+- [x] CCOS passes.
+- [x] Contract analysis is produced.
+- [x] No contract meets complete entry requirements.
+- [x] `NO_ACCEPTABLE_CONTRACT`.
+- [x] Detailed per-contract results are retained.
 
 ---
 
@@ -958,18 +963,18 @@ current date/time
 
 Before Phase 4 is complete:
 
-- [ ] `dotnet restore` succeeds.
-- [ ] `dotnet build --configuration Release --no-restore` succeeds.
-- [ ] Release build contains zero warnings/errors unless an explicitly documented repository-wide exception exists.
-- [ ] `dotnet test --configuration Release --no-build` passes.
-- [ ] Clean EF migration path succeeds.
-- [ ] Phase 3 database upgrades to Phase 4 successfully.
-- [ ] No credentials or personal financial data are introduced.
-- [ ] Architecture dependency rules remain intact.
-- [ ] No Phase 5+ behavior is implemented.
-- [ ] Documentation matches implementation.
-- [ ] Every Phase 4 threshold has deterministic below/at/above coverage.
-- [ ] All eight Phase 4 golden scenarios pass.
+- [x] `dotnet restore` succeeds.
+- [x] `dotnet build --configuration Release --no-restore` succeeds.
+- [x] Release build contains zero warnings/errors unless an explicitly documented repository-wide exception exists.
+- [x] `dotnet test --configuration Release --no-build` passes.
+- [x] Clean EF migration path succeeds.
+- [x] Phase 3 database upgrades to Phase 4 successfully.
+- [x] No credentials or personal financial data are introduced.
+- [x] Architecture dependency rules remain intact.
+- [x] No Phase 5+ behavior is implemented.
+- [x] Documentation matches implementation.
+- [x] Every Phase 4 threshold has deterministic below/at/above coverage.
+- [x] All eight Phase 4 golden scenarios pass.
 
 ---
 

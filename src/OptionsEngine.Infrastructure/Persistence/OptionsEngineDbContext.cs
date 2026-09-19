@@ -16,6 +16,7 @@ public sealed class OptionsEngineDbContext(DbContextOptions<OptionsEngineDbConte
     public DbSet<HistoricalPriceCoverageEntity> HistoricalPriceCoverages => Set<HistoricalPriceCoverageEntity>();
     public DbSet<IndicatorSnapshotEntity> IndicatorSnapshots => Set<IndicatorSnapshotEntity>();
     public DbSet<EmptyOptionChainSnapshotEntity> EmptyOptionChainSnapshots => Set<EmptyOptionChainSnapshotEntity>();
+    public DbSet<EntryStrategyEvaluationEntity> EntryStrategyEvaluations => Set<EntryStrategyEvaluationEntity>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -80,6 +81,22 @@ public sealed class OptionsEngineDbContext(DbContextOptions<OptionsEngineDbConte
             entity.Property(x => x.UnderlyingSymbol).HasMaxLength(32).IsRequired();
             entity.Property(x => x.Provider).HasMaxLength(64).IsRequired();
             entity.HasIndex(x => new { x.UnderlyingSymbol, x.Provider, x.Expiration, x.TimestampUtcTicks });
+        });
+        modelBuilder.Entity<EntryStrategyEvaluationEntity>(entity =>
+        {
+            entity.ToTable("EntryStrategyEvaluations");
+            entity.HasKey(x => x.EntryStrategyEvaluationId);
+            entity.Property(x => x.Symbol).HasMaxLength(32).IsRequired();
+            entity.Property(x => x.IndicatorCalculationVersion).HasMaxLength(64).IsRequired();
+            entity.Property(x => x.StrategyVersion).HasMaxLength(64).IsRequired();
+            entity.Property(x => x.CcosStatus).HasMaxLength(32).IsRequired();
+            entity.Property(x => x.DispositionReason).HasMaxLength(64).IsRequired();
+            entity.Property(x => x.PreferredInitialOptionSymbol).HasMaxLength(64);
+            entity.Property(x => x.PreferredInitialStrike).HasPrecision(18, 6);
+            entity.Property(x => x.PreferredInitialReferencePremium).HasPrecision(18, 6);
+            entity.Property(x => x.EvaluationJson).IsRequired();
+            entity.HasIndex(x => new { x.HoldingId, x.CalculatedAtUtc }).IsDescending(false, true);
+            entity.HasIndex(x => x.Symbol);
         });
     }
 }

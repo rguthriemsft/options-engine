@@ -5,6 +5,8 @@ using OptionsEngine.Api.Indicators;
 using OptionsEngine.Infrastructure.Persistence;
 using OptionsEngine.Application.MarketData;
 using OptionsEngine.Application.Indicators;
+using OptionsEngine.Application.EntryStrategy;
+using OptionsEngine.Api.EntryStrategy;
 using OptionsEngine.MarketData;
 using OptionsEngine.MarketData.Tradier;
 using OptionsEngine.Strategy.Indicators;
@@ -35,6 +37,18 @@ builder.Services.AddScoped<IndicatorOrchestrationService>();
 var (indicatorConfiguration, calculationVersion) = IndicatorApiConfiguration.Load(builder.Configuration);
 builder.Services.AddSingleton(indicatorConfiguration);
 builder.Services.AddSingleton(calculationVersion);
+var entryStrategyConfiguration = EntryStrategyApiConfiguration.Load(builder.Configuration, indicatorConfiguration, calculationVersion);
+var earningsCalendar = EntryStrategyApiConfiguration.LoadEarningsCalendar(builder.Configuration);
+builder.Services.AddSingleton(entryStrategyConfiguration);
+builder.Services.AddSingleton(earningsCalendar);
+builder.Services.AddSingleton<IEarningsDateSource, ConfiguredEarningsDateSource>();
+builder.Services.AddScoped<IHoldingRepository, SqliteHoldingRepository>();
+builder.Services.AddScoped<IEntryStrategyMarketDataRepository, SqliteEntryStrategyMarketDataRepository>();
+builder.Services.AddScoped<EntryStrategyEvaluationOrchestrator>();
+builder.Services.AddScoped<IEntryStrategyEvaluationRepository, SqliteEntryStrategyEvaluationRepository>();
+builder.Services.AddScoped<EntryStrategyEvaluationPersistenceService>();
+builder.Services.AddScoped<IEntryStrategyEvaluationWriter>(sp =>
+    sp.GetRequiredService<EntryStrategyEvaluationPersistenceService>());
 builder.Services.AddSingleton(TimeProvider.System);
 builder.Services.AddHealthChecks().AddCheck<DatabaseHealthCheck>("database");
 
@@ -50,6 +64,7 @@ await using (var scope = app.Services.CreateAsyncScope())
 
 app.MapHealthChecks("/health", new HealthCheckOptions { ResponseWriter = HealthResponseWriter.WriteAsync });
 app.MapIndicatorEndpoints();
+app.MapEntryStrategyEndpoints();
 var market = app.MapGroup("/api/market").AddEndpointFilter(async (context, next) =>
 {
     try { return await next(context); }

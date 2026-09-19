@@ -237,6 +237,10 @@ implementation agent.
 - ETF earnings status is `NotApplicable`.
 - Earnings is a contract-level gate, not a duplicate CCOS gate.
 - Persist the actual EarningsContext status/date used.
+- `IEarningsDateSource` is the Application boundary. V1 production current evaluations use validated
+  configuration-backed dates; this does not reconstruct historically-known event data. Phase 4E persists the
+  consumed context. A Tradier/provider-backed source is deferred pending an authoritative API contract or
+  sanitized captured fixture.
 
 ## Phase 4 Breakout Veto
 
@@ -442,10 +446,15 @@ Distance, max 5:
 Touches, max 5:
 
 ```text
+1      0
 2      1
 3      3
 >=4    5
 ```
+
+When Phase 3 is explicitly configured with `MinimumResistanceTouches = 1`, a
+qualified one-touch resistance remains valid. Its touch contribution is zero;
+distance and recency continue to contribute normally.
 
 Recency, max 5:
 
@@ -901,4 +910,3 @@ DRS, roll recommendations, or execute trades.
   API.
 - Position sizing, strike laddering, DRS, roll logic, and final SELL
   Recommendation semantics.
-

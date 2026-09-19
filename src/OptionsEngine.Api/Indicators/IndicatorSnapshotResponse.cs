@@ -40,6 +40,7 @@ public sealed record IndicatorSnapshotResponse
     public required IndicatorValueResponse<int> ResistanceTouchCount { get; init; }
     public required IndicatorValueResponse<DateOnly> ResistanceLastTouchDate { get; init; }
     public required IndicatorValueResponse<int> ResistanceAgeTradingDays { get; init; }
+    public string? ResistanceUnavailableReason { get; init; }
     public required string MarketRegime { get; init; }
     public required string SectorRegime { get; init; }
 
@@ -76,6 +77,7 @@ public sealed record IndicatorSnapshotResponse
         ResistanceTouchCount = IndicatorValueResponse<int>.From(snapshot.ResistanceTouchCount),
         ResistanceLastTouchDate = IndicatorValueResponse<DateOnly>.From(snapshot.ResistanceLastTouchDate),
         ResistanceAgeTradingDays = IndicatorValueResponse<int>.From(snapshot.ResistanceAgeTradingDays),
+        ResistanceUnavailableReason = snapshot.ResistanceUnavailableReason?.ToString(),
         MarketRegime = FormatRegime(snapshot.MarketRegime),
         SectorRegime = FormatRegime(snapshot.SectorRegime)
     };

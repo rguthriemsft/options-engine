@@ -17,6 +17,7 @@ public sealed record ResistanceContext(
     IndicatorValue<int> ResistanceTouchCount,
     IndicatorValue<DateOnly> ResistanceLastTouchDate,
     IndicatorValue<int> ResistanceAgeTradingDays,
+    ResistanceUnavailableReason? ResistanceUnavailableReason,
     IndicatorCalculationVersion IndicatorCalculationVersion,
     ConfigurationVersion ConfigurationVersion,
     DateTimeOffset CalculatedAt)
@@ -34,7 +35,8 @@ public sealed record ResistanceContext(
             DistanceToResistancePercent = DistanceToResistancePercent,
             ResistanceTouchCount = ResistanceTouchCount,
             ResistanceLastTouchDate = ResistanceLastTouchDate,
-            ResistanceAgeTradingDays = ResistanceAgeTradingDays
+            ResistanceAgeTradingDays = ResistanceAgeTradingDays,
+            ResistanceUnavailableReason = ResistanceUnavailableReason
         };
     }
 }
@@ -57,7 +59,8 @@ public sealed class ResistanceIndicatorCalculator
         var unavailableCount = IndicatorValue<int>.InsufficientData();
         var unavailableDate = IndicatorValue<DateOnly>.InsufficientData();
 
-        ResistanceContext Result(IReadOnlyList<ResistanceCluster> clusters, decimal? price = null, int? count = null, DateOnly? lastTouch = null, int? age = null)
+        ResistanceContext Result(IReadOnlyList<ResistanceCluster> clusters, ResistanceUnavailableReason? unavailableReason = null,
+            decimal? price = null, int? count = null, DateOnly? lastTouch = null, int? age = null)
         {
             var distance = price.HasValue && observations[^1].Close is { } close ? price.Value - close : (decimal?)null;
             return new ResistanceContext(request.Symbol, request.AsOfDate, clusters,
@@ -68,15 +71,17 @@ public sealed class ResistanceIndicatorCalculator
                 count.HasValue ? IndicatorValue<int>.Available(count.Value) : unavailableCount,
                 lastTouch.HasValue ? IndicatorValue<DateOnly>.Available(lastTouch.Value) : unavailableDate,
                 age.HasValue ? IndicatorValue<int>.Available(age.Value) : unavailableCount,
+                unavailableReason,
                 request.IndicatorCalculationVersion, request.Configuration.Version, request.CalculatedAt);
         }
 
         if (observations.Length == 0) return new ResistanceContext(request.Symbol, request.AsOfDate, [], unavailable, unavailable,
             unavailablePercent, unavailableCount, unavailableDate, unavailableCount,
+            ResistanceUnavailableReason.InsufficientData,
             request.IndicatorCalculationVersion, request.Configuration.Version, request.CalculatedAt);
         if (observations.Length < settings.LookbackTradingDays ||
             atr.Status != IndicatorValueStatus.Available || atr.Value is not { } atrValue || !double.IsFinite(atrValue) ||
-            observations[^1].Close is null) return Result([]);
+            observations[^1].Close is null || observations.Any(x => x.High is null)) return Result([], ResistanceUnavailableReason.InsufficientData);
 
         var threshold = (decimal)(settings.ClusterDistanceAtrMultiplier * atrValue);
         var firstCandidate = Math.Max(0, observations.Length - settings.LookbackTradingDays);
@@ -114,10 +119,10 @@ public sealed class ResistanceIndicatorCalculator
         var current = observations[^1].Close!.Value;
         var selected = clusters.Where(x => x.TouchCount >= settings.MinimumResistanceTouches && x.RepresentativePrice > current)
             .OrderBy(x => x.RepresentativePrice).FirstOrDefault();
-        if (selected is null) return Result(clusterView);
+        if (selected is null) return Result(clusterView, ResistanceUnavailableReason.NoQualifiedResistance);
 
         var touchIndex = Array.FindLastIndex(observations, x => x.TradingDate == selected.LastTouchDate);
-        return Result(clusterView, selected.RepresentativePrice, selected.TouchCount, selected.LastTouchDate,
+        return Result(clusterView, null, selected.RepresentativePrice, selected.TouchCount, selected.LastTouchDate,
             observations.Length - 1 - touchIndex);
     }
 }

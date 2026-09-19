@@ -8,7 +8,7 @@ System (CCDSS) in a fresh ChatGPT conversation.
 
 Repository: `rguthriemsft/options-engine`
 
-Current working branch: `phase3`
+Current working branch: `phase4`
 
 At the original design handoff, `phase3` was 3 commits ahead of `main`
 and 0 behind. At that time, the only branch changes relative to `main`
@@ -317,9 +317,9 @@ Phase 3 explicitly does NOT own CCOS, Contract Score, trade eligibility,
 contract ranking, position sizing, DRS, Roll Engine / RQS, recommendations,
 or trade execution.
 
-### Phase 4 --- Design Locked, Implementation Not Started
+### Phase 4 --- Implementation Status
 
-Phase 4 strategy methodology is fully designed and recorded on `main`.
+Phase 4 is complete through Phase 4F.
 
 Authoritative Phase 4 documents:
 
@@ -343,8 +343,8 @@ Phase 4 stops before position sizing. Coverage, available-share constraints,
 existing-call exposure, DER, maximum coverage, strike laddering, scaling, and
 recommended contract count belong to Phase 5.
 
-Implementation shall proceed in work packets 4A through 4F as defined in
-`SPECIFICATION.md` and the Phase 4 acceptance checklist.
+Phase 4A, 4B, 4C, 4D, 4E, and 4F are complete. The Phase 4 merge gate is
+passed. Phase 4 stops before position sizing.
 
 ## Phase 3 Mathematical Decisions Already Locked
 
@@ -588,9 +588,34 @@ Do not reopen or invent alternatives for:
 The locked rules are in `SPECIFICATION.md` and
 `docs/design/OPTIONS-ENGINE-DESIGN-DECISIONS.md`.
 
+## Phase 4 V1 Earnings Input Decision
+
+Phase 4 V1 retains the earnings hard gate but uses the provider-independent
+`IEarningsDateSource` with validated configuration-backed current-evaluation dates.
+Do not implement an undocumented Tradier corporate-calendar/fundamentals request.
+This source does not recreate historical event knowledge; Phase 4E persists the
+actual `EarningsContext` used. A provider-backed adapter is deferred until an
+authoritative contract or sanitized captured fixture is available.
+
+## Current Phase Status
+
+Phase 1, Phase 2, Phase 3, Phase 4A, Phase 4B, Phase 4C, Phase 4D, Phase 4E,
+and Phase 4F are complete. The Phase 4 merge gate is passed.
+
+Completed Phase 4 decisions include CCOS and breakout veto, Contract Score,
+contract gates/ranking, one-touch resistance scoring (zero touch points),
+evaluation-timestamp chain cutoffs, configured expiration search windows,
+configuration-backed V1 earnings input with provider-backed earnings deferred,
+and the Phase 4 boundary before position sizing.
+
+Phase 3 canonical indicator snapshots remain replaceable; Phase 4 evaluations
+are append-only immutable historical records preserving consumed inputs,
+configuration, versions, scores, gates, ranking, explanations, and selected
+chain observations.
+
 ## Recommended Next Conversation
 
-Continue from `main` and read, in order:
+Continue with **Phase 5 — Position Sizing** and read, in order:
 
 1. `AGENTS.md`
 2. `SPECIFICATION.md`
@@ -599,13 +624,8 @@ Continue from `main` and read, in order:
 5. `docs/acceptance/PHASE-3-INDICATORS.md`
 6. `docs/acceptance/PHASE-4-ENTRY-STRATEGY.md`
 
-The next implementation packet is **Phase 4A — Strategy Foundations and Input
-Contracts**.
-
-Do not implement later Phase 4 packets in 4A. In particular, 4A shall not
-implement CCOS, Contract Score, persistence, API endpoints, or position sizing.
+Do not begin Phase 5 position sizing until Phase 4F is complete.
 
 If implementation reveals a strategy ambiguity, update/clarify the
 specification before adding new financial behavior. Do not silently invent
 formulas, thresholds, or missing-data fallbacks.
-

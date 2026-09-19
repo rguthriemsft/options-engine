@@ -1,5 +1,6 @@
 using Microsoft.EntityFrameworkCore;
 using OptionsEngine.Application.MarketData;
+using OptionsEngine.Application.EntryStrategy;
 using OptionsEngine.Infrastructure.Persistence;
 using OptionsEngine.MarketData.Models;
 using OptionsEngine.Strategy.Indicators;
@@ -32,10 +33,11 @@ public sealed class IndicatorDataRepositoryTests : IAsyncLifetime
     {
         await using var db = CreateContext();
         var applied = (await db.Database.GetAppliedMigrationsAsync()).ToArray();
-        Assert.Equal(3, applied.Length);
+        Assert.Equal(4, applied.Length);
         Assert.EndsWith("_InitialCreate", applied[0], StringComparison.Ordinal);
         Assert.EndsWith("_AddMarketData", applied[1], StringComparison.Ordinal);
         Assert.EndsWith("_AddIndicatorSnapshots", applied[2], StringComparison.Ordinal);
+        Assert.EndsWith("_AddEntryStrategyEvaluations", applied[3], StringComparison.Ordinal);
         Assert.Empty(await db.Database.GetPendingMigrationsAsync());
         Assert.Equal(0, await db.IndicatorSnapshots.CountAsync());
         Assert.Equal(0, await db.EmptyOptionChainSnapshots.CountAsync());
@@ -181,6 +183,31 @@ public sealed class IndicatorDataRepositoryTests : IAsyncLifetime
     }
 
     [Fact]
+    public async Task PhaseFourOptionChainQueryUsesUtcCutoffAndInclusiveConfiguredExpirationWindow()
+    {
+        await using var db = CreateContext();
+        var cache = new SqliteMarketDataCache(db);
+        var repository = new SqliteEntryStrategyMarketDataRepository(db);
+        var cutoff = new DateTimeOffset(2026, 9, 18, 1, 0, 0, TimeSpan.Zero); // Sep 17 in New York.
+        var evaluationDate = new DateOnly(2026, 9, 17);
+        var minimum = evaluationDate.AddDays(20);
+        var maximum = evaluationDate.AddDays(30);
+        var eligibleAt = cutoff.AddMinutes(-30); // UTC Sep 18; Phase 3's date cap would incorrectly exclude this.
+        await cache.SaveOptionChainAsync(Chain(eligibleAt, minimum, .2));
+        await cache.SaveOptionChainAsync(new OptionChain("MSFT", evaluationDate.AddDays(25), eligibleAt.AddMinutes(1), [], "Tradier"));
+        await cache.SaveOptionChainAsync(Chain(cutoff.AddMinutes(1), maximum, .8));
+        await cache.SaveOptionChainAsync(Chain(eligibleAt, minimum.AddDays(-1), .3));
+        await cache.SaveOptionChainAsync(Chain(eligibleAt, maximum.AddDays(1), .4));
+
+        var chains = await repository.GetOptionChainsAsync(" msft ", "Tradier", minimum, maximum, cutoff);
+
+        Assert.Equal([minimum, evaluationDate.AddDays(25)], chains.Select(x => x.Expiration));
+        Assert.Equal(eligibleAt, chains[0].Timestamp);
+        Assert.Empty(chains[1].Contracts); // Newer empty observations remain complete observations for the selector.
+        Assert.DoesNotContain(chains, x => x.Timestamp > cutoff);
+    }
+
+    [Fact]
     public async Task PersistedNewerEmptyChainMakesOlderValidIvUnavailable()
     {
         await using var db = CreateContext();
@@ -227,8 +254,61 @@ public sealed class IndicatorDataRepositoryTests : IAsyncLifetime
                 Assert.Single(await phaseThree.HistoricalPriceBars.ToListAsync());
                 Assert.Equal(2, await phaseThree.OptionContractSnapshots.CountAsync());
                 Assert.Contains(await phaseThree.Database.GetAppliedMigrationsAsync(), x => x.EndsWith("_AddIndicatorSnapshots", StringComparison.Ordinal));
+                Assert.Contains(await phaseThree.Database.GetAppliedMigrationsAsync(), x => x.EndsWith("_AddEntryStrategyEvaluations", StringComparison.Ordinal));
                 Assert.Equal(0, await phaseThree.IndicatorSnapshots.CountAsync());
+                Assert.Equal(0, await phaseThree.EntryStrategyEvaluations.CountAsync());
+                Assert.Empty(await phaseThree.Database.GetPendingMigrationsAsync());
             }
+        }
+        finally
+        {
+            File.Delete(upgradePath);
+            File.Delete($"{upgradePath}-shm");
+            File.Delete($"{upgradePath}-wal");
+        }
+    }
+
+    [Fact]
+    public async Task PopulatedPhaseThreeDatabaseUpgradesToPhaseFourWithoutLosingExistingData()
+    {
+        var upgradePath = Path.Combine(Path.GetTempPath(), $"options-engine-phase3-to-phase4-{Guid.NewGuid():N}.db");
+        try
+        {
+            var account = new OptionsEngine.Domain.Accounts.Account("Phase3", OptionsEngine.Domain.Accounts.Broker.Other,
+                OptionsEngine.Domain.Accounts.AccountType.Taxable, false);
+            var holding = new OptionsEngine.Domain.Accounts.Holding(account, "MSFT", OptionsEngine.Domain.Accounts.AssetType.Stock,
+                100m, OptionsEngine.Domain.Accounts.AssignmentSensitivity.Level3, OptionsEngine.Domain.Accounts.TaxSensitivity.Moderate,
+                1m, .25, .12, .18, 70, 80, .1m, .1, 0);
+            var lot = new OptionsEngine.Domain.Accounts.TaxLot(holding, new DateOnly(2020, 1, 2), 100m, 10m, 1000m,
+                OptionsEngine.Domain.Accounts.HoldingPeriodClassification.LongTerm);
+            var expiration = new DateOnly(2026, 10, 16);
+            var chain = Chain(new DateTimeOffset(2026, 9, 17, 15, 0, 0, TimeSpan.Zero), expiration, .2);
+
+            await using (var phase3 = CreateContext(upgradePath))
+            {
+                await phase3.Database.MigrateAsync("20260918024627_AddIndicatorSnapshots");
+                phase3.AddRange(account, holding, lot);
+                var cache = new SqliteMarketDataCache(phase3);
+                await cache.UpsertHistoricalBarsAsync([new HistoricalBar("MSFT", Start, 1m, 2m, 1m, 2m, 100, "Tradier")], Start, Start, CalculatedAt);
+                await cache.SaveOptionChainAsync(chain);
+                await new SqliteIndicatorDataRepository(phase3).UpsertSnapshotAsync(Snapshot(Start, Version, 1));
+            }
+
+            await using (var phase4 = CreateContext(upgradePath))
+            {
+                await phase4.Database.MigrateAsync("20260918170325_AddEntryStrategyEvaluations");
+                Assert.Contains(await phase4.Database.GetAppliedMigrationsAsync(), x => x.EndsWith("_AddEntryStrategyEvaluations", StringComparison.Ordinal));
+                Assert.Empty(await phase4.EntryStrategyEvaluations.ToListAsync());
+                Assert.Empty(await phase4.Database.GetPendingMigrationsAsync());
+            }
+
+            await using var verify = CreateContext(upgradePath);
+            Assert.Single(await verify.Accounts.ToListAsync());
+            Assert.Single(await verify.Holdings.ToListAsync());
+            Assert.Single(await verify.TaxLots.ToListAsync());
+            Assert.Single(await verify.HistoricalPriceBars.ToListAsync());
+            Assert.Equal(2, await verify.OptionContractSnapshots.CountAsync());
+            Assert.Single(await verify.IndicatorSnapshots.ToListAsync());
         }
         finally
         {
