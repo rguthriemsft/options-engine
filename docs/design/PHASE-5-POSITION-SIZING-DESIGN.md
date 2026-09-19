@@ -806,13 +806,18 @@ If a later product requirement introduces maximum acceptable age, that becomes e
 
 ## 18.8 DER Already at or Above Maximum
 
-If existing DER equals or exceeds the configured maximum:
+If existing DER is above the configured maximum:
 
 ```text
 AdditionalContracts = 0
 ```
 
 with an explicit limiting factor.
+
+If existing DER equals the configured maximum, equality remains allowed:
+
+- `PreferredContractDelta > 0` means no positive additional count can remain within the maximum, so `AdditionalContracts = 0`;
+- `PreferredContractDelta == 0` means DER does not further reduce the physically eligible action, so `DERLimitedAdditionalContracts = PhysicalLimitedAdditionalContracts`.
 
 Phase 5 does not recommend closing an existing short call.
 
