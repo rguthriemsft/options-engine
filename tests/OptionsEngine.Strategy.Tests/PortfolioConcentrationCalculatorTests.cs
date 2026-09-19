@@ -34,7 +34,8 @@ public sealed class PortfolioConcentrationCalculatorTests
         double weight,
         double expectedModifier)
     {
-        var result = Calculator.Calculate(ContextAtWeight((decimal)weight), Holding(), Configuration);
+        var context = ContextAtWeight((decimal)weight);
+        var result = Calculator.Calculate(context, MatchingHolding(context), Configuration);
 
         Assert.Equal(PortfolioConcentrationStatus.Available, result.Status);
         Assert.Equal(weight, result.PortfolioWeight!.Value, 8);
@@ -58,6 +59,19 @@ public sealed class PortfolioConcentrationCalculatorTests
     }
 
     [Fact]
+    public void TargetConcentrationSharesMustMatchAuthoritativeSizingShares()
+    {
+        var context = Context(
+            new PortfolioConcentrationHolding(TargetHoldingId, AccountId, "MSFT", 101m, 200m, AsOfDate),
+            new PortfolioConcentrationHolding(OtherHoldingId, AccountId, "OTHER", 400m, 200m, AsOfDate));
+
+        var exception = Assert.Throws<ArgumentException>(() =>
+            Calculator.Calculate(context, Holding(shares: 100m), Configuration));
+
+        Assert.Contains("authoritative Position Sizing Holding shares", exception.Message);
+    }
+
+    [Fact]
     public void ModifierComesFromResolvedConfigurationTable()
     {
         var configuration = Configuration with
@@ -68,7 +82,8 @@ public sealed class PortfolioConcentrationCalculatorTests
             }
         };
 
-        var result = Calculator.Calculate(ContextAtWeight(.20m), Holding(), configuration);
+        var context = ContextAtWeight(.20m);
+        var result = Calculator.Calculate(context, MatchingHolding(context), configuration);
 
         Assert.Equal(.42, result.ConcentrationModifier);
     }
@@ -289,6 +304,9 @@ public sealed class PortfolioConcentrationCalculatorTests
 
     private static PortfolioConcentrationContext Context(params PortfolioConcentrationHolding[] holdings) =>
         new(TargetHoldingId, AccountId, AsOfDate, [.. holdings]);
+
+    private static PositionSizingHoldingContext MatchingHolding(PortfolioConcentrationContext context) =>
+        Holding(context.Holdings.Single(holding => holding.HoldingId == TargetHoldingId).SharesOwned);
 
     private static PositionSizingHoldingContext Holding(
         decimal shares = 100m,

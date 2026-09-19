@@ -62,6 +62,14 @@ public sealed class PortfolioConcentrationCalculator
                 "The target Holding is absent or ambiguous in the supplied concentration context.");
         }
 
+        var targetConcentrationHolding = targetMatches[0];
+        if (targetConcentrationHolding.SharesOwned != targetHolding.SharesOwned)
+        {
+            throw new ArgumentException(
+                "The target concentration Holding shares must match the authoritative Position Sizing Holding shares.",
+                nameof(context));
+        }
+
         ValidateHoldingIdentities(context.Holdings, context.TargetHoldingId);
 
         if (context.Holdings.Any(holding => holding.SharesOwned < 0))
@@ -81,7 +89,10 @@ public sealed class PortfolioConcentrationCalculator
         decimal? targetMarketValue = null;
         foreach (var holding in context.Holdings)
         {
-            var marketValue = checked(holding.SharesOwned * holding.AsOfPrice!.Value);
+            var sharesOwned = holding.HoldingId == context.TargetHoldingId
+                ? targetHolding.SharesOwned
+                : holding.SharesOwned;
+            var marketValue = checked(sharesOwned * holding.AsOfPrice!.Value);
             portfolioMarketValue = checked(portfolioMarketValue + marketValue);
             if (holding.HoldingId == context.TargetHoldingId)
                 targetMarketValue = marketValue;
