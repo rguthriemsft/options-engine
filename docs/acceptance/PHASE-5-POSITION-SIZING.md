@@ -133,13 +133,13 @@ The exact C# decomposition may differ if architecture remains equivalent.
 
 Acceptance criteria:
 
-- [ ] `PositionSizingStatus` distinguishes Available, InsufficientData, and NotApplicable.
-- [ ] Stable machine-readable reason codes exist separately from human explanation text.
-- [ ] Missing inputs are represented explicitly.
-- [ ] No numeric sentinel represents unavailable financial data.
-- [ ] Configuration is strongly typed and validates at startup/load time.
-- [ ] Invalid Holding sizing ratios fail clearly.
-- [ ] Strategy project has no persistence/provider/HTTP dependency.
+- [x] `PositionSizingStatus` distinguishes Available, InsufficientData, and NotApplicable.
+- [x] Stable machine-readable reason codes exist separately from human explanation text.
+- [x] Missing inputs are represented explicitly.
+- [x] No numeric sentinel represents unavailable financial data.
+- [x] Configuration is strongly typed and validates at startup/load time.
+- [x] Invalid Holding sizing ratios fail clearly.
+- [x] Strategy project has no persistence/provider/HTTP dependency.
 
 ---
 
@@ -704,7 +704,7 @@ Acceptance criteria:
 
 - [ ] Sizing table/threshold changes require ConfigurationVersion review/change.
 - [ ] Formula/order/missing-data/DER/concentration semantic changes require PositionSizingStrategyVersion review/change.
-- [ ] Phase 3 IndicatorCalculationVersion is not used as Position Sizing algorithm identity.
+- [x] Phase 3 IndicatorCalculationVersion is not used as Position Sizing algorithm identity.
 - [ ] Complete resolved Position Sizing configuration is persisted.
 - [ ] Historical evaluations are never reinterpreted under newer config/strategy.
 
