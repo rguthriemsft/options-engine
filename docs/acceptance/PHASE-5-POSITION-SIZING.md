@@ -81,8 +81,8 @@ Acceptance criteria:
 - [ ] Given identical inputs, configuration, and strategy version, sizing is deterministic.
 - [ ] Strategy is provider-independent.
 - [x] Strategy does not fetch current data.
-- [ ] Application owns persistence/provider/current-state orchestration.
-- [ ] Phase 4 evaluations are never modified by Phase 5.
+- [x] Application owns persistence/provider/current-state orchestration.
+- [x] Phase 4 evaluations are never modified by Phase 5.
 
 ---
 
@@ -702,8 +702,8 @@ Acceptance criteria:
 - [x] SizingTimestampUtc is explicit/injectable.
 - [x] Tests do not depend on machine local time.
 - [x] Phase 4 CCOS/contract facts are not refreshed during sizing.
-- [ ] Mutable Holding/exposure state is snapshotted at sizing time.
-- [ ] Concentration prices are anchored to Phase 4 IndicatorAsOfDate.
+- [x] Mutable Holding/exposure state is snapshotted at sizing time.
+- [x] Concentration prices are anchored to Phase 4 IndicatorAsOfDate.
 - [x] No hidden maximum age between Phase 4 and Phase 5 is introduced.
 
 ---
@@ -747,12 +747,12 @@ PositionSizingStrategyVersion
 
 Acceptance criteria:
 
-- [ ] Application loads source Phase 4 evaluation passively.
-- [ ] Application does not recalculate Phase 4.
-- [ ] Application performs persistence/current-state/market-observation access.
-- [ ] Strategy remains pure and synchronous.
-- [ ] Future option observations after SizingTimestampUtc are excluded from existing-call Delta lookup.
-- [ ] Missing required orchestration data remains explicit.
+- [x] Application loads source Phase 4 evaluation passively.
+- [x] Application does not recalculate Phase 4.
+- [x] Application performs persistence/current-state/market-observation access.
+- [x] Strategy remains pure and synchronous.
+- [x] Future option observations after SizingTimestampUtc are excluded from existing-call Delta lookup.
+- [x] Missing required orchestration data remains explicit.
 
 ---
 
