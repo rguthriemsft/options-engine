@@ -13,7 +13,7 @@ public sealed record PositionSizingResult
     public required ImmutableArray<PositionSizingReasonCode> ReasonCodes { get; init; }
     public required ImmutableArray<PositionSizingMissingInputCode> MissingInputs { get; init; }
 
-    public required decimal SharesOwned { get; init; }
+    public decimal? SharesOwned { get; init; }
     public int? PhysicalCapacityContracts { get; init; }
 
     public int? ExistingCoveredContracts { get; init; }

@@ -42,23 +42,31 @@ public sealed class PositionSizingContractTests
     }
 
     [Fact]
-    public void MissingInputsAreMachineReadableAndSeparateFromNumericZero()
+    public void KnownZeroSharesRemainDistinctFromUnavailableShares()
     {
-        var result = new PositionSizingResult
+        var knownZeroShares = new PositionSizingResult
+        {
+            Status = PositionSizingStatus.Available,
+            ReasonCodes = [],
+            MissingInputs = [],
+            SharesOwned = 0,
+            LimitingFactors = [],
+            Explanation = "The holding owns zero shares."
+        };
+        var unavailableShares = new PositionSizingResult
         {
             Status = PositionSizingStatus.InsufficientData,
             ReasonCodes = [PositionSizingReasonCode.InsufficientData],
-            MissingInputs = [PositionSizingMissingInputCode.PreferredContractDelta],
-            SharesOwned = 0,
+            MissingInputs = [PositionSizingMissingInputCode.Shares],
+            SharesOwned = null,
             LimitingFactors = [],
-            Explanation = "The preferred contract Delta is unavailable."
+            Explanation = "The holding share count is unavailable."
         };
 
-        Assert.Equal(0, result.SharesOwned);
-        Assert.Null(result.Ccos);
-        Assert.Null(result.PreferredContractScore);
-        Assert.Null(result.AdditionalContracts);
-        Assert.Contains(PositionSizingMissingInputCode.PreferredContractDelta, result.MissingInputs);
+        Assert.Equal(0, knownZeroShares.SharesOwned);
+        Assert.DoesNotContain(PositionSizingMissingInputCode.Shares, knownZeroShares.MissingInputs);
+        Assert.Null(unavailableShares.SharesOwned);
+        Assert.Contains(PositionSizingMissingInputCode.Shares, unavailableShares.MissingInputs);
     }
 
     [Fact]

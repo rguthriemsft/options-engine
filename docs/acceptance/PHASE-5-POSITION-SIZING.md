@@ -137,7 +137,7 @@ Acceptance criteria:
 - [x] Stable machine-readable reason codes exist separately from human explanation text.
 - [x] Missing inputs are represented explicitly.
 - [x] No numeric sentinel represents unavailable financial data.
-- [x] Configuration is strongly typed and validates at startup/load time.
+- [ ] Configuration is strongly typed and validates at startup/load time.
 - [x] Invalid Holding sizing ratios fail clearly.
 - [x] Strategy project has no persistence/provider/HTTP dependency.
 
