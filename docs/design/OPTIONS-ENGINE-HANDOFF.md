@@ -8,7 +8,7 @@ System (CCDSS) in a fresh ChatGPT conversation.
 
 Repository: `rguthriemsft/options-engine`
 
-Current working branch: `phase4`
+Current working branch: `phase5`
 
 At the original design handoff, `phase3` was 3 commits ahead of `main`
 and 0 behind. At that time, the only branch changes relative to `main`
@@ -317,9 +317,9 @@ Phase 3 explicitly does NOT own CCOS, Contract Score, trade eligibility,
 contract ranking, position sizing, DRS, Roll Engine / RQS, recommendations,
 or trade execution.
 
-### Phase 4 --- Implementation Status
+### Phase 4 --- Complete and Merged
 
-Phase 4 is complete through Phase 4F.
+Phase 4 is complete, its merge gate passed, and it is merged into `main`.
 
 Authoritative Phase 4 documents:
 
@@ -597,35 +597,97 @@ This source does not recreate historical event knowledge; Phase 4E persists the
 actual `EarningsContext` used. A provider-backed adapter is deferred until an
 authoritative contract or sanitized captured fixture is available.
 
+
+### Phase 5 --- Design Approved / Documentation Reconciliation
+
+Phase 5 owns Position Sizing.
+
+Authoritative Phase 5 design documents:
+
+- `SPECIFICATION.md`
+- `docs/design/PHASE-5-POSITION-SIZING-DESIGN.md`
+- `docs/design/OPTIONS-ENGINE-DESIGN-DECISIONS.md`
+- `docs/acceptance/PHASE-5-POSITION-SIZING.md`
+
+Approved Phase 5 V1 decisions include:
+
+- separate immutable `PositionSizingEvaluation`;
+- no final Recommendation creation in Phase 5;
+- size only the Phase 4 `PreferredInitialContract`;
+- strike laddering deferred;
+- `Holding.Shares` is authoritative;
+- physical capacity is `floor(Shares / 100)`;
+- minimal current-state open-short-call model, not Phase 7 transaction/campaign accounting;
+- exact CCOS base-coverage bands;
+- both Assignment Sensitivity modifier and maximum;
+- ASL5 maximum defaults to 0.50;
+- Contract Quality uses persisted preferred Contract Score;
+- same-account tracked-equity concentration;
+- ETFs use concentration `NotApplicable` with modifier 1.00;
+- exact coverage/cap/floor sequence;
+- no separate tax-sensitive rounding penalty;
+- existing/proposed DER rules with equality allowed at the maximum;
+- target state and additional action are separate;
+- existing coverage above target never causes a Phase 5 close recommendation;
+- zero additional contracts may be a valid Available result;
+- missing required data remains explicit;
+- shared `ConfigurationVersion` plus Position Sizing strategy-version identity.
+
+Approved Phase 5 packet sequence:
+
+```text
+5A — Position Sizing foundations
+5B — Base coverage and caps
+5C — Portfolio concentration
+5D — Existing exposure and DER
+5E — Application orchestration
+5F — Immutable persistence
+5G — API and merge gate
+```
+
+Phase 5 implementation must not begin until the specification, decision register, and acceptance checklist are mutually consistent.
+
 ## Current Phase Status
 
-Phase 1, Phase 2, Phase 3, Phase 4A, Phase 4B, Phase 4C, Phase 4D, Phase 4E,
-and Phase 4F are complete. The Phase 4 merge gate is passed.
+Phase 1, Phase 2, Phase 3, and Phase 4 are complete and merged.
 
-Completed Phase 4 decisions include CCOS and breakout veto, Contract Score,
-contract gates/ranking, one-touch resistance scoring (zero touch points),
-evaluation-timestamp chain cutoffs, configured expiration search windows,
-configuration-backed V1 earnings input with provider-backed earnings deferred,
-and the Phase 4 boundary before position sizing.
+The Phase 4 merge gate passed with:
 
-Phase 3 canonical indicator snapshots remain replaceable; Phase 4 evaluations
-are append-only immutable historical records preserving consumed inputs,
-configuration, versions, scores, gates, ranking, explanations, and selected
-chain observations.
+```text
+615 tests passed
+0 failed
+0 skipped
+Release build: 0 warnings / 0 errors
+```
+
+Phase 5 design is approved and the repository documentation is being reconciled before implementation.
+
+Phase 3 canonical indicator snapshots remain replaceable; Phase 4 evaluations remain append-only immutable historical records.
+
+Phase 5 will introduce a separate append-only immutable `PositionSizingEvaluation` that references its source `EntryStrategyEvaluation`.
 
 ## Recommended Next Conversation
 
-Continue with **Phase 5 — Position Sizing** and read, in order:
+Continue with **Phase 5 — Position Sizing implementation planning** on the `phase5` branch.
+
+Read, in order:
 
 1. `AGENTS.md`
 2. `SPECIFICATION.md`
-3. `docs/design/OPTIONS-ENGINE-HANDOFF.md`
+3. `docs/design/PHASE-5-POSITION-SIZING-DESIGN.md`
 4. `docs/design/OPTIONS-ENGINE-DESIGN-DECISIONS.md`
-5. `docs/acceptance/PHASE-3-INDICATORS.md`
+5. `docs/acceptance/PHASE-5-POSITION-SIZING.md`
 6. `docs/acceptance/PHASE-4-ENTRY-STRATEGY.md`
 
-Do not begin Phase 5 position sizing until Phase 4F is complete.
+Before writing implementation code:
 
-If implementation reveals a strategy ambiguity, update/clarify the
-specification before adding new financial behavior. Do not silently invent
-formulas, thresholds, or missing-data fallbacks.
+- verify these documents are mutually consistent;
+- inspect the current Phase 4 result/persistence contracts;
+- inspect `Holding`, `Account`, and market-data persistence;
+- preserve Phase 4 immutability;
+- do not pull Phase 7 transaction/campaign accounting into Phase 5;
+- do not implement strike laddering;
+- do not create final Recommendation semantics;
+- do not invent formulas, freshness thresholds, fallback values, or missing-data substitutions.
+
+Implementation should proceed only through the approved 5A–5G packets.
