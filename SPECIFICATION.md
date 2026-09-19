@@ -3087,7 +3087,13 @@ ProposedDER(N) =
     / SharesOwned
 ```
 
-`DERLimitedAdditionalContracts` is the largest non-negative integer `N` satisfying:
+`DERLimitedAdditionalContracts` is the largest non-negative integer `N` within the already physically eligible action range:
+
+```text
+0 <= N <= PhysicalLimitedAdditionalContracts
+```
+
+that satisfies:
 
 ```text
 ProposedDER(N)
@@ -3095,6 +3101,17 @@ ProposedDER(N)
 ```
 
 Equality is allowed.
+
+DER constrains the already-calculated physically eligible action; it does not calculate an unbounded theoretical contract capacity.
+
+If `PreferredContractDelta == 0` and existing DER is within the configured maximum, then:
+
+```text
+DERLimitedAdditionalContracts =
+    PhysicalLimitedAdditionalContracts
+```
+
+because adding any physically eligible preferred contracts does not increase DER.
 
 Call Delta consumed by Phase 5 must be finite and within `[0,1]`.
 
