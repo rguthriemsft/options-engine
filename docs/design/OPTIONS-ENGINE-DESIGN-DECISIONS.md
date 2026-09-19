@@ -1051,7 +1051,8 @@ ProposedDER(N) =
 - Persist the exact observations/timestamps consumed.
 - No hidden Delta freshness threshold exists in V1.
 - Missing required Delta produces `InsufficientData`.
-- Existing DER at/above maximum produces zero additional contracts, not a close recommendation.
+- Existing DER above maximum produces zero additional contracts, not a close recommendation.
+- Existing DER exactly at maximum permits only additions that keep ProposedDER at or below the maximum; therefore a positive preferred Delta allows zero additional contracts, while preferred Delta = 0 leaves the physically eligible action unchanged.
 
 ### Scaling and Status
 
