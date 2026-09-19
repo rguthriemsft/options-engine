@@ -5303,11 +5303,11 @@ The final V1 strategy pipeline is:
                   CS >= 80
                        |
                        v
-        POSITION SIZING EVALUATION
-        Target + additional calls
+               POSITION SIZING
+               How many calls?
                        |
                        v
-          POSITION SIZING EVALUATION
+          PositionSizingEvaluation
                        |
                        v
                 RECOMMENDATION
