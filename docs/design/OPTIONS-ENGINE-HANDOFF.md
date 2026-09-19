@@ -319,7 +319,7 @@ or trade execution.
 
 ### Phase 4 --- Implementation Status
 
-Phase 4 strategy methodology is fully designed and implemented through Phase 4E.
+Phase 4 is complete through Phase 4F.
 
 Authoritative Phase 4 documents:
 
