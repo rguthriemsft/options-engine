@@ -54,17 +54,18 @@ public sealed record PositionSizingResult
 }
 
 /// <summary>
-/// Future immutable Phase 5 evaluation envelope. This contract introduces no persistence implementation in Phase 5A.
+/// Immutable Position Sizing evaluation envelope. Not-applicable evaluations intentionally retain no Holding or
+/// concentration snapshot because the Phase 5E fast path does not consume mutable sizing inputs.
 /// </summary>
 public sealed record PositionSizingEvaluation(
     Guid PositionSizingEvaluationId,
     Guid EntryStrategyEvaluationId,
     DateTimeOffset CalculatedAtUtc,
     DateTimeOffset SizingTimestampUtc,
-    PositionSizingHoldingContext HoldingContext,
+    PositionSizingHoldingContext? HoldingContext,
     ImmutableArray<ExistingShortCallExposure> ExistingShortCallExposure,
     ImmutableArray<ExistingShortCallDeltaObservation> ExistingShortCallDeltaObservations,
-    PortfolioConcentrationContext PortfolioConcentrationContext,
+    PortfolioConcentrationContext? PortfolioConcentrationContext,
     PositionSizingConfiguration ResolvedConfiguration,
     ConfigurationVersion ConfigurationVersion,
     PositionSizingStrategyVersion StrategyVersion,

@@ -61,6 +61,30 @@ public sealed record PositionSizingEvaluationBundle(
     PositionSizingInput Input,
     PositionSizingResult Result);
 
+/// <summary>Assembles one reproducible Position Sizing evaluation from the Phase 4 source and current snapshots.</summary>
+public interface IPositionSizingEvaluationOrchestrator
+{
+    Task<PositionSizingEvaluationBundle> EvaluateAsync(
+        Guid entryStrategyEvaluationId,
+        DateTimeOffset sizingTimestampUtc,
+        CancellationToken cancellationToken = default);
+}
+
+/// <summary>Append-only persistence boundary for complete Position Sizing evaluations.</summary>
+public interface IPositionSizingEvaluationRepository
+{
+    Task InsertAsync(PositionSizingEvaluation evaluation, CancellationToken cancellationToken = default);
+    Task<PositionSizingEvaluation?> GetByIdAsync(Guid positionSizingEvaluationId,
+        CancellationToken cancellationToken = default);
+}
+
+/// <summary>Application write boundary for immutable Position Sizing evaluations.</summary>
+public interface IPositionSizingEvaluationWriter
+{
+    Task<PositionSizingEvaluation> CreateAsync(Guid entryStrategyEvaluationId, DateTimeOffset sizingTimestampUtc,
+        CancellationToken cancellationToken = default);
+}
+
 public sealed class EntryStrategyEvaluationNotFoundException(Guid evaluationId)
     : InvalidOperationException($"Entry strategy evaluation '{evaluationId}' was not found.");
 

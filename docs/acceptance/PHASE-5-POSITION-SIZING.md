@@ -100,8 +100,8 @@ It shall not create the final `Recommendation`.
 
 Acceptance criteria:
 
-- [ ] Every persisted sizing evaluation references exactly one source `EntryStrategyEvaluationId`.
-- [ ] Phase 5 never changes `EntryStrategyEvaluation`.
+- [x] Every persisted sizing evaluation references exactly one source `EntryStrategyEvaluationId`.
+- [x] Phase 5 never changes `EntryStrategyEvaluation`.
 - [ ] No final SELL Recommendation lifecycle is introduced.
 - [ ] No brokerage execution is introduced.
 - [ ] No DRS, Roll Engine, RQS, campaign accounting, or profit-taking action is introduced.
@@ -674,11 +674,11 @@ human explanation
 
 Acceptance criteria:
 
-- [ ] Stable codes are persisted.
+- [x] Stable codes are persisted.
 - [x] Human text is not parsed to reconstruct logic.
 - [x] Missing inputs are explicit.
 - [x] Limiting constraints are observable.
-- [ ] All consumed current-state exposure/concentration observations are reproducible.
+- [x] All consumed current-state exposure/concentration observations are reproducible.
 
 ---
 
@@ -724,8 +724,8 @@ Acceptance criteria:
 - [ ] Sizing table/threshold changes require ConfigurationVersion review/change.
 - [ ] Formula/order/missing-data/DER/concentration semantic changes require PositionSizingStrategyVersion review/change.
 - [x] Phase 3 IndicatorCalculationVersion is not used as Position Sizing algorithm identity.
-- [ ] Complete resolved Position Sizing configuration is persisted.
-- [ ] Historical evaluations are never reinterpreted under newer config/strategy.
+- [x] Complete resolved Position Sizing configuration is persisted.
+- [x] Historical evaluations are never reinterpreted under newer config/strategy.
 
 ---
 
@@ -785,16 +785,16 @@ A relational summary plus structured immutable payload is acceptable if no requi
 
 Acceptance criteria:
 
-- [ ] Each calculation inserts a new immutable record.
-- [ ] Later evaluation never overwrites earlier evaluation.
-- [ ] Later Holding edits do not change historical retrieval.
-- [ ] Later open-call-state changes do not change historical retrieval.
-- [ ] Later price/Delta observations do not change historical retrieval.
-- [ ] Later configuration/strategy changes do not change historical retrieval.
-- [ ] Source Phase 4 evaluation remains unchanged.
-- [ ] EF migration is included for new persistence state.
-- [ ] Clean database migration succeeds.
-- [ ] Phase 4 database upgrades forward successfully.
+- [x] Each calculation inserts a new immutable record.
+- [x] Later evaluation never overwrites earlier evaluation.
+- [x] Later Holding edits do not change historical retrieval.
+- [x] Later open-call-state changes do not change historical retrieval.
+- [x] Later price/Delta observations do not change historical retrieval.
+- [x] Later configuration/strategy changes do not change historical retrieval.
+- [x] Source Phase 4 evaluation remains unchanged.
+- [x] EF migration is included for new persistence state.
+- [x] Clean database migration succeeds.
+- [x] Phase 4 database upgrades forward successfully.
 
 ---
 

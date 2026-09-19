@@ -14,7 +14,7 @@ public sealed class PositionSizingEvaluationOrchestrator(
     IPositionSizingMarketDataRepository marketDataRepository,
     IOpenShortCallPositionRepository openShortCallPositionRepository,
     IPositionSizingEngine strategy,
-    PositionSizingOrchestrationConfiguration configuration)
+    PositionSizingOrchestrationConfiguration configuration) : IPositionSizingEvaluationOrchestrator
 {
     public async Task<PositionSizingEvaluationBundle> EvaluateAsync(
         Guid entryStrategyEvaluationId,
