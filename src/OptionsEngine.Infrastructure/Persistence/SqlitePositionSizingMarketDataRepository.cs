@@ -42,13 +42,9 @@ public sealed class SqlitePositionSizingMarketDataRepository(OptionsEngineDbCont
         var observations = new List<PositionSizingOptionDeltaObservation>();
         foreach (var group in rows.GroupBy(row => row.OptionSymbol, StringComparer.Ordinal))
         {
-            var latestTimestamp = group.Max(row => row.TimestampUtcTicks);
-            var latest = group.Where(row => row.TimestampUtcTicks == latestTimestamp).ToArray();
-            if (latest.Length != 1)
-                throw new InvalidOperationException(
-                    $"Multiple persisted option observations share the latest timestamp for {group.Key}.");
+            var latest = group.First();
             observations.Add(new PositionSizingOptionDeltaObservation(
-                latest[0].OptionSymbol, latest[0].Delta, latest[0].Timestamp));
+                latest.OptionSymbol, latest.Delta, latest.Timestamp));
         }
 
         return observations;

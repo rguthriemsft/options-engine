@@ -68,6 +68,25 @@ public sealed class PositionSizingMarketDataRepositoryTests : IAsyncLifetime
     }
 
     [Fact]
+    public async Task LatestOptionObservationBreaksSameTimestampTiesByGreatestPersistedId()
+    {
+        await using var db = CreateContext();
+        const string optionSymbol = "MSFT261023C00500000";
+        var first = Option(optionSymbol, "TestProvider", Cutoff, .10);
+        var second = Option(optionSymbol, "TestProvider", Cutoff, .30);
+        db.OptionContractSnapshots.AddRange(first, second);
+        await db.SaveChangesAsync();
+
+        var observations = await new SqlitePositionSizingMarketDataRepository(db)
+            .GetLatestOptionDeltaObservationsAsync([optionSymbol], "TestProvider", Cutoff);
+
+        Assert.True(second.OptionContractSnapshotId > first.OptionContractSnapshotId);
+        var selected = Assert.Single(observations);
+        Assert.Equal(second.Delta, selected.Delta);
+        Assert.Equal(second.Timestamp, selected.ObservationTimestampUtc);
+    }
+
+    [Fact]
     public async Task AccountHoldingReadIncludesDisabledHoldingsAndExcludesOtherAccounts()
     {
         await using var db = CreateContext();
