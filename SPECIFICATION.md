@@ -3129,13 +3129,18 @@ Phase 5 V1 defines no hidden Delta freshness threshold.
 
 Missing or invalid required Delta produces `InsufficientData`.
 
-If existing DER is equal to or above the maximum:
+If existing DER is above the maximum:
 
 ```text
 AdditionalContracts = 0
 ```
 
 with an explicit limiting factor.
+
+If existing DER equals the maximum, equality remains allowed. Therefore:
+
+- when `PreferredContractDelta > 0`, no positive additional count can remain within the maximum and `AdditionalContracts = 0`;
+- when `PreferredContractDelta == 0`, the approved zero-Delta rule applies and DER does not further reduce `PhysicalLimitedAdditionalContracts`.
 
 Phase 5 does not recommend closing an existing call merely because DER or target coverage is already exceeded.
 
