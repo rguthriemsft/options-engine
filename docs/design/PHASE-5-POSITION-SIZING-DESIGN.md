@@ -735,7 +735,15 @@ ProposedDER(N) =
 
 ## 18.3 Maximum
 
-The largest allowed additional integer contract count is the largest `N` satisfying:
+DER limits only the already-calculated physically eligible action.
+
+The DER-limited additional count is the largest integer `N` in:
+
+```text
+0 <= N <= PhysicalLimitedAdditionalContracts
+```
+
+satisfying:
 
 ```text
 ProposedDER(N)
@@ -745,6 +753,23 @@ ProposedDER(N)
 Equality is allowed.
 
 A proposed contract that would move DER above the maximum is not allowed.
+
+The DER calculation never needs to represent an unbounded theoretical contract capacity.
+
+If:
+
+```text
+PreferredContractDelta == 0
+```
+
+and existing DER is within the configured maximum, then:
+
+```text
+DERLimitedAdditionalContracts =
+    PhysicalLimitedAdditionalContracts
+```
+
+because adding any physically eligible preferred contracts does not increase DER.
 
 ## 18.4 Delta Semantics
 
