@@ -376,32 +376,32 @@ weight > 40%          0.70
 
 Acceptance criteria:
 
-- [ ] Exactly 5% -> 1.00.
-- [ ] Exactly 15% -> 0.90.
-- [ ] Exactly 25% -> 0.80.
-- [ ] Exactly 40% -> 0.80.
-- [ ] Immediately above 40% -> 0.70.
-- [ ] Input order cannot affect denominator/result.
-- [ ] Disabled strategy holdings still participate in same-account concentration.
-- [ ] Cash/untracked assets do not participate.
+- [x] Exactly 5% -> 1.00.
+- [x] Exactly 15% -> 0.90.
+- [x] Exactly 25% -> 0.80.
+- [x] Exactly 40% -> 0.80.
+- [x] Immediately above 40% -> 0.70.
+- [x] Input order cannot affect denominator/result.
+- [x] Disabled strategy holdings still participate in same-account concentration.
+- [x] Cash/untracked assets do not participate.
 
 Missing-data criteria:
 
-- [ ] Missing required price for any participating Holding makes stock concentration unavailable.
-- [ ] Missing price is never zero-filled.
-- [ ] Missing holding is never silently excluded from denominator.
-- [ ] Weight is never renormalized around missing data.
+- [x] Missing required price for any participating Holding makes stock concentration unavailable.
+- [x] Missing price is never zero-filled.
+- [x] Missing holding is never silently excluded from denominator.
+- [x] Weight is never renormalized around missing data.
 
 ETF criteria:
 
-- [ ] ETF concentration status is NotApplicable.
-- [ ] Effective ETF concentration modifier is 1.00.
-- [ ] ETF NotApplicable does not fabricate a portfolio weight of zero.
+- [x] ETF concentration status is NotApplicable.
+- [x] Effective ETF concentration modifier is 1.00.
+- [x] ETF NotApplicable does not fabricate a portfolio weight of zero.
 
 Other asset criteria:
 
-- [ ] `AssetType.Other` is unsupported/insufficient for V1 concentration.
-- [ ] Stock rules are not silently applied to Other.
+- [x] `AssetType.Other` is unsupported/insufficient for V1 concentration.
+- [x] Stock rules are not silently applied to Other.
 
 ---
 

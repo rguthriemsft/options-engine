@@ -66,21 +66,12 @@ public sealed record PortfolioConcentrationHolding(
     decimal? AsOfPrice,
     DateOnly? PriceObservationDate);
 
-/// <summary>
-/// Provider-independent objective inputs for later concentration calculation. No Position Sizing math is performed here.
-/// </summary>
+/// <summary>Provider-independent objective inputs for the pure portfolio concentration calculation.</summary>
 public sealed record PortfolioConcentrationContext(
-    PortfolioConcentrationStatus Status,
     Guid TargetHoldingId,
     Guid AccountId,
     DateOnly IndicatorAsOfDate,
-    ImmutableArray<PortfolioConcentrationHolding> Holdings)
-{
-    /// <summary>
-    /// The already-resolved modifier consumed by Phase 5B. Phase 5C owns calculating this value and its weight.
-    /// </summary>
-    public double? ResolvedModifier { get; init; }
-}
+    ImmutableArray<PortfolioConcentrationHolding> Holdings);
 
 /// <summary>Complete immutable Strategy input boundary for the pure Position Sizing engine.</summary>
 public sealed record PositionSizingInput(

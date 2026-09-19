@@ -18,6 +18,11 @@ public sealed record PositionSizingBandTable
 {
     public required ImmutableArray<PositionSizingBand> Bands { get; init; }
 
+    internal double Resolve(double input) =>
+        Bands.Single(band =>
+            (input > band.Minimum || band.IncludesMinimum && input == band.Minimum) &&
+            (input < band.Maximum || band.IncludesMaximum && input == band.Maximum)).Value;
+
     internal void Validate(
         string name,
         double domainMinimum,

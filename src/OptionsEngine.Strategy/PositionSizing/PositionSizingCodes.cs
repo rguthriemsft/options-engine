@@ -55,7 +55,8 @@ public enum PositionSizingMissingInputCode
     PortfolioDenominator,
     Configuration,
     ExistingShortCallExposure,
-    ConcentrationModifier
+    PortfolioConcentrationContext,
+    PortfolioTargetHolding
 }
 
 public sealed record PositionSizingLimitingFactor(

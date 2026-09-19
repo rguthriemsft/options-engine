@@ -92,10 +92,8 @@ public sealed class PositionSizingContractTests
         var accountId = Guid.NewGuid();
         var asOfDate = new DateOnly(2026, 9, 17);
         var notApplicable = new PortfolioConcentrationContext(
-            PortfolioConcentrationStatus.NotApplicable, targetHoldingId, accountId, asOfDate, []);
-        var unavailable = notApplicable with { Status = PortfolioConcentrationStatus.InsufficientData };
+            targetHoldingId, accountId, asOfDate, []);
 
-        Assert.NotEqual(notApplicable.Status, unavailable.Status);
         Assert.Empty(notApplicable.Holdings);
 
         var result = new PositionSizingResult
@@ -111,6 +109,18 @@ public sealed class PositionSizingContractTests
         };
         Assert.Null(result.PortfolioWeight);
         Assert.Equal(1, result.ConcentrationModifier);
+    }
+
+    [Fact]
+    public void PortfolioConcentrationContextContainsObjectiveFactsRatherThanPreResolvedOutput()
+    {
+        var properties = typeof(PortfolioConcentrationContext).GetProperties()
+            .Select(property => property.Name);
+
+        Assert.DoesNotContain("ResolvedModifier", properties);
+        Assert.DoesNotContain("Status", properties);
+        Assert.Contains(nameof(PortfolioConcentrationContext.Holdings), properties);
+        Assert.Contains(nameof(PortfolioConcentrationContext.IndicatorAsOfDate), properties);
     }
 
     [Fact]

@@ -108,9 +108,11 @@ public sealed class PositionSizingEngineTests
             contractScore: 100,
             sensitivity: AssignmentSensitivity.Level5,
             maximumCoverage: .50m,
-            concentrationModifier: 1.10));
+            concentrationWeight: .049m));
 
         Assert.Equal(.70 * .70 * 1.15 * 1.10, result.RawCoverageRatio!.Value, 10);
+        Assert.Equal(.049, result.PortfolioWeight!.Value, 10);
+        Assert.Equal(1.10, result.ConcentrationModifier);
         Assert.Equal(.50, result.DesiredCoverageRatio);
         Assert.Equal(5, result.DesiredTotalContracts);
         Assert.Contains(PositionSizingReasonCode.AssignmentSensitivityLimit, result.ReasonCodes);
@@ -128,9 +130,21 @@ public sealed class PositionSizingEngineTests
 
         Assert.Equal(.40, result.RawCoverageRatio);
         Assert.Equal(.40, result.DesiredCoverageRatio);
+        Assert.Equal(.10, result.PortfolioWeight);
+        Assert.Equal(1.00, result.ConcentrationModifier);
         Assert.Equal(0, result.ExistingCoveredContracts);
         Assert.DoesNotContain(PositionSizingReasonCode.AssignmentSensitivityLimit, result.ReasonCodes);
         Assert.DoesNotContain(PositionSizingReasonCode.HoldingMaximumCoverageLimit, result.ReasonCodes);
+    }
+
+    [Fact]
+    public void StockConcentrationModifierParticipatesInExistingRawCoverageOrder()
+    {
+        var result = Engine.Evaluate(Input(concentrationWeight: .20m));
+
+        Assert.Equal(.20, result.PortfolioWeight);
+        Assert.Equal(.90, result.ConcentrationModifier);
+        Assert.Equal(.40 * 1.00 * 1.00 * .90, result.RawCoverageRatio!.Value, 10);
     }
 
     [Fact]
@@ -138,7 +152,7 @@ public sealed class PositionSizingEngineTests
     {
         var result = Engine.Evaluate(Input(ccos: 100, contractScore: 100,
             sensitivity: AssignmentSensitivity.Level4, maximumCoverage: .90m,
-            concentrationModifier: 1.50));
+            concentrationWeight: .049m));
 
         Assert.Equal(.70, result.DesiredCoverageRatio);
         Assert.Contains(PositionSizingReasonCode.AssignmentSensitivityLimit, result.ReasonCodes);
@@ -347,12 +361,63 @@ public sealed class PositionSizingEngineTests
         Assert.Contains(PositionSizingMissingInputCode.MaximumDeltaExposureRatio, result.MissingInputs);
     }
 
+    [Fact]
+    public void MissingParticipatingPortfolioPriceMakesOverallSizingInsufficient()
+    {
+        var context = ConcentrationContext(1_000m, .10m);
+        var missingPrice = context.Holdings[1] with { AsOfPrice = null };
+
+        var result = Engine.Evaluate(Input() with
+        {
+            PortfolioConcentration = context with
+            {
+                Holdings = context.Holdings.SetItem(1, missingPrice)
+            }
+        });
+
+        Assert.Equal(PositionSizingStatus.InsufficientData, result.Status);
+        Assert.Equal(PortfolioConcentrationStatus.InsufficientData, result.PortfolioConcentrationStatus);
+        Assert.Contains(PositionSizingMissingInputCode.PortfolioPrice, result.MissingInputs);
+        Assert.Null(result.PortfolioWeight);
+        Assert.Null(result.ConcentrationModifier);
+        Assert.Null(result.AdditionalContracts);
+    }
+
+    [Fact]
+    public void EtfSizingUsesNeutralNotApplicableConcentrationWithoutPrices()
+    {
+        var input = Input(assetType: AssetType.ExchangeTradedFund) with
+        {
+            PortfolioConcentration = new PortfolioConcentrationContext(
+                HoldingId, AccountId, new DateOnly(2026, 9, 17), [])
+        };
+
+        var result = Engine.Evaluate(input);
+
+        Assert.Equal(PositionSizingStatus.Available, result.Status);
+        Assert.Equal(PortfolioConcentrationStatus.NotApplicable, result.PortfolioConcentrationStatus);
+        Assert.Null(result.PortfolioWeight);
+        Assert.Equal(1, result.ConcentrationModifier);
+    }
+
+    [Fact]
+    public void OtherAssetTypeRemainsExplicitlyUnsupported()
+    {
+        var result = Engine.Evaluate(Input(assetType: AssetType.Other));
+
+        Assert.Equal(PositionSizingStatus.InsufficientData, result.Status);
+        Assert.Contains(PositionSizingReasonCode.UnsupportedAssetType, result.ReasonCodes);
+        Assert.Equal(PortfolioConcentrationStatus.InsufficientData, result.PortfolioConcentrationStatus);
+        Assert.Null(result.ConcentrationModifier);
+        Assert.Null(result.AdditionalContracts);
+    }
+
     public static TheoryData<PositionSizingInput, PositionSizingMissingInputCode> MissingRequiredInputs => new()
     {
         { Input() with { SourceEntryStrategyEvaluation = null }, PositionSizingMissingInputCode.SourceEntryStrategyEvaluation },
         { Input() with { Configuration = null }, PositionSizingMissingInputCode.Configuration },
         { Input() with { ExistingShortCallExposure = default }, PositionSizingMissingInputCode.ExistingShortCallExposure },
-        { Input() with { PortfolioConcentration = null }, PositionSizingMissingInputCode.ConcentrationModifier },
+        { Input() with { PortfolioConcentration = null }, PositionSizingMissingInputCode.PortfolioConcentrationContext },
         { Input(source: SourceEvaluation(null, 90, true)), PositionSizingMissingInputCode.Ccos },
         { Input(source: SourceEvaluation(90, 90, true, includePreferred: false)), PositionSizingMissingInputCode.PreferredContract },
         { Input(source: SourceEvaluation(90, null, true)), PositionSizingMissingInputCode.PreferredContractScore }
@@ -388,32 +453,54 @@ public sealed class PositionSizingEngineTests
         AssignmentSensitivity sensitivity = AssignmentSensitivity.Level3,
         decimal maximumCoverage = 1m,
         int existingContracts = 0,
-        double concentrationModifier = 1,
+        decimal concentrationWeight = .10m,
         bool entryCandidateExists = true,
         PositionSizingConfiguration? configuration = null,
-        EntryStrategyEvaluation? source = null) => new(
+        EntryStrategyEvaluation? source = null,
+        AssetType assetType = AssetType.Stock) => new(
             source ?? SourceEvaluation(ccos, contractScore, entryCandidateExists),
-            Holding(shares, sensitivity, maximumCoverage),
+            Holding(shares, sensitivity, maximumCoverage, assetType),
             existingContracts == 0
                 ? []
                 : [new ExistingShortCallExposure(HoldingId, "MSFT261023C00500000", existingContracts, 500m,
                     new DateOnly(2026, 10, 23))],
             [],
-            new PortfolioConcentrationContext(PortfolioConcentrationStatus.Available, HoldingId, AccountId,
-                new DateOnly(2026, 9, 17), []) { ResolvedModifier = concentrationModifier },
+            ConcentrationContext(shares, concentrationWeight),
             SizingTimestamp,
             configuration ?? DefaultConfiguration(),
             new ConfigurationVersion(1),
             new PositionSizingStrategyVersion("1.0.0"));
 
+    private static PortfolioConcentrationContext ConcentrationContext(
+        decimal targetShares,
+        decimal targetWeight)
+    {
+        var asOfDate = new DateOnly(2026, 9, 17);
+        var otherMarketValue = targetShares == 0
+            ? 1_000m
+            : targetShares * (1 - targetWeight) / targetWeight;
+        return new PortfolioConcentrationContext(HoldingId, AccountId, asOfDate,
+        [
+            new PortfolioConcentrationHolding(HoldingId, AccountId, "MSFT", targetShares, 1m, asOfDate),
+            new PortfolioConcentrationHolding(
+                Guid.Parse("C8A3CEBA-3E5C-4D06-B68D-27E28FD6840F"),
+                AccountId,
+                "OTHER",
+                1m,
+                otherMarketValue,
+                asOfDate)
+        ]);
+    }
+
     private static PositionSizingHoldingContext Holding(
         decimal shares,
         AssignmentSensitivity sensitivity = AssignmentSensitivity.Level3,
-        decimal maximumCoverage = 1m) => new(
+        decimal maximumCoverage = 1m,
+        AssetType assetType = AssetType.Stock) => new(
             HoldingId,
             AccountId,
             "MSFT",
-            AssetType.Stock,
+            assetType,
             shares,
             sensitivity,
             TaxSensitivity.Moderate,

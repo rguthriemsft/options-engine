@@ -9,9 +9,22 @@ public interface IPositionSizingEngine
     PositionSizingResult Evaluate(PositionSizingInput input);
 }
 
-/// <summary>Pure Phase 5B position-sizing calculation. Concentration and DER are resolved by later packets.</summary>
+/// <summary>Pure Position Sizing calculation through Phase 5C. DER remains owned by Phase 5D.</summary>
 public sealed class PositionSizingEngine : IPositionSizingEngine
 {
+    private readonly PortfolioConcentrationCalculator _concentrationCalculator;
+
+    public PositionSizingEngine()
+        : this(new PortfolioConcentrationCalculator())
+    {
+    }
+
+    public PositionSizingEngine(PortfolioConcentrationCalculator concentrationCalculator)
+    {
+        ArgumentNullException.ThrowIfNull(concentrationCalculator);
+        _concentrationCalculator = concentrationCalculator;
+    }
+
     public PositionSizingResult Evaluate(PositionSizingInput input)
     {
         ArgumentNullException.ThrowIfNull(input);
@@ -49,6 +62,8 @@ public sealed class PositionSizingEngine : IPositionSizingEngine
             AddMissing(missingInputs, PositionSizingMissingInputCode.Configuration);
         if (input.ExistingShortCallExposure.IsDefault)
             AddMissing(missingInputs, PositionSizingMissingInputCode.ExistingShortCallExposure);
+        if (input.PortfolioConcentration is null)
+            AddMissing(missingInputs, PositionSizingMissingInputCode.PortfolioConcentrationContext);
 
         var ccos = AvailableScore(source.Ccos);
         if (ccos is null)
@@ -61,13 +76,19 @@ public sealed class PositionSizingEngine : IPositionSizingEngine
         if (preferredContract is not null && preferredContractScore is null)
             AddMissing(missingInputs, PositionSizingMissingInputCode.PreferredContractScore);
 
-        var concentrationModifier = input.PortfolioConcentration?.ResolvedModifier;
-        if (input.PortfolioConcentration?.Status == PortfolioConcentrationStatus.InsufficientData ||
-            concentrationModifier is null || !double.IsFinite(concentrationModifier.Value) ||
-            concentrationModifier.Value < 0)
-            AddMissing(missingInputs, PositionSizingMissingInputCode.ConcentrationModifier);
+        PortfolioConcentrationResult? concentration = null;
+        if (input.Holding is not null && input.Configuration is not null && input.PortfolioConcentration is not null)
+        {
+            concentration = _concentrationCalculator.Calculate(
+                input.PortfolioConcentration,
+                input.Holding,
+                input.Configuration);
+            foreach (var missingInput in concentration.MissingInputs)
+                AddMissing(missingInputs, missingInput);
+        }
 
-        if (missingInputs.Count > 0)
+        var unsupportedAssetType = input.Holding?.AssetType == AssetType.Other;
+        if (missingInputs.Count > 0 || unsupportedAssetType)
         {
             return Insufficient(
                 [.. missingInputs],
@@ -75,7 +96,10 @@ public sealed class PositionSizingEngine : IPositionSizingEngine
                 existingContracts,
                 ccos,
                 preferredContractScore,
-                input.PortfolioConcentration?.Status);
+                concentration,
+                unsupportedAssetType
+                    ? [PositionSizingReasonCode.UnsupportedAssetType, PositionSizingReasonCode.InsufficientData]
+                    : [PositionSizingReasonCode.InsufficientData]);
         }
 
         var holding = input.Holding!;
@@ -86,21 +110,6 @@ public sealed class PositionSizingEngine : IPositionSizingEngine
         if (input.SizingTimestampUtc.Offset != TimeSpan.Zero)
             throw new ArgumentException("The sizing timestamp must be expressed in UTC.", nameof(input));
         ArgumentNullException.ThrowIfNull(input.StrategyVersion);
-        if (holding.AssetType == AssetType.Other)
-        {
-            return new PositionSizingResult
-            {
-                Status = PositionSizingStatus.InsufficientData,
-                ReasonCodes = [PositionSizingReasonCode.UnsupportedAssetType, PositionSizingReasonCode.InsufficientData],
-                MissingInputs = [],
-                SharesOwned = holding.SharesOwned,
-                ExistingCoveredContracts = existingContracts,
-                ExistingCoveredShares = existingContracts * 100m,
-                PortfolioConcentrationStatus = input.PortfolioConcentration!.Status,
-                LimitingFactors = [],
-                Explanation = "The holding asset type is unsupported for V1 position sizing."
-            };
-        }
 
         ValidateExistingExposure(input.ExistingShortCallExposure, holding.HoldingId);
 
@@ -109,11 +118,11 @@ public sealed class PositionSizingEngine : IPositionSizingEngine
         var availableShares = Math.Max(0m, holding.SharesOwned - existingCoveredShares);
         var availableContracts = checked((int)decimal.Floor(availableShares / 100m));
 
-        var ccosBaseCoverage = ResolveBand(configuration.CcosBaseCoverage, ccos!.Value);
+        var ccosBaseCoverage = configuration.CcosBaseCoverage.Resolve(ccos!.Value);
         var assignmentSetting = configuration.AssignmentSensitivitySettings[holding.AssignmentSensitivity];
-        var contractQualityModifier = ResolveBand(configuration.ContractQualityModifiers, preferredContractScore!.Value);
+        var contractQualityModifier = configuration.ContractQualityModifiers.Resolve(preferredContractScore!.Value);
         var rawCoverage = ccosBaseCoverage * assignmentSetting.Modifier * contractQualityModifier *
-                          concentrationModifier!.Value;
+                          concentration!.ConcentrationModifier!.Value;
         var holdingMaximumCoverage = decimal.ToDouble(holding.MaximumCoverageRatio);
         var desiredCoverage = Math.Min(rawCoverage,
             Math.Min(assignmentSetting.MaximumCoverageRatio, holdingMaximumCoverage));
@@ -170,9 +179,9 @@ public sealed class PositionSizingEngine : IPositionSizingEngine
             AssignmentSensitivityMaximumRatio = assignmentSetting.MaximumCoverageRatio,
             PreferredContractScore = preferredContractScore,
             ContractQualityModifier = contractQualityModifier,
-            PortfolioConcentrationStatus = input.PortfolioConcentration!.Status,
-            PortfolioWeight = null,
-            ConcentrationModifier = concentrationModifier,
+            PortfolioConcentrationStatus = concentration.Status,
+            PortfolioWeight = concentration.PortfolioWeight,
+            ConcentrationModifier = concentration.ConcentrationModifier,
             RawCoverageRatio = rawCoverage,
             DesiredCoverageRatio = desiredCoverage,
             DesiredTotalContracts = desiredTotal,
@@ -194,19 +203,26 @@ public sealed class PositionSizingEngine : IPositionSizingEngine
         int? existingContracts = null,
         double? ccos = null,
         double? preferredContractScore = null,
-        PortfolioConcentrationStatus? concentrationStatus = null) => new()
+        PortfolioConcentrationResult? concentration = null,
+        ImmutableArray<PositionSizingReasonCode> reasonCodes = default) => new()
         {
             Status = PositionSizingStatus.InsufficientData,
-            ReasonCodes = [PositionSizingReasonCode.InsufficientData],
+            ReasonCodes = reasonCodes.IsDefault
+                ? [PositionSizingReasonCode.InsufficientData]
+                : reasonCodes,
             MissingInputs = missingInputs,
             SharesOwned = sharesOwned,
             ExistingCoveredContracts = existingContracts,
             ExistingCoveredShares = existingContracts is null ? null : existingContracts * 100m,
             Ccos = ccos,
             PreferredContractScore = preferredContractScore,
-            PortfolioConcentrationStatus = concentrationStatus,
+            PortfolioConcentrationStatus = concentration?.Status,
+            PortfolioWeight = concentration?.PortfolioWeight,
+            ConcentrationModifier = concentration?.ConcentrationModifier,
             LimitingFactors = [],
-            Explanation = $"Position sizing is unavailable because {missingInputs.Length} required input(s) are missing or invalid."
+            Explanation = concentration?.Status == PortfolioConcentrationStatus.InsufficientData
+                ? concentration.Explanation
+                : $"Position sizing is unavailable because {missingInputs.Length} required input(s) are missing or invalid."
         };
 
     private static int? TryGetExistingContracts(ImmutableArray<ExistingShortCallExposure> exposures) =>
@@ -231,11 +247,6 @@ public sealed class PositionSizingEngine : IPositionSizingEngine
             string.Equals(contract.Contract.OptionSymbol, source.PreferredInitialOptionSymbol,
                 StringComparison.Ordinal));
     }
-
-    private static double ResolveBand(PositionSizingBandTable table, double input) =>
-        table.Bands.Single(band =>
-            (input > band.Minimum || band.IncludesMinimum && input == band.Minimum) &&
-            (input < band.Maximum || band.IncludesMaximum && input == band.Maximum)).Value;
 
     private static void ValidateExistingExposure(
         ImmutableArray<ExistingShortCallExposure> exposures,
