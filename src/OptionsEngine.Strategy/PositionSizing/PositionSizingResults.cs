@@ -5,7 +5,7 @@ namespace OptionsEngine.Strategy.PositionSizing;
 
 /// <summary>
 /// Structured Position Sizing result contract. Nullable values remain unavailable rather than masquerading as zero.
-/// Phase 5A defines this shape but performs no sizing calculation.
+/// Values owned by later Phase 5 packets remain null until those calculations are available.
 /// </summary>
 public sealed record PositionSizingResult
 {
@@ -39,6 +39,7 @@ public sealed record PositionSizingResult
 
     public int? DesiredTotalContracts { get; init; }
     public int? DesiredAdditionalContracts { get; init; }
+    public int? PhysicalLimitedAdditionalContracts { get; init; }
 
     public double? ExistingDer { get; init; }
     public double? MaximumDer { get; init; }

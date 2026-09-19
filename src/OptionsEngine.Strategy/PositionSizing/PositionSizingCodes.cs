@@ -52,7 +52,10 @@ public enum PositionSizingMissingInputCode
     PreferredContractDelta,
     ExistingShortCallDelta,
     PortfolioPrice,
-    PortfolioDenominator
+    PortfolioDenominator,
+    Configuration,
+    ExistingShortCallExposure,
+    ConcentrationModifier
 }
 
 public sealed record PositionSizingLimitingFactor(

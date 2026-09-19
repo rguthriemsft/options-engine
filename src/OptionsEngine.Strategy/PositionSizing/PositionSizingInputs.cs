@@ -74,16 +74,22 @@ public sealed record PortfolioConcentrationContext(
     Guid TargetHoldingId,
     Guid AccountId,
     DateOnly IndicatorAsOfDate,
-    ImmutableArray<PortfolioConcentrationHolding> Holdings);
+    ImmutableArray<PortfolioConcentrationHolding> Holdings)
+{
+    /// <summary>
+    /// The already-resolved modifier consumed by Phase 5B. Phase 5C owns calculating this value and its weight.
+    /// </summary>
+    public double? ResolvedModifier { get; init; }
+}
 
-/// <summary>Complete immutable Strategy input boundary for a future pure Position Sizing engine.</summary>
+/// <summary>Complete immutable Strategy input boundary for the pure Position Sizing engine.</summary>
 public sealed record PositionSizingInput(
-    EntryStrategyEvaluation SourceEntryStrategyEvaluation,
-    PositionSizingHoldingContext Holding,
+    EntryStrategyEvaluation? SourceEntryStrategyEvaluation,
+    PositionSizingHoldingContext? Holding,
     ImmutableArray<ExistingShortCallExposure> ExistingShortCallExposure,
     ImmutableArray<ExistingShortCallDeltaObservation> ExistingShortCallDeltaObservations,
-    PortfolioConcentrationContext PortfolioConcentration,
+    PortfolioConcentrationContext? PortfolioConcentration,
     DateTimeOffset SizingTimestampUtc,
-    PositionSizingConfiguration Configuration,
+    PositionSizingConfiguration? Configuration,
     ConfigurationVersion ConfigurationVersion,
     PositionSizingStrategyVersion StrategyVersion);

@@ -155,12 +155,12 @@ PreferredInitialContract
 
 Acceptance criteria:
 
-- [ ] Phase 5 never recalculates CCOS.
-- [ ] Phase 5 never recalculates Contract Score.
-- [ ] Phase 5 never reruns contract hard gates.
-- [ ] Phase 5 never reranks contracts.
-- [ ] Phase 5 never selects an alternate contract.
-- [ ] Preferred Contract Score comes from persisted Phase 4 output.
+- [x] Phase 5 never recalculates CCOS.
+- [x] Phase 5 never recalculates Contract Score.
+- [x] Phase 5 never reruns contract hard gates.
+- [x] Phase 5 never reranks contracts.
+- [x] Phase 5 never selects an alternate contract.
+- [x] Preferred Contract Score comes from persisted Phase 4 output.
 - [ ] Preferred-contract Delta comes from the persisted Phase 4 option observation.
 
 If:
@@ -171,10 +171,10 @@ EntryCandidateExists == false
 
 acceptance criteria:
 
-- [ ] Status is NotApplicable.
-- [ ] `AdditionalContracts = 0`.
-- [ ] Reason includes `NO_ENTRY_CANDIDATE`.
-- [ ] Result is not classified as InsufficientData merely because Phase 4 found no entry candidate.
+- [x] Status is NotApplicable.
+- [x] `AdditionalContracts = 0`.
+- [x] Reason includes `NO_ENTRY_CANDIDATE`.
+- [x] Result is not classified as InsufficientData merely because Phase 4 found no entry candidate.
 
 ---
 
@@ -193,15 +193,15 @@ PhysicalCapacityContracts =
 
 Acceptance criteria:
 
-- [ ] 0 shares -> 0 physical contracts.
-- [ ] 99 shares -> 0.
-- [ ] 100 shares -> 1.
-- [ ] 199 shares -> 1.
-- [ ] 200 shares -> 2.
-- [ ] 250 shares -> 2.
-- [ ] Fractional shares never create fractional contracts.
-- [ ] Negative shares are invalid.
-- [ ] Tax-lot sum does not silently replace `Holding.Shares`.
+- [x] 0 shares -> 0 physical contracts.
+- [x] 99 shares -> 0.
+- [x] 100 shares -> 1.
+- [x] 199 shares -> 1.
+- [x] 200 shares -> 2.
+- [x] 250 shares -> 2.
+- [x] Fractional shares never create fractional contracts.
+- [x] Negative shares are invalid.
+- [x] Tax-lot sum does not silently replace `Holding.Shares`.
 
 ---
 
@@ -217,10 +217,10 @@ V1 uses fractional ratios:
 
 Acceptance criteria:
 
-- [ ] `MaximumCoveragePercent` must be finite and within [0,1].
-- [ ] `MaximumDeltaExposureRatio` must be finite and within [0,1].
-- [ ] Existing property names do not change percentage representation.
-- [ ] Invalid values fail validation rather than clamp silently.
+- [x] `MaximumCoveragePercent` must be finite and within [0,1].
+- [x] `MaximumDeltaExposureRatio` must be finite and within [0,1].
+- [x] Existing property names do not change percentage representation.
+- [x] Invalid values fail validation rather than clamp silently.
 
 ---
 
@@ -259,10 +259,10 @@ AvailableContracts =
 
 Acceptance criteria:
 
-- [ ] Existing coverage is deducted before new physical capacity is allocated.
-- [ ] Available shares never become negative.
-- [ ] Existing exposure above physical capacity produces zero additional contracts plus explicit limiting/anomaly reason.
-- [ ] Zero shares with existing short calls produces an inconsistent-exposure outcome rather than DER division.
+- [x] Existing coverage is deducted before new physical capacity is allocated.
+- [x] Available shares never become negative.
+- [x] Existing exposure above physical capacity produces zero additional contracts plus explicit limiting/anomaly reason.
+- [x] Zero shares with existing short calls produces an inconsistent-exposure outcome rather than DER division.
 
 ---
 
@@ -282,14 +282,14 @@ CCOS < 70         0.00
 
 Acceptance criteria:
 
-- [ ] Each threshold has immediately-below / exact / immediately-above tests.
-- [ ] 70 enters the 0.20 band.
-- [ ] 75 enters the 0.30 band.
-- [ ] 80 enters the 0.40 band.
-- [ ] 85 enters the 0.50 band.
-- [ ] 90 enters the 0.60 band.
-- [ ] 95 enters the 0.70 band.
-- [ ] A valid Phase 4 candidate below CCOS 70 receives base coverage 0 rather than an invented band.
+- [x] Each threshold has immediately-below / exact / immediately-above tests.
+- [x] 70 enters the 0.20 band.
+- [x] 75 enters the 0.30 band.
+- [x] 80 enters the 0.40 band.
+- [x] 85 enters the 0.50 band.
+- [x] 90 enters the 0.60 band.
+- [x] 95 enters the 0.70 band.
+- [x] A valid Phase 4 candidate below CCOS 70 receives base coverage 0 rather than an invented band.
 
 ---
 
@@ -307,11 +307,11 @@ ASL5  modifier 0.70   maximum 0.50
 
 Acceptance criteria:
 
-- [ ] Both modifier and maximum are applied.
-- [ ] ASL5 default maximum is exactly 0.50.
-- [ ] The old 50–60% ambiguity does not remain.
-- [ ] Assignment Sensitivity values are configuration-backed.
-- [ ] Maximum acts as a total-coverage cap after multiplicative modifiers.
+- [x] Both modifier and maximum are applied.
+- [x] ASL5 default maximum is exactly 0.50.
+- [x] The old 50–60% ambiguity does not remain.
+- [x] Assignment Sensitivity values are configuration-backed.
+- [x] Maximum acts as a total-coverage cap after multiplicative modifiers.
 
 ---
 
@@ -331,9 +331,9 @@ Contract Score < 80         0.00
 
 Acceptance criteria:
 
-- [ ] Each 80/85/90/95 boundary has below/exact/above tests.
-- [ ] A preferred contract below 80 under custom Phase 4 thresholds yields modifier 0 and a valid zero-size result.
-- [ ] Phase 5 does not recalculate Contract Score.
+- [x] Each 80/85/90/95 boundary has below/exact/above tests.
+- [x] A preferred contract below 80 under custom Phase 4 thresholds yields modifier 0 and a valid zero-size result.
+- [x] Phase 5 does not recalculate Contract Score.
 
 ---
 
@@ -475,10 +475,10 @@ ResultingTotalContracts =
 Acceptance criteria:
 
 - [ ] Calculation follows this exact order.
-- [ ] Caps apply after multiplicative modifiers.
-- [ ] Whole-contract conversion floors.
-- [ ] Existing contracts are subtracted from desired total before computing action.
-- [ ] Final additional count cannot exceed available physical capacity.
+- [x] Caps apply after multiplicative modifiers.
+- [x] Whole-contract conversion floors.
+- [x] Existing contracts are subtracted from desired total before computing action.
+- [x] Final additional count cannot exceed available physical capacity.
 - [ ] Final additional count cannot exceed DER capacity.
 
 ---
@@ -489,11 +489,11 @@ All contract counts floor.
 
 Acceptance criteria:
 
-- [ ] A value just below a whole contract floors down.
-- [ ] An exact whole-contract result is retained.
-- [ ] A value just above a whole contract still floors to that whole integer.
-- [ ] No ceiling or nearest-integer rounding exists.
-- [ ] No additional tax-sensitive contract rounding penalty exists.
+- [x] A value just below a whole contract floors down.
+- [x] An exact whole-contract result is retained.
+- [x] A value just above a whole contract still floors to that whole integer.
+- [x] No ceiling or nearest-integer rounding exists.
+- [x] No additional tax-sensitive contract rounding penalty exists.
 - [ ] Phase 4 tax-sensitive Delta behavior remains unchanged.
 
 ---
@@ -569,12 +569,12 @@ ResultingTotalContracts
 
 Acceptance criteria:
 
-- [ ] Existing below desired -> additional target is desired minus existing.
-- [ ] Existing equal desired -> zero additional.
-- [ ] Existing above desired -> zero additional.
-- [ ] Existing above desired includes stable reason such as `EXISTING_COVERAGE_ABOVE_TARGET`.
-- [ ] Phase 5 never recommends closing existing calls because the new target is lower.
-- [ ] Profit taking/defensive close logic remains downstream.
+- [x] Existing below desired -> additional target is desired minus existing.
+- [x] Existing equal desired -> zero additional.
+- [x] Existing above desired -> zero additional.
+- [x] Existing above desired includes stable reason such as `EXISTING_COVERAGE_ABOVE_TARGET`.
+- [x] Phase 5 never recommends closing existing calls because the new target is lower.
+- [x] Profit taking/defensive close logic remains downstream.
 
 ---
 
@@ -604,11 +604,11 @@ DER maximum reached
 
 Acceptance criteria:
 
-- [ ] Zero additional contracts is not automatically an error.
-- [ ] Limiting factors/reasons explain valid zero results.
-- [ ] No entry candidate -> NotApplicable.
-- [ ] Missing required calculation data -> InsufficientData.
-- [ ] Missing is never converted to zero.
+- [x] Zero additional contracts is not automatically an error.
+- [x] Limiting factors/reasons explain valid zero results.
+- [x] No entry candidate -> NotApplicable.
+- [x] Missing required calculation data -> InsufficientData.
+- [x] Missing is never converted to zero.
 
 ---
 
@@ -656,9 +656,9 @@ human explanation
 Acceptance criteria:
 
 - [ ] Stable codes are persisted.
-- [ ] Human text is not parsed to reconstruct logic.
-- [ ] Missing inputs are explicit.
-- [ ] Limiting constraints are observable.
+- [x] Human text is not parsed to reconstruct logic.
+- [x] Missing inputs are explicit.
+- [x] Limiting constraints are observable.
 - [ ] All consumed current-state exposure/concentration observations are reproducible.
 
 ---
@@ -680,12 +680,12 @@ IndicatorAsOfDate
 
 Acceptance criteria:
 
-- [ ] SizingTimestampUtc is explicit/injectable.
-- [ ] Tests do not depend on machine local time.
-- [ ] Phase 4 CCOS/contract facts are not refreshed during sizing.
+- [x] SizingTimestampUtc is explicit/injectable.
+- [x] Tests do not depend on machine local time.
+- [x] Phase 4 CCOS/contract facts are not refreshed during sizing.
 - [ ] Mutable Holding/exposure state is snapshotted at sizing time.
 - [ ] Concentration prices are anchored to Phase 4 IndicatorAsOfDate.
-- [ ] No hidden maximum age between Phase 4 and Phase 5 is introduced.
+- [x] No hidden maximum age between Phase 4 and Phase 5 is introduced.
 
 ---
 
