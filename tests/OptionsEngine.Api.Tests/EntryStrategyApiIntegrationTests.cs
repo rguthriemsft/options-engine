@@ -27,6 +27,14 @@ public sealed class EntryStrategyApiIntegrationTests
         Assert.Equal(HttpStatusCode.Created, response.StatusCode); Assert.Equal(1, writer.Calls);
         Assert.Equal(now, writer.Timestamp); Assert.Equal(value.Evaluation.EntryStrategyEvaluationId, json.RootElement.GetProperty("entryStrategyEvaluationId").GetGuid());
         Assert.Equal("EntryCandidate", json.RootElement.GetProperty("dispositionReason").GetString()); Assert.True(json.RootElement.GetProperty("entryCandidateExists").GetBoolean());
+        Assert.Equal(value.Evaluation.PreferredInitialOptionSymbol, json.RootElement.GetProperty("preferredInitialOptionSymbol").GetString());
+        Assert.Equal(value.Evaluation.PreferredInitialStrike, json.RootElement.GetProperty("preferredInitialStrike").GetDecimal());
+        Assert.Equal(value.Evaluation.PreferredInitialExpiration!.Value.ToString("yyyy-MM-dd"), json.RootElement.GetProperty("preferredInitialExpiration").GetString());
+        Assert.Equal(value.Evaluation.PreferredInitialReferencePremium, json.RootElement.GetProperty("preferredInitialReferencePremium").GetDecimal());
+        Assert.Equal(JsonValueKind.String, json.RootElement.GetProperty("ccos").GetProperty("status").ValueKind);
+        Assert.Equal(JsonValueKind.String, json.RootElement.GetProperty("ccos").GetProperty("components")[0].GetProperty("code").ValueKind);
+        Assert.Equal(JsonValueKind.String, json.RootElement.GetProperty("underlyingGates")[0].GetProperty("code").ValueKind);
+        Assert.Equal(JsonValueKind.String, json.RootElement.GetProperty("contracts")[0].GetProperty("contract").GetProperty("optionType").ValueKind);
         Assert.EndsWith($"/api/entry-evaluations/{value.Evaluation.EntryStrategyEvaluationId}", response.Headers.Location!.ToString());
     }
 
@@ -48,7 +56,7 @@ public sealed class EntryStrategyApiIntegrationTests
         var value = ApiEvaluationFixture.Create(Guid.NewGuid(), DispositionReasonCode.EntryCandidate, true); var repo = new InMemoryEvaluationRepository(value);
         using var factory = CreateFactory(new ThrowingWriter(), TimeProvider.System, repo); using var client = factory.CreateClient();
         var response = await client.GetAsync($"/api/entry-evaluations/{value.Evaluation.EntryStrategyEvaluationId}"); using var json = JsonDocument.Parse(await response.Content.ReadAsStringAsync());
-        Assert.Equal(HttpStatusCode.OK, response.StatusCode); Assert.Equal(value.Evaluation.EntryStrategyEvaluationId, json.RootElement.GetProperty("entryStrategyEvaluationId").GetGuid()); Assert.Equal("EntryCandidate", json.RootElement.GetProperty("dispositionReason").GetString()); Assert.Contains(json.RootElement.GetProperty("selectedOptionChains").EnumerateArray(), x => x.GetProperty("contracts").GetArrayLength() == 0);
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode); Assert.Equal(value.Evaluation.EntryStrategyEvaluationId, json.RootElement.GetProperty("entryStrategyEvaluationId").GetGuid()); Assert.Equal(value.Evaluation.Context.Holding.HoldingId, json.RootElement.GetProperty("holding").GetProperty("holdingId").GetGuid()); Assert.Equal("MSFT", json.RootElement.GetProperty("holding").GetProperty("symbol").GetString()); Assert.Equal("Unavailable", json.RootElement.GetProperty("earnings").GetProperty("status").GetString()); Assert.Equal("3.0.0", json.RootElement.GetProperty("indicatorCalculationVersion").GetString()); Assert.Equal(1, json.RootElement.GetProperty("configurationVersion").GetInt32()); Assert.Equal("4.0.0", json.RootElement.GetProperty("strategyVersion").GetString()); Assert.Equal("Available", json.RootElement.GetProperty("ccos").GetProperty("status").GetString()); Assert.Equal(85, json.RootElement.GetProperty("ccos").GetProperty("score").GetDouble()); Assert.Equal(1, json.RootElement.GetProperty("contracts")[0].GetProperty("rank").GetInt32()); Assert.Equal(value.Evaluation.PreferredInitialOptionSymbol, json.RootElement.GetProperty("preferredInitialOptionSymbol").GetString()); Assert.Equal("EntryCandidate", json.RootElement.GetProperty("dispositionReason").GetString()); Assert.Contains(json.RootElement.GetProperty("selectedOptionChains").EnumerateArray(), x => x.GetProperty("contracts").GetArrayLength() == 0);
     }
 
     [Fact]
@@ -56,15 +64,26 @@ public sealed class EntryStrategyApiIntegrationTests
     {
         var a = Guid.NewGuid(); var older = ApiEvaluationFixture.Create(a, DispositionReasonCode.EntryCandidate, true) with { Evaluation = ApiEvaluationFixture.Create(a, DispositionReasonCode.EntryCandidate, true).Evaluation with { CalculatedAtUtc = DateTimeOffset.UtcNow.AddMinutes(-2) } };
         var newer = ApiEvaluationFixture.Create(a, DispositionReasonCode.NoAcceptableContract, false) with { Evaluation = ApiEvaluationFixture.Create(a, DispositionReasonCode.NoAcceptableContract, false).Evaluation with { CalculatedAtUtc = DateTimeOffset.UtcNow } };
-        var emptyHolding = Guid.NewGuid(); var repo = new InMemoryEvaluationRepository(older, newer); var holdings = new FakeHoldingRepository(a, emptyHolding);
+        var emptyHolding = Guid.NewGuid(); var repo = new InMemoryEvaluationRepository(older, newer); var holdings = new FakeHoldingRepository(false, a, emptyHolding);
         using var factory = CreateFactory(new ThrowingWriter(), TimeProvider.System, repo, holdings); using var client = factory.CreateClient();
         var response = await client.GetAsync($"/api/holdings/{a}/entry-evaluations"); var rows = JsonSerializer.Deserialize<JsonElement[]>(await response.Content.ReadAsStringAsync(), new JsonSerializerOptions(JsonSerializerDefaults.Web));
         Assert.Equal(HttpStatusCode.OK, response.StatusCode); Assert.Equal(2, rows!.Length); Assert.Equal(newer.Evaluation.EntryStrategyEvaluationId, rows[0].GetProperty("entryStrategyEvaluationId").GetGuid());
         var empty = await client.GetAsync($"/api/holdings/{emptyHolding}/entry-evaluations"); Assert.Equal(HttpStatusCode.OK, empty.StatusCode); Assert.Equal("[]", await empty.Content.ReadAsStringAsync());
+        var missing = await client.GetAsync($"/api/holdings/{Guid.NewGuid()}/entry-evaluations"); Assert.Equal(HttpStatusCode.NotFound, missing.StatusCode); using var missingJson = JsonDocument.Parse(await missing.Content.ReadAsStringAsync()); Assert.Equal("HOLDING_NOT_FOUND", missingJson.RootElement.GetProperty("code").GetString());
+    }
+
+    [Fact]
+    public async Task DisabledHoldingHistoryRemainsReadable()
+    {
+        var holding = Guid.NewGuid();
+        using var factory = CreateFactory(new ThrowingWriter(), TimeProvider.System, new InMemoryEvaluationRepository(), new FakeHoldingRepository(true, holding));
+        using var client = factory.CreateClient();
+        var response = await client.GetAsync($"/api/holdings/{holding}/entry-evaluations");
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
     }
 
     private static WebApplicationFactory<Program> CreateFactory(IEntryStrategyEvaluationWriter writer, TimeProvider time, InMemoryEvaluationRepository repo, IHoldingRepository? holdings = null) =>
-        new WebApplicationFactory<Program>().WithWebHostBuilder(b => { b.UseEnvironment("Testing"); b.ConfigureServices(s => { s.RemoveAll<IEntryStrategyEvaluationWriter>(); s.AddSingleton(writer); s.RemoveAll<IEntryStrategyEvaluationRepository>(); s.AddSingleton<IEntryStrategyEvaluationRepository>(repo); s.RemoveAll<TimeProvider>(); s.AddSingleton(time); if (holdings is not null) { s.RemoveAll<IHoldingRepository>(); s.AddSingleton(holdings); } }); });
+        new WebApplicationFactory<Program>().WithWebHostBuilder(b => { b.UseEnvironment("Testing"); b.UseSetting("ConnectionStrings:OptionsEngine", $"Data Source={Path.Combine(Path.GetTempPath(), $"phase4-api-{Guid.NewGuid():N}.db")}"); b.ConfigureServices(s => { s.RemoveAll<IEntryStrategyEvaluationWriter>(); s.AddSingleton(writer); s.RemoveAll<IEntryStrategyEvaluationRepository>(); s.AddSingleton<IEntryStrategyEvaluationRepository>(repo); s.RemoveAll<TimeProvider>(); s.AddSingleton(time); if (holdings is not null) { s.RemoveAll<IHoldingRepository>(); s.AddSingleton(holdings); } }); });
 
     private sealed class FixedTimeProvider(DateTimeOffset now) : TimeProvider { public override DateTimeOffset GetUtcNow() => now; }
     private sealed class CapturingWriter(PersistedEntryStrategyEvaluation value) : IEntryStrategyEvaluationWriter { public int Calls { get; private set; } public DateTimeOffset Timestamp { get; private set; } public Task<PersistedEntryStrategyEvaluation> CreateAsync(Guid holdingId, DateTimeOffset evaluationTimestampUtc, CancellationToken cancellationToken = default) { Calls++; Timestamp = evaluationTimestampUtc; return Task.FromResult(value); } }
@@ -76,11 +95,11 @@ public sealed class EntryStrategyApiIntegrationTests
         public Task<PersistedEntryStrategyEvaluation?> GetByIdAsync(Guid id, CancellationToken c = default) => Task.FromResult(values.GetValueOrDefault(id));
         public Task<IReadOnlyList<EntryStrategyEvaluationHistoryItem>> GetHistoryByHoldingAsync(Guid h, CancellationToken c = default) => Task.FromResult<IReadOnlyList<EntryStrategyEvaluationHistoryItem>>(values.Values.Where(x => x.Evaluation.Context.Holding.HoldingId == h).OrderByDescending(x => x.Evaluation.CalculatedAtUtc).Select(x => new EntryStrategyEvaluationHistoryItem(x.Evaluation.EntryStrategyEvaluationId, h, x.Evaluation.Context.Holding.Symbol, x.Evaluation.Context.IndicatorAsOfDate, x.Evaluation.Context.EvaluationTimestampUtc, x.Evaluation.CalculatedAtUtc, x.Evaluation.Ccos?.Status ?? ScoreStatus.Unavailable, x.Evaluation.Ccos?.Score, x.Evaluation.Ccos?.Classification, x.Evaluation.EntryCandidateExists, x.Evaluation.PreferredInitialOptionSymbol, x.Evaluation.PreferredInitialStrike, x.Evaluation.PreferredInitialExpiration, x.Evaluation.DispositionReason, x.Evaluation.Context.Indicators.IndicatorCalculationVersion.Value, x.Evaluation.Context.Configuration.Version, x.Evaluation.Context.StrategyVersion.Value)).ToArray());
     }
-    private sealed class FakeHoldingRepository(params Guid[] ids) : IHoldingRepository
+    private sealed class FakeHoldingRepository(bool disabled, params Guid[] ids) : IHoldingRepository
     {
         private readonly Account account = new("test", Broker.Fidelity, AccountType.Taxable, false);
         public Task<Holding?> GetByIdAsync(Guid id, CancellationToken c = default) =>
-            Task.FromResult<Holding?>(ids.Contains(id) ? new Holding(account, "MSFT", AssetType.Stock, 100, AssignmentSensitivity.Level3, TaxSensitivity.Moderate, 1, .25, .12, .18, 70, 80, .1m, .1, 1) : null);
+            Task.FromResult<Holding?>(ids.Contains(id) ? new Holding(account, "MSFT", AssetType.Stock, 100, AssignmentSensitivity.Level3, TaxSensitivity.Moderate, 1, .25, .12, .18, 70, 80, .1m, .1, 1, !disabled) : null);
     }
 }
 internal static class ApiEvaluationFixture
