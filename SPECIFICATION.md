@@ -4294,7 +4294,7 @@ POST /api/entry-evaluations/{entryStrategyEvaluationId}/position-sizing-evaluati
 GET /api/position-sizing-evaluations/{positionSizingEvaluationId}
 ```
 
-A lightweight history endpoint may be added if required by the Phase 5 acceptance design.
+Position Sizing history API is deferred beyond Phase 5 V1; no history route is defined in this phase.
 
 The Phase 5 acceptance document shall lock exact creation, retrieval, history, not-found, not-applicable, insufficient-data, and immutability semantics before API implementation.
 

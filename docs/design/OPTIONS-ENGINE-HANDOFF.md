@@ -668,7 +668,7 @@ Phase 5 will introduce a separate append-only immutable `PositionSizingEvaluatio
 
 ## Recommended Next Conversation
 
-Continue with **Phase 5 — Position Sizing implementation planning** on the `phase5` branch.
+Phase 5 is complete through its API and merge gate on the `phase5` branch. Continue with **Phase 6** planning; do not reinterpret or extend Phase 5 behavior.
 
 Read, in order:
 

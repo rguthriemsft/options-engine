@@ -1170,7 +1170,7 @@ POST /api/entry-evaluations/{entryStrategyEvaluationId}/position-sizing-evaluati
 GET /api/position-sizing-evaluations/{positionSizingEvaluationId}
 ```
 
-A lightweight holding/source-evaluation history endpoint may also be added if required by acceptance design.
+Position Sizing history API is deferred beyond Phase 5 V1; no history route is defined in this phase.
 
 The existing Phase 4:
 

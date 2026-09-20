@@ -78,8 +78,8 @@ current wall-clock time
 
 Acceptance criteria:
 
-- [ ] Given identical inputs, configuration, and strategy version, sizing is deterministic.
-- [ ] Strategy is provider-independent.
+- [x] Given identical inputs, configuration, and strategy version, sizing is deterministic.
+- [x] Strategy is provider-independent.
 - [x] Strategy does not fetch current data.
 - [x] Application owns persistence/provider/current-state orchestration.
 - [x] Phase 4 evaluations are never modified by Phase 5.
@@ -102,10 +102,10 @@ Acceptance criteria:
 
 - [x] Every persisted sizing evaluation references exactly one source `EntryStrategyEvaluationId`.
 - [x] Phase 5 never changes `EntryStrategyEvaluation`.
-- [ ] No final SELL Recommendation lifecycle is introduced.
-- [ ] No brokerage execution is introduced.
-- [ ] No DRS, Roll Engine, RQS, campaign accounting, or profit-taking action is introduced.
-- [ ] No strike-ladder allocation is implemented.
+- [x] No final SELL Recommendation lifecycle is introduced.
+- [x] No brokerage execution is introduced.
+- [x] No DRS, Roll Engine, RQS, campaign accounting, or profit-taking action is introduced.
+- [x] No strike-ladder allocation is implemented.
 
 ---
 
@@ -137,7 +137,7 @@ Acceptance criteria:
 - [x] Stable machine-readable reason codes exist separately from human explanation text.
 - [x] Missing inputs are represented explicitly.
 - [x] No numeric sentinel represents unavailable financial data.
-- [ ] Configuration is strongly typed and validates at startup/load time.
+- [x] Configuration is strongly typed and validates at startup/load time.
 - [x] Invalid Holding sizing ratios fail clearly.
 - [x] Strategy project has no persistence/provider/HTTP dependency.
 
@@ -721,8 +721,8 @@ and preserve the source Phase 4 versions through the referenced/source payload.
 
 Acceptance criteria:
 
-- [ ] Sizing table/threshold changes require ConfigurationVersion review/change.
-- [ ] Formula/order/missing-data/DER/concentration semantic changes require PositionSizingStrategyVersion review/change.
+- [x] Sizing table/threshold changes require ConfigurationVersion review/change.
+- [x] Formula/order/missing-data/DER/concentration semantic changes require PositionSizingStrategyVersion review/change.
 - [x] Phase 3 IndicatorCalculationVersion is not used as Position Sizing algorithm identity.
 - [x] Complete resolved Position Sizing configuration is persisted.
 - [x] Historical evaluations are never reinterpreted under newer config/strategy.
@@ -808,22 +808,22 @@ POST /api/entry-evaluations/{entryStrategyEvaluationId}/position-sizing-evaluati
 GET /api/position-sizing-evaluations/{positionSizingEvaluationId}
 ```
 
-A lightweight history route may be included if implementation design requires it.
+Position Sizing history API is deferred beyond Phase 5 V1.
 
 Acceptance criteria:
 
-- [ ] POST uses server-owned SizingTimestampUtc/current-state selection.
-- [ ] Successful POST persists exactly one immutable sizing evaluation.
-- [ ] GET by ID performs passive retrieval only.
-- [ ] GET does not refresh or recalculate.
-- [ ] Missing source Phase 4 evaluation returns 404.
-- [ ] Phase 4 evaluation with no entry candidate may persist a NotApplicable sizing result rather than return a strategy HTTP error.
-- [ ] InsufficientData sizing outcomes are successful persisted evaluations, not provider/business HTTP failures.
-- [ ] Existing Phase 4 POST semantics are unchanged.
-- [ ] No PUT/PATCH/DELETE exists for PositionSizingEvaluation.
-- [ ] API DTOs do not expose EF entities.
+- [x] POST uses server-owned SizingTimestampUtc/current-state selection.
+- [x] Successful POST persists exactly one immutable sizing evaluation.
+- [x] GET by ID performs passive retrieval only.
+- [x] GET does not refresh or recalculate.
+- [x] Missing source Phase 4 evaluation returns 404.
+- [x] Phase 4 evaluation with no entry candidate may persist a NotApplicable sizing result rather than return a strategy HTTP error.
+- [x] InsufficientData sizing outcomes are successful persisted evaluations, not provider/business HTTP failures.
+- [x] Existing Phase 4 POST semantics are unchanged.
+- [x] No PUT/PATCH/DELETE exists for PositionSizingEvaluation.
+- [x] API DTOs do not expose EF entities.
 
-Exact history-route shape, if any, must be locked before implementation of that route.
+Position Sizing history API is deferred beyond Phase 5 V1; no history route is defined or implemented here.
 
 ---
 
@@ -1038,23 +1038,23 @@ current date/time
 
 Before Phase 5 is complete:
 
-- [ ] `dotnet restore` succeeds.
-- [ ] `dotnet build --configuration Release --no-restore` succeeds.
-- [ ] Release build has zero warnings/errors unless an explicitly documented repository-wide exception exists.
-- [ ] `dotnet test --configuration Release --no-build` passes.
-- [ ] Clean EF migration path succeeds.
-- [ ] Phase 4 database upgrades to Phase 5 successfully.
-- [ ] Phase 4 API behavior remains unchanged.
-- [ ] Phase 4 immutable evaluation history remains readable.
-- [ ] No credentials or personal financial data are introduced.
-- [ ] Architecture dependency rules remain intact.
-- [ ] No Phase 6+ behavior is implemented.
-- [ ] No strike laddering is implemented.
-- [ ] No final Recommendation lifecycle is introduced.
-- [ ] Documentation matches implementation.
-- [ ] Every Phase 5 numeric threshold has deterministic boundary coverage.
-- [ ] All Phase 5 golden scenarios pass.
-- [ ] `git diff --check` passes.
+- [x] `dotnet restore` succeeds.
+- [x] `dotnet build --configuration Release --no-restore` succeeds.
+- [x] Release build has zero warnings/errors unless an explicitly documented repository-wide exception exists.
+- [x] `dotnet test --configuration Release --no-build` passes.
+- [x] Clean EF migration path succeeds.
+- [x] Phase 4 database upgrades to Phase 5 successfully.
+- [x] Phase 4 API behavior remains unchanged.
+- [x] Phase 4 immutable evaluation history remains readable.
+- [x] No credentials or personal financial data are introduced.
+- [x] Architecture dependency rules remain intact.
+- [x] No Phase 6+ behavior is implemented.
+- [x] No strike laddering is implemented.
+- [x] No final Recommendation lifecycle is introduced.
+- [x] Documentation matches implementation.
+- [x] Every Phase 5 numeric threshold has deterministic boundary coverage.
+- [x] All Phase 5 golden scenarios pass.
+- [x] `git diff --check` passes.
 
 ---
 
