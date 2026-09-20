@@ -236,13 +236,13 @@ Existing exposure counts:
 
 Acceptance criteria:
 
-- [ ] Long calls do not count.
-- [ ] Closed calls do not count.
-- [ ] Expired calls do not count.
-- [ ] Another Holding's calls do not count.
-- [ ] Unexecuted recommendations do not count.
-- [ ] Pending brokerage orders do not count or reserve shares.
-- [ ] Phase 5 introduces no brokerage synchronization requirement.
+- [x] Long calls do not count; the narrow current-state boundary accepts only net open short-call rows.
+- [x] Closed calls do not count; the narrow current-state boundary accepts only net open short-call rows.
+- [x] Expired calls do not count; the narrow current-state boundary accepts only net open short-call rows.
+- [x] Another Holding's calls do not count; repository reads are Holding-scoped.
+- [x] Unexecuted recommendations do not count; recommendations are outside the Phase 5 boundary.
+- [x] Pending brokerage orders do not count or reserve shares; they are outside the current open-short-call boundary.
+- [x] Phase 5 introduces no brokerage synchronization requirement.
 
 Derived values:
 
@@ -494,7 +494,7 @@ Acceptance criteria:
 - [x] A value just above a whole contract still floors to that whole integer.
 - [x] No ceiling or nearest-integer rounding exists.
 - [x] No additional tax-sensitive contract rounding penalty exists.
-- [ ] Phase 4 tax-sensitive Delta behavior remains unchanged.
+- [x] Phase 4 tax-sensitive Delta behavior remains unchanged.
 
 ---
 
@@ -833,93 +833,59 @@ Maintain deterministic regression scenarios.
 
 ## InitialSingleContract
 
-- [ ] No existing calls.
-- [ ] Valid Phase 4 candidate.
-- [ ] Target permits exactly one call.
-- [ ] AdditionalContracts = 1.
-- [ ] ResultingTotalContracts = 1.
+- [x] No existing calls; valid Phase 4 candidate; target/additional/resulting contracts are exactly 1.
 
 ## IncrementalScaleUp
 
-- [ ] Existing calls are below new target.
-- [ ] DesiredAdditionalContracts equals target minus existing.
-- [ ] Physical and DER capacity permit scale-up.
-- [ ] Exact additional/resulting counts asserted.
+- [x] Existing calls below target scale up by target-minus-existing when physical and DER capacity permit it.
 
 ## AlreadyAtTarget
 
-- [ ] Existing contracts equal desired total.
-- [ ] AdditionalContracts = 0.
-- [ ] Result is Available.
+- [x] Existing contracts equal desired total; additional contracts are zero and the result is Available.
 
 ## ExistingCoverageAboveTarget
 
-- [ ] Existing contracts exceed desired total.
-- [ ] AdditionalContracts = 0.
-- [ ] Reason includes `EXISTING_COVERAGE_ABOVE_TARGET`.
-- [ ] No close action is emitted.
+- [x] Existing contracts above target preserve the existing count, produce zero additional contracts and `EXISTING_COVERAGE_ABOVE_TARGET`, with no close action.
 
 ## HoldingCoverageLimited
 
-- [ ] Raw coverage exceeds Holding.MaximumCoveragePercent.
-- [ ] DesiredCoverageRatio equals Holding maximum.
-- [ ] Limiting factor identifies Holding maximum.
+- [x] Raw coverage above the Holding cap produces the Holding maximum and its limiting factor.
 
 ## AssignmentSensitivityLimited
 
-- [ ] Raw coverage exceeds ASL maximum.
-- [ ] DesiredCoverageRatio equals ASL maximum.
-- [ ] Limiting factor identifies ASL cap.
+- [x] Raw coverage above the Assignment Sensitivity maximum produces that maximum and its limiting factor.
 
 ## ConcentrationLimited
 
-- [ ] Stock concentration modifier reduces raw coverage.
-- [ ] Exact PortfolioWeight/modifier asserted.
+- [x] Stock concentration reduces raw coverage with exact portfolio weight and modifier assertions.
 
 ## DeltaExposureLimited
 
-- [ ] Physical/coverage target permits more calls than DER.
-- [ ] DER limit reduces final additional count.
-- [ ] Result remains Available.
+- [x] DER reduces an otherwise permitted physical/coverage action while retaining an Available result.
 
 ## NoAvailableShares
 
-- [ ] Existing calls consume physical capacity.
-- [ ] AdditionalContracts = 0.
-- [ ] Reason identifies no available shares/capacity.
+- [x] Existing calls consuming physical capacity produce zero additional contracts and the no-available-shares reason.
 
 ## TargetRoundsToZero
 
-- [ ] Nonzero coverage ratio produces fewer than 100 target covered shares.
-- [ ] DesiredTotalContracts = 0.
-- [ ] Valid Available zero result.
+- [x] Positive coverage below one contract floors to desired/additional zero as an Available result with `TARGET_ROUNDS_BELOW_ONE_CONTRACT`.
 
 ## EtfNeutralConcentration
 
-- [ ] ETF concentration status is NotApplicable.
-- [ ] Effective modifier is 1.00.
-- [ ] No fabricated stock weight is required.
+- [x] ETF concentration is NotApplicable with a 1.00 modifier and no fabricated stock weight.
 
 ## MissingPortfolioPrice
 
-- [ ] At least one participating same-account stock holding lacks required price.
-- [ ] Status = InsufficientData.
-- [ ] Exact missing input asserted.
-- [ ] No zero substitution.
+- [x] A missing participating price produces InsufficientData, `PORTFOLIO_PRICE`, and no zero substitution.
 
 ## MissingExistingCallDelta
 
-- [ ] Existing short call lacks usable Delta observation.
-- [ ] Status = InsufficientData.
-- [ ] Exact missing input asserted.
-- [ ] No zero/abs substitute.
+- [x] A missing existing-call Delta produces InsufficientData with its exact missing input and no repair/substitution.
 
 ## NoEntryCandidate
 
-- [ ] Source Phase 4 EntryCandidateExists=false.
-- [ ] Status = NotApplicable.
-- [ ] AdditionalContracts = 0.
-- [ ] Reason = NO_ENTRY_CANDIDATE.
+- [x] A no-candidate Phase 4 source produces NotApplicable, zero additional contracts, and `NO_ENTRY_CANDIDATE`.
 
 ---
 

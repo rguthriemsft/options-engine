@@ -234,6 +234,30 @@ public sealed class PositionSizingEngineTests
     }
 
     [Fact]
+    public void InitialSingleContractGoldenScenarioIsAvailableAndHasNoExistingCalls()
+    {
+        var result = Engine.Evaluate(Input(shares: 250m));
+
+        Assert.Equal(PositionSizingStatus.Available, result.Status);
+        Assert.Equal(0, result.ExistingCoveredContracts);
+        Assert.Equal(1, result.DesiredTotalContracts);
+        Assert.Equal(1, result.AdditionalContracts);
+        Assert.Equal(1, result.ResultingTotalContracts);
+    }
+
+    [Fact]
+    public void TargetRoundsToZeroGoldenScenarioRetainsPositiveCoverage()
+    {
+        var result = Engine.Evaluate(Input(shares: 100m, ccos: 70));
+
+        Assert.Equal(PositionSizingStatus.Available, result.Status);
+        Assert.True(result.DesiredCoverageRatio > 0);
+        Assert.Equal(0, result.DesiredTotalContracts);
+        Assert.Equal(0, result.AdditionalContracts);
+        Assert.Contains(PositionSizingReasonCode.TargetRoundsBelowOneContract, result.ReasonCodes);
+    }
+
+    [Fact]
     public void NoExistingCallsRequireNoObservationAndProduceZeroExistingDer()
     {
         var result = Engine.Evaluate(Input() with { ExistingShortCallDeltaObservations = default });
@@ -457,6 +481,8 @@ public sealed class PositionSizingEngineTests
         Assert.Equal(existingContracts, result.ResultingTotalContracts);
         Assert.Equal(isAboveTarget,
             result.ReasonCodes.Contains(PositionSizingReasonCode.ExistingCoverageAboveTarget));
+        Assert.Equal(PositionSizingStatus.Available, result.Status);
+        Assert.Equal(existingContracts, result.ExistingCoveredContracts);
     }
 
     [Fact]
