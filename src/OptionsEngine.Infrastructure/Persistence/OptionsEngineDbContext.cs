@@ -122,6 +122,7 @@ public sealed class OptionsEngineDbContext(DbContextOptions<OptionsEngineDbConte
             entity.HasKey(x => x.OpenShortCallPositionId);
             entity.Property(x => x.OptionSymbol).HasMaxLength(64).IsRequired();
             entity.Property(x => x.Strike).HasPrecision(18, 6);
+            entity.Property(x => x.OpeningPremiumPerShare).HasPrecision(18, 6);
             entity.HasIndex(x => new { x.HoldingId, x.OptionSymbol });
         });
     }

@@ -33,12 +33,13 @@ public sealed class IndicatorDataRepositoryTests : IAsyncLifetime
     {
         await using var db = CreateContext();
         var applied = (await db.Database.GetAppliedMigrationsAsync()).ToArray();
-        Assert.Equal(5, applied.Length);
+        Assert.Equal(6, applied.Length);
         Assert.EndsWith("_InitialCreate", applied[0], StringComparison.Ordinal);
         Assert.EndsWith("_AddMarketData", applied[1], StringComparison.Ordinal);
         Assert.EndsWith("_AddIndicatorSnapshots", applied[2], StringComparison.Ordinal);
         Assert.EndsWith("_AddEntryStrategyEvaluations", applied[3], StringComparison.Ordinal);
         Assert.EndsWith("_AddPositionSizing", applied[4], StringComparison.Ordinal);
+        Assert.EndsWith("_ExtendOpenShortCallPositionsForDefense", applied[5], StringComparison.Ordinal);
         Assert.Empty(await db.Database.GetPendingMigrationsAsync());
         Assert.Equal(0, await db.IndicatorSnapshots.CountAsync());
         Assert.Equal(0, await db.EmptyOptionChainSnapshots.CountAsync());
@@ -300,7 +301,8 @@ public sealed class IndicatorDataRepositoryTests : IAsyncLifetime
                 await phase4.Database.MigrateAsync("20260918170325_AddEntryStrategyEvaluations");
                 Assert.Contains(await phase4.Database.GetAppliedMigrationsAsync(), x => x.EndsWith("_AddEntryStrategyEvaluations", StringComparison.Ordinal));
                 Assert.Empty(await phase4.EntryStrategyEvaluations.ToListAsync());
-                Assert.Equal(["20260919210206_AddPositionSizing"], await phase4.Database.GetPendingMigrationsAsync());
+                Assert.Equal(["20260919210206_AddPositionSizing", "20260920052344_ExtendOpenShortCallPositionsForDefense"],
+                    await phase4.Database.GetPendingMigrationsAsync());
             }
 
             await using var verify = CreateContext(upgradePath);

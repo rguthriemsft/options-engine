@@ -115,16 +115,16 @@ OpenedAtUtc?
 
 Acceptance criteria:
 
-- [ ] `OpenShortCallPositionId` is carried across Infrastructure/Application/Strategy boundaries.
-- [ ] One open-position row is the unit of DefenseEvaluation.
-- [ ] Several positions on one Holding remain separate defense evaluations.
-- [ ] Opening premium is authoritative gross executed per-share STO credit when known.
-- [ ] Opening premium never silently falls back to Phase 4 Bid/reference premium.
-- [ ] Weighted-average opening credit may represent multiple fills in the same current position.
-- [ ] Unknown imported opening premium remains unavailable.
-- [ ] Current open-position state remains mutable; historical evaluations are immutable.
-- [ ] Strongly typed configuration validates at startup/load time.
-- [ ] No numeric sentinel represents unavailable financial data.
+- [x] `OpenShortCallPositionId` is carried across Infrastructure/Application/Strategy boundaries.
+- [x] One open-position row is the unit of DefenseEvaluation.
+- [x] Several positions on one Holding remain separate defense evaluations.
+- [x] Opening premium is authoritative gross executed per-share STO credit when known.
+- [x] Opening premium never silently falls back to Phase 4 Bid/reference premium.
+- [x] Weighted-average opening credit may represent multiple fills in the same current position.
+- [x] Unknown imported opening premium remains unavailable.
+- [x] Current open-position state remains mutable; historical evaluations are immutable.
+- [ ] Strongly typed configuration validates at startup/load time (composition-root loading is deferred to Phase 6E/6G).
+- [x] No numeric sentinel represents unavailable financial data.
 
 ---
 

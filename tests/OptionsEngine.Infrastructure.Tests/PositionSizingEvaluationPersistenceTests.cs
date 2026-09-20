@@ -146,6 +146,32 @@ public sealed class PositionSizingEvaluationPersistenceTests : IAsyncLifetime
     }
 
     [Fact]
+    public async Task CurrentPositionIdentityAndNullableOpeningFactsSurviveRepositoryMapping()
+    {
+        await using var db = CreateContext();
+        var known = new OpenShortCallPositionEntity
+        {
+            HoldingId = HoldingId, OptionSymbol = "MSFT-KNOWN", Contracts = 2, Strike = 105m,
+            Expiration = new(2026, 10, 16), OpeningPremiumPerShare = 0m, OpenedAtUtc = At
+        };
+        var imported = new OpenShortCallPositionEntity
+        {
+            HoldingId = HoldingId, OptionSymbol = "MSFT-IMPORTED", Contracts = 1, Strike = 110m,
+            Expiration = new(2026, 11, 20), OpeningPremiumPerShare = null, OpenedAtUtc = null
+        };
+        db.AddRange(known, imported); await db.SaveChangesAsync();
+        var repository = new SqliteOpenShortCallPositionRepository(db);
+
+        var actualKnown = await repository.GetByIdAsync(known.OpenShortCallPositionId);
+        var actualImported = await repository.GetByIdAsync(imported.OpenShortCallPositionId);
+
+        Assert.Equal(known.OpenShortCallPositionId, actualKnown!.OpenShortCallPositionId);
+        Assert.Equal(0m, actualKnown.OpeningPremiumPerShare); Assert.Equal(At, actualKnown.OpenedAtUtc);
+        Assert.Equal(imported.OpenShortCallPositionId, actualImported!.OpenShortCallPositionId);
+        Assert.Null(actualImported.OpeningPremiumPerShare); Assert.Null(actualImported.OpenedAtUtc);
+    }
+
+    [Fact]
     public async Task WriterInvokesOrchestrationOnceAndPersistsAvailableInsufficientAndNotApplicableBundles()
     {
         foreach (var expected in new[] { Available(), Available() with { PositionSizingEvaluationId = Guid.NewGuid(), Result = Result(PositionSizingStatus.InsufficientData, [PositionSizingMissingInputCode.Ccos]) }, NotApplicable() })
