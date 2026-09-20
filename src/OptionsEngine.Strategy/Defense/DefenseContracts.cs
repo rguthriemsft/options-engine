@@ -130,9 +130,33 @@ public sealed record DefenseEvaluationInput(OpenShortCallPositionSnapshot Positi
         Position.Validate(); Holding.Validate();
         if (Position.HoldingId != Holding.HoldingId) throw new ArgumentException("Position and Holding IDs must match.");
         if (DefenseEvaluationTimestampUtc.Offset != TimeSpan.Zero) throw new ArgumentException("Defense evaluation timestamp must be UTC.", nameof(DefenseEvaluationTimestampUtc));
+        if (CurrentOptionObservation is { } currentObservation)
+            ValidatePositionObservation(currentObservation, nameof(CurrentOptionObservation));
+        if (PreviousDeltaObservation is { } previousObservation)
+            ValidatePositionObservation(previousObservation, nameof(PreviousDeltaObservation));
+        if (CurrentOptionObservation is { } current && PreviousDeltaObservation is { } previous &&
+            previous.ObservationTimestampUtc >= current.ObservationTimestampUtc)
+            throw new ArgumentException(
+                "PreviousDeltaObservation must be earlier than CurrentOptionObservation.",
+                nameof(PreviousDeltaObservation));
         DefenseConfiguration.Validate(); RollConfiguration.Validate();
         if (DefenseConfiguration.Version != ConfigurationVersion || RollConfiguration.Version != ConfigurationVersion)
             throw new ArgumentException("Defense and Roll configuration versions must match the supplied configuration version.");
+    }
+
+    private void ValidatePositionObservation(DefenseOptionObservation observation, string parameterName)
+    {
+        observation.Validate();
+        if (!string.Equals(observation.OptionSymbol, Position.OptionSymbol, StringComparison.Ordinal) ||
+            !string.Equals(observation.UnderlyingSymbol, Holding.Symbol, StringComparison.OrdinalIgnoreCase) ||
+            observation.Expiration != Position.Expiration ||
+            observation.Strike != Position.Strike ||
+            observation.OptionType != OptionContractType.Call)
+            throw new ArgumentException(
+                "The option observation must identify the current open short-call contract.", parameterName);
+        if (observation.ObservationTimestampUtc > DefenseEvaluationTimestampUtc)
+            throw new ArgumentException(
+                "The option observation cannot be later than the defense evaluation cutoff.", parameterName);
     }
 }
 public sealed record DefenseEvaluation(Guid DefenseEvaluationId, long OpenShortCallPositionId, Guid HoldingId,
