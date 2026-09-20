@@ -15,8 +15,7 @@ public sealed class DefenseEvaluator
         ArgumentNullException.ThrowIfNull(input);
         input.Validate();
 
-        var evaluationDate = DateOnly.FromDateTime(
-            TimeZoneInfo.ConvertTime(input.DefenseEvaluationTimestampUtc, NewYorkTimeZone).DateTime);
+        var evaluationDate = EvaluationDate(input.DefenseEvaluationTimestampUtc);
         var dte = input.Position.Expiration.DayNumber - evaluationDate.DayNumber;
         var currentDelta = ValidDelta(input.CurrentOptionObservation?.Delta);
         var previousDelta = ValidDelta(input.PreviousDeltaObservation?.Delta);
@@ -26,7 +25,8 @@ public sealed class DefenseEvaluator
         var strikeDistanceRatio = StrikeDistanceRatio(input);
 
         var profitTaking = EvaluateProfitTaking(input);
-        var drs = EvaluateDrs(input, dte, currentDelta, strikeDistanceRatio);
+        var drs = EvaluateDrs(input.Position, input.CurrentOptionObservation,
+            input.DefenseEvaluationTimestampUtc, input.DefenseConfiguration.Drs);
         var hardTriggers = EvaluateHardTriggers(input, dte, currentDelta, previousDelta,
             deltaVelocity, strikeDistanceRatio);
         var hardDefenseStatus = AggregateHardDefenseStatus(hardTriggers);
@@ -46,6 +46,23 @@ public sealed class DefenseEvaluator
         return configuration.ClassificationBands
             .First(band => Contains(band.Minimum, band.IncludesMinimum, band.Maximum,
                 band.IncludesMaximum, score)).Classification;
+    }
+
+    internal static DateOnly EvaluationDate(DateTimeOffset evaluationTimestampUtc) =>
+        DateOnly.FromDateTime(TimeZoneInfo.ConvertTime(evaluationTimestampUtc, NewYorkTimeZone).DateTime);
+
+    internal static DrsResult EvaluateDrs(OpenShortCallPositionSnapshot position,
+        DefenseOptionObservation? observation, DateTimeOffset evaluationTimestampUtc,
+        DrsConfiguration configuration)
+    {
+        ArgumentNullException.ThrowIfNull(position);
+        ArgumentNullException.ThrowIfNull(configuration);
+        var dte = position.Expiration.DayNumber - EvaluationDate(evaluationTimestampUtc).DayNumber;
+        var currentDelta = ValidDelta(observation?.Delta);
+        double? strikeDistanceRatio = observation?.UnderlyingPrice is > 0
+            ? (double)((position.Strike - observation.UnderlyingPrice.Value) / observation.UnderlyingPrice.Value)
+            : null;
+        return EvaluateDrs(position, observation, dte, currentDelta, strikeDistanceRatio, configuration);
     }
 
     public static HardDefenseStatus AggregateHardDefenseStatus(IEnumerable<HardTriggerResult> triggers)
@@ -102,10 +119,10 @@ public sealed class DefenseEvaluator
             "Gross captured premium uses the current Ask as the BTC reference price.");
     }
 
-    private static DrsResult EvaluateDrs(DefenseEvaluationInput input, int dte, double? currentDelta,
-        double? strikeDistanceRatio)
+    private static DrsResult EvaluateDrs(OpenShortCallPositionSnapshot position,
+        DefenseOptionObservation? observation, int dte, double? currentDelta,
+        double? strikeDistanceRatio, DrsConfiguration configuration)
     {
-        var configuration = input.DefenseConfiguration.Drs;
         var components = ImmutableArray.Create(
             ScoreComponent(DrsComponentCode.Delta, currentDelta, 40,
                 currentDelta is null ? DefenseMissingInputCode.CurrentDelta : null,
@@ -116,7 +133,7 @@ public sealed class DefenseEvaluator
             ScoreComponent(DrsComponentCode.Dte, dte >= 0 ? dte : null, 15,
                 dte < 0 ? DefenseMissingInputCode.Dte : null,
                 configuration.DteBands, "Calendar DTE using the America/New_York evaluation date."),
-            PremiumExpansionComponent(input, configuration));
+            PremiumExpansionComponent(position, observation, configuration));
 
         var missing = components.SelectMany(component => component.MissingInputs).Distinct().ToImmutableArray();
         if (components.Any(component => component.Status != EvaluationValueStatus.Available))
@@ -130,12 +147,13 @@ public sealed class DefenseEvaluator
             components, [], "DRS is the unweighted sum of the four configured Phase 6 V1 component scores.");
     }
 
-    private static ExplanationComponent PremiumExpansionComponent(DefenseEvaluationInput input,
+    private static ExplanationComponent PremiumExpansionComponent(OpenShortCallPositionSnapshot position,
+        DefenseOptionObservation? observation,
         DrsConfiguration configuration)
     {
         var missing = ImmutableArray.CreateBuilder<DefenseMissingInputCode>();
-        var openingPremium = input.Position.OpeningPremiumPerShare;
-        var currentAsk = input.CurrentOptionObservation?.Ask;
+        var openingPremium = position.OpeningPremiumPerShare;
+        var currentAsk = observation?.Ask;
         if (openingPremium is null or <= 0) missing.Add(DefenseMissingInputCode.OpeningPremiumPerShare);
         if (currentAsk is null or <= 0) missing.Add(DefenseMissingInputCode.CurrentAsk);
         if (missing.Count > 0)

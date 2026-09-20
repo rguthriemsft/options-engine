@@ -79,8 +79,7 @@ public sealed class ContractStrategyCalculator
         var dte = contract.Expiration.DayNumber - evaluationDate.DayNumber;
         var premium = contract.Bid;
         var mid = contract.Bid is { } bid && contract.Ask is { } ask ? (bid + ask) / 2m : (decimal?)null;
-        var spread = mid is > 0 && contract.Bid is { } spreadBid && contract.Ask is { } spreadAsk
-            ? (double)((spreadAsk - spreadBid) / mid.Value) : (double?)null;
+        var spread = ContractLiquidityEvaluator.BidAskSpreadPercent(contract.Bid, contract.Ask);
         var distance = contract.UnderlyingPrice is > 0 ? contract.Strike - contract.UnderlyingPrice.Value : (decimal?)null;
         var otm = contract.UnderlyingPrice is > 0 && distance is { } strikeDistance
             ? (double)(strikeDistance / contract.UnderlyingPrice.Value) : (double?)null;
@@ -124,17 +123,20 @@ public sealed class ContractStrategyCalculator
             earningsGate = Gate(GateCode.Earnings, context.Earnings.NextEarningsDate > contract.Expiration,
                 RejectionReasonCode.EarningsBeforeExpiration, [Input("EARNINGS_DATE", context.Earnings.NextEarningsDate.Value)]);
 
-        var liquidityMissing = new List<MissingInputCode>();
-        if (contract.Bid is null) liquidityMissing.Add(MissingInputCode.OptionBid);
-        if (contract.Ask is null) liquidityMissing.Add(MissingInputCode.OptionAsk);
-        if (contract.OpenInterest is null) liquidityMissing.Add(MissingInputCode.OptionOpenInterest);
+        var liquidity = ContractLiquidityEvaluator.Evaluate(contract.Bid, contract.Ask, contract.OpenInterest,
+            configuration.LiquidityEligibility);
+        var liquidityMissing = liquidity.MissingInputs.Select(input => input switch
+        {
+            ContractLiquidityMissingInput.Bid => MissingInputCode.OptionBid,
+            ContractLiquidityMissingInput.Ask => MissingInputCode.OptionAsk,
+            ContractLiquidityMissingInput.OpenInterest => MissingInputCode.OptionOpenInterest,
+            _ => throw new ArgumentOutOfRangeException(nameof(input))
+        }).ToArray();
         var liquidityInputs = new[] { InputOrMissing("BID", contract.Bid), InputOrMissing("ASK", contract.Ask),
             InputOrMissing("OPEN_INTEREST", contract.OpenInterest), InputOrMissing("BID_ASK_SPREAD_PERCENT", metrics.BidAskSpreadPercent) };
-        var liquidityGate = liquidityMissing.Count > 0
+        var liquidityGate = liquidity.Status == ContractLiquidityEligibilityStatus.InsufficientData
             ? UnavailableGate(GateCode.Liquidity, liquidityInputs, liquidityMissing)
-            : Gate(GateCode.Liquidity, contract.Bid > 0 && contract.Ask > contract.Bid &&
-                contract.OpenInterest >= configuration.MinimumOpenInterest &&
-                metrics.BidAskSpreadPercent <= configuration.MaximumBidAskSpreadPercent,
+            : Gate(GateCode.Liquidity, liquidity.Status == ContractLiquidityEligibilityStatus.Passed,
                 RejectionReasonCode.InsufficientLiquidity, liquidityInputs);
 
         var premiumGate = metrics.ReferencePremium is { } referencePremium

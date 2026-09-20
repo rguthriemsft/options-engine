@@ -55,10 +55,11 @@ public enum DrsComponentCode { Delta, StrikeProximity, Dte, PremiumExpansion }
 public enum HardTriggerCode { HighDelta, StrikeProximityWithDelta, InTheMoney, LowDteWithDelta, RapidDeltaIncrease }
 public enum HardTriggerStatus { Triggered, NotTriggered, InsufficientData, NotApplicable }
 public enum HardDefenseStatus { Clear, Triggered, PartiallyEvaluated }
-public enum RollCandidateEvaluationState { Rejected, Rankable, InsufficientData }
+public enum RollCandidateEvaluationState { Rejected, Rankable, InsufficientData, EligibleForRqs }
+public enum ReplacementDteWindow { Preferred, Extended }
 public enum DefenseReasonCode { NoDefenseActivation, ProfitTaking, DrsActivation, HardTriggerActivation, NoEligibleRollCandidate, CurrentCcosBelowRollThreshold, InsufficientData }
 public enum DefenseMissingInputCode { OpeningPremiumPerShare, CurrentAsk, CurrentDelta, PreviousDelta, UnderlyingPrice, Dte, CurrentCcos, EarningsDate, Configuration }
-public enum RollReasonCode { DteOutsideRange, ExpirationNotImproved, DeltaNotReduced, DeltaExceedsMaximum, StrikeNotImproved, StrikeNotStrictlyOtm, InsufficientLiquidity, EarningsCrossing, DebitExceedsMaximum, ProjectedDrsNotImproved, ProjectedDrsExceedsMaximum, InsufficientData }
+public enum RollReasonCode { DteOutsideRange, ExpirationNotImproved, DeltaNotReduced, DeltaExceedsMaximum, StrikeNotImproved, StrikeNotStrictlyOtm, InsufficientLiquidity, EarningsCrossing, DebitExceedsMaximum, ProjectedDrsNotImproved, ProjectedDrsExceedsMaximum, InsufficientData, OptionTypeNotCall }
 public enum RollMissingInputCode { CandidateBid, CandidateAsk, CandidateDelta, CandidateOpenInterest, ExistingAsk, ExistingDelta, UnderlyingPrice, EarningsDate, CurrentDrs, ProjectedDrs, Configuration }
 public enum RqsComponentCode { DrsReduction, DeltaReduction, StrikeImprovement, RollEconomics, ReplacementLiquidity, TimeEfficiency }
 public enum EvaluationValueStatus { Available, InsufficientData, NotApplicable }
@@ -79,10 +80,74 @@ public sealed record RqsComponentResult(RqsComponentCode Code, EvaluationValueSt
     double MaximumScore, ImmutableArray<RollMissingInputCode> MissingInputs, string Explanation);
 public sealed record RqsResult(EvaluationValueStatus Status, double? Score, ImmutableArray<RqsComponentResult> Components,
     ImmutableArray<RollMissingInputCode> MissingInputs, string Explanation);
+public sealed record RollCandidateDerivedMetrics(int NewDte, int AdditionalDte,
+    ReplacementDteWindow? DteWindow, bool? PreferredDeltaWindow,
+    decimal StrikeImprovement, double StrikeImprovementRatio, double? DeltaReduction,
+    double? BidAskSpreadPercent, int ReplacementContracts,
+    decimal? ExistingBtcPerShare, decimal? ReplacementStoPerShare,
+    decimal? NetRollPerShare, decimal? NetRollTotal, decimal? RollDebitPerShare,
+    DrsResult ProjectedDrsResult, double? DrsReduction)
+{
+    public double? ProjectedDrs => ProjectedDrsResult.Score;
+}
 public sealed record RollCandidateEvaluation(DefenseOptionObservation Candidate, RollCandidateEvaluationState State,
+    RollCandidateDerivedMetrics Metrics,
     ImmutableArray<RollReasonCode> ReasonCodes, ImmutableArray<RollMissingInputCode> MissingInputs,
-    decimal? ExistingBtcPerShare, decimal? ReplacementStoPerShare, decimal? NetRollPerShare, decimal? NetRollTotal,
-    double? ProjectedDrs, RqsResult? Rqs, int? Rank, ImmutableArray<string> Explanations);
+    RqsResult? Rqs, int? Rank, ImmutableArray<string> Explanations);
+public sealed record RollCandidateEvaluationInput(OpenShortCallPositionSnapshot Position,
+    DefenseHoldingContext Holding, DefenseOptionObservation? CurrentOptionObservation,
+    DefenseStrategyResult CurrentDefense, EarningsContext Earnings,
+    DateTimeOffset DefenseEvaluationTimestampUtc,
+    ImmutableArray<SelectedRollChainSnapshot> SelectedChainSnapshots,
+    DrsConfiguration DrsConfiguration, RollConfiguration RollConfiguration)
+{
+    public void Validate()
+    {
+        ArgumentNullException.ThrowIfNull(Position);
+        ArgumentNullException.ThrowIfNull(Holding);
+        ArgumentNullException.ThrowIfNull(CurrentDefense);
+        ArgumentNullException.ThrowIfNull(Earnings);
+        ArgumentNullException.ThrowIfNull(DrsConfiguration);
+        ArgumentNullException.ThrowIfNull(RollConfiguration);
+        Position.Validate();
+        Holding.Validate();
+        DrsConfiguration.Validate();
+        RollConfiguration.Validate();
+        if (Position.HoldingId != Holding.HoldingId)
+            throw new ArgumentException("Position and Holding IDs must match.");
+        if (DefenseEvaluationTimestampUtc.Offset != TimeSpan.Zero)
+            throw new ArgumentException("Defense evaluation timestamp must be UTC.",
+                nameof(DefenseEvaluationTimestampUtc));
+        if (CurrentOptionObservation is { } currentObservation)
+            DefenseObservationValidation.ValidatePositionObservation(Position, Holding, currentObservation,
+                DefenseEvaluationTimestampUtc, nameof(CurrentOptionObservation));
+        var evaluationDate = DefenseEvaluator.EvaluationDate(DefenseEvaluationTimestampUtc);
+        var dte = Position.Expiration.DayNumber - evaluationDate.DayNumber;
+        if (CurrentDefense.DefenseEvaluationDate != evaluationDate || CurrentDefense.Dte != dte)
+            throw new ArgumentException("Current defense result must use the same position and evaluation timestamp.",
+                nameof(CurrentDefense));
+        if (!CurrentDefense.RollEngineRequired)
+            throw new ArgumentException("Roll candidate evaluation requires an activated Roll Engine.",
+                nameof(CurrentDefense));
+        if (SelectedChainSnapshots.IsDefault)
+            throw new ArgumentException("Selected chain snapshots must be initialized.",
+                nameof(SelectedChainSnapshots));
+        foreach (var chain in SelectedChainSnapshots)
+        {
+            ArgumentNullException.ThrowIfNull(chain);
+            chain.Validate();
+            if (!string.Equals(chain.UnderlyingSymbol, Holding.Symbol, StringComparison.OrdinalIgnoreCase))
+                throw new ArgumentException("Every selected chain must belong to the target Holding.",
+                    nameof(SelectedChainSnapshots));
+            if (chain.ObservationTimestampUtc > DefenseEvaluationTimestampUtc)
+                throw new ArgumentException("Selected chain observations cannot be later than the evaluation cutoff.",
+                    nameof(SelectedChainSnapshots));
+        }
+    }
+}
+public sealed record RollCandidateStrategyResult(
+    ImmutableArray<SelectedRollChainSnapshot> SelectedChainSnapshots,
+    ImmutableArray<RollCandidateEvaluation> Candidates);
 public sealed record RollEvaluation(Guid RollEvaluationId, Guid DefenseEvaluationId,
     DateTimeOffset DefenseEvaluationTimestampUtc, DateTimeOffset CalculatedAtUtc,
     OpenShortCallPositionSnapshot CurrentPositionSnapshot, double? CurrentCcos, decimal? ExistingBtcPerShare,
@@ -131,9 +196,11 @@ public sealed record DefenseEvaluationInput(OpenShortCallPositionSnapshot Positi
         if (Position.HoldingId != Holding.HoldingId) throw new ArgumentException("Position and Holding IDs must match.");
         if (DefenseEvaluationTimestampUtc.Offset != TimeSpan.Zero) throw new ArgumentException("Defense evaluation timestamp must be UTC.", nameof(DefenseEvaluationTimestampUtc));
         if (CurrentOptionObservation is { } currentObservation)
-            ValidatePositionObservation(currentObservation, nameof(CurrentOptionObservation));
+            DefenseObservationValidation.ValidatePositionObservation(Position, Holding, currentObservation,
+                DefenseEvaluationTimestampUtc, nameof(CurrentOptionObservation));
         if (PreviousDeltaObservation is { } previousObservation)
-            ValidatePositionObservation(previousObservation, nameof(PreviousDeltaObservation));
+            DefenseObservationValidation.ValidatePositionObservation(Position, Holding, previousObservation,
+                DefenseEvaluationTimestampUtc, nameof(PreviousDeltaObservation));
         if (CurrentOptionObservation is { } current && PreviousDeltaObservation is { } previous &&
             previous.ObservationTimestampUtc >= current.ObservationTimestampUtc)
             throw new ArgumentException(
@@ -144,17 +211,22 @@ public sealed record DefenseEvaluationInput(OpenShortCallPositionSnapshot Positi
             throw new ArgumentException("Defense and Roll configuration versions must match the supplied configuration version.");
     }
 
-    private void ValidatePositionObservation(DefenseOptionObservation observation, string parameterName)
+}
+internal static class DefenseObservationValidation
+{
+    public static void ValidatePositionObservation(OpenShortCallPositionSnapshot position,
+        DefenseHoldingContext holding, DefenseOptionObservation observation,
+        DateTimeOffset evaluationTimestampUtc, string parameterName)
     {
         observation.Validate();
-        if (!string.Equals(observation.OptionSymbol, Position.OptionSymbol, StringComparison.Ordinal) ||
-            !string.Equals(observation.UnderlyingSymbol, Holding.Symbol, StringComparison.OrdinalIgnoreCase) ||
-            observation.Expiration != Position.Expiration ||
-            observation.Strike != Position.Strike ||
+        if (!string.Equals(observation.OptionSymbol, position.OptionSymbol, StringComparison.Ordinal) ||
+            !string.Equals(observation.UnderlyingSymbol, holding.Symbol, StringComparison.OrdinalIgnoreCase) ||
+            observation.Expiration != position.Expiration ||
+            observation.Strike != position.Strike ||
             observation.OptionType != OptionContractType.Call)
             throw new ArgumentException(
                 "The option observation must identify the current open short-call contract.", parameterName);
-        if (observation.ObservationTimestampUtc > DefenseEvaluationTimestampUtc)
+        if (observation.ObservationTimestampUtc > evaluationTimestampUtc)
             throw new ArgumentException(
                 "The option observation cannot be later than the defense evaluation cutoff.", parameterName);
     }

@@ -417,19 +417,19 @@ TaxSensitivity.High -> NewDelta <= .20
 
 Acceptance criteria:
 
-- [ ] 21 and 60 DTE are included.
-- [ ] 20 and 61 DTE reject.
-- [ ] 21–45 is recorded as preferred window; 46–60 extended window.
-- [ ] Same expiration rejects.
-- [ ] Higher expiration is required.
-- [ ] Same/lower strike rejects.
-- [ ] ATM/ITM replacement rejects.
-- [ ] Same/higher Delta rejects.
-- [ ] Exact .25 normal Delta passes.
-- [ ] Above .25 rejects.
-- [ ] Exact .20 high-tax Delta passes.
-- [ ] Above .20 high-tax rejects.
-- [ ] There is no minimum hard Delta.
+- [x] 21 and 60 DTE are included.
+- [x] 20 and 61 DTE reject.
+- [x] 21–45 is recorded as preferred window; 46–60 extended window.
+- [x] Same expiration rejects.
+- [x] Higher expiration is required.
+- [x] Same/lower strike rejects.
+- [x] ATM/ITM replacement rejects.
+- [x] Same/higher Delta rejects.
+- [x] Exact .25 normal Delta passes.
+- [x] Above .25 rejects.
+- [x] Exact .20 high-tax Delta passes.
+- [x] Above .20 high-tax rejects.
+- [x] There is no minimum hard Delta.
 
 ---
 
@@ -445,14 +445,14 @@ BidAskSpreadPercent <= 20%
 
 Acceptance criteria:
 
-- [ ] Ask equal to Bid rejects.
-- [ ] OI 100 passes.
-- [ ] OI 99 rejects.
-- [ ] Spread exactly 20% passes.
-- [ ] Spread above 20% rejects.
-- [ ] Missing Bid/Ask/OI produces InsufficientData rather than hard-gate failure.
-- [ ] Daily option volume is not a V1 hard-gate input.
-- [ ] Phase 4 entry eligibility is not imported wholesale.
+- [x] Ask equal to Bid rejects.
+- [x] OI 100 passes.
+- [x] OI 99 rejects.
+- [x] Spread exactly 20% passes.
+- [x] Spread above 20% rejects.
+- [x] Missing Bid/Ask/OI produces InsufficientData rather than hard-gate failure.
+- [x] Daily option volume is not a V1 hard-gate input.
+- [x] Phase 4 entry eligibility is not imported wholesale.
 
 ---
 
@@ -465,11 +465,11 @@ ExistingExpiration < EarningsDate <= NewExpiration
 
 Acceptance criteria:
 
-- [ ] A candidate that introduces a new known earnings crossing rejects.
-- [ ] Earnings exactly on NewExpiration rejects.
-- [ ] An event already inside ExistingExpiration does not newly reject the replacement.
-- [ ] Missing required stock earnings context produces candidate InsufficientData.
-- [ ] ETF earnings is NotApplicable and does not block a candidate.
+- [x] A candidate that introduces a new known earnings crossing rejects.
+- [x] Earnings exactly on NewExpiration rejects.
+- [x] An event already inside ExistingExpiration does not newly reject the replacement.
+- [x] Missing required stock earnings context produces candidate InsufficientData.
+- [x] ETF earnings is NotApplicable and does not block a candidate.
 
 ---
 
@@ -490,13 +490,13 @@ NetRollTotal =
 
 Acceptance criteria:
 
-- [ ] Same contract count is preserved.
-- [ ] Phase 6 never performs defensive resizing.
-- [ ] BTC uses Ask.
-- [ ] STO uses Bid.
-- [ ] Mid/Last are never hidden fallbacks.
-- [ ] Positive NetRoll is credit.
-- [ ] Negative NetRoll is debit.
+- [x] Same contract count is preserved.
+- [x] Phase 6 never performs defensive resizing.
+- [x] BTC uses Ask.
+- [x] STO uses Bid.
+- [x] Mid/Last are never hidden fallbacks.
+- [x] Positive NetRoll is credit.
+- [x] Negative NetRoll is debit.
 
 ---
 
@@ -510,13 +510,13 @@ NetRollPerShare >= -MaximumRollDebitPerShare
 
 Acceptance criteria:
 
-- [ ] Exact maximum debit passes.
-- [ ] One increment beyond maximum rejects.
-- [ ] Zero maximum debit is valid and means even/credit only.
-- [ ] Negative configuration is invalid.
-- [ ] No campaign-income debit gate exists in Phase 6 V1.
-- [ ] No tax-dollar override exists in Phase 6 V1.
-- [ ] No override can exceed the absolute V1 maximum.
+- [x] Exact maximum debit passes.
+- [x] One increment beyond maximum rejects.
+- [x] Zero maximum debit is valid and means even/credit only.
+- [x] Negative configuration is invalid.
+- [x] No campaign-income debit gate exists in Phase 6 V1.
+- [x] No tax-dollar override exists in Phase 6 V1.
+- [x] No override can exceed the absolute V1 maximum.
 
 ---
 
@@ -524,13 +524,13 @@ Acceptance criteria:
 
 Acceptance criteria:
 
-- [ ] Projected DRS uses the same DRS engine.
-- [ ] Replacement opening/current price is CandidateBid for the hypothetical initial projected state.
-- [ ] Projected premium multiple therefore begins at 1.0.
-- [ ] Candidate requires ProjectedDRS < CurrentDRS.
-- [ ] Candidate requires ProjectedDRS < 40.
-- [ ] Exact 40 rejects.
-- [ ] Missing projected-DRS input produces candidate InsufficientData.
+- [x] Projected DRS uses the same DRS engine.
+- [x] Replacement opening/current price is CandidateBid for the hypothetical initial projected state.
+- [x] Projected premium multiple therefore begins at 1.0.
+- [x] Candidate requires ProjectedDRS < CurrentDRS.
+- [x] Candidate requires ProjectedDRS < 40.
+- [x] Exact 40 rejects.
+- [x] Missing projected-DRS input produces candidate InsufficientData.
 
 ---
 
