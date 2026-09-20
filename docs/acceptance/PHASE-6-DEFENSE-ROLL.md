@@ -138,10 +138,10 @@ to DefenseEvaluationTimestampUtc
 
 Acceptance criteria:
 
-- [ ] DTE uses the New York evaluation date.
+- [x] DTE uses the New York evaluation date.
 - [ ] `CalculatedAtUtc` is distinct from the logical evaluation timestamp.
-- [ ] Current existing-call Ask, Delta, and underlying price come from one selected normalized option observation.
-- [ ] Strategy never synthesizes an observation by mixing timestamps.
+- [x] Current existing-call Ask, Delta, and underlying price come from one selected normalized option observation.
+- [x] Strategy never synthesizes an observation by mixing timestamps.
 - [ ] For each candidate expiration, the latest complete chain at/before the evaluation cutoff is selected.
 - [ ] Contracts from different timestamps are never mixed within one expiration.
 - [ ] Different expirations may use different selected chain timestamps.
@@ -172,14 +172,14 @@ Bands:
 
 Acceptance criteria:
 
-- [ ] Ask, not Mid/Last/Bid, is the BTC reference price.
-- [ ] Missing/non-positive opening premium produces InsufficientData.
-- [ ] Missing/non-positive current Ask produces InsufficientData.
-- [ ] Captured ratio is not clamped.
-- [ ] A current Ask above opening premium produces a valid negative captured ratio.
-- [ ] Fees are excluded from Phase 6 V1.
-- [ ] 50%, 70%, and 80% have below/exact/above boundary tests.
-- [ ] Profit-taking result remains independent from DRS.
+- [x] Ask, not Mid/Last/Bid, is the BTC reference price.
+- [x] Missing/non-positive opening premium produces InsufficientData.
+- [x] Missing/non-positive current Ask produces InsufficientData.
+- [x] Captured ratio is not clamped.
+- [x] A current Ask above opening premium produces a valid negative captured ratio.
+- [x] Fees are excluded from Phase 6 V1.
+- [x] 50%, 70%, and 80% have below/exact/above boundary tests.
+- [x] Profit-taking result remains independent from DRS.
 
 ---
 
@@ -198,13 +198,13 @@ Premium Expansion    20
 
 Acceptance criteria:
 
-- [ ] Momentum/Breakout is not a V1 weighted component.
-- [ ] Expected Move is not a V1 weighted component.
-- [ ] Dividend/Event is not a V1 weighted component.
-- [ ] No missing component is replaced with zero.
-- [ ] No score reweighting occurs around missing components.
-- [ ] Any required missing component makes top-level DRS unavailable.
-- [ ] Available component results remain preserved when top-level DRS is unavailable.
+- [x] Momentum/Breakout is not a V1 weighted component.
+- [x] Expected Move is not a V1 weighted component.
+- [x] Dividend/Event is not a V1 weighted component.
+- [x] No missing component is replaced with zero.
+- [x] No score reweighting occurs around missing components.
+- [x] Any required missing component makes top-level DRS unavailable.
+- [x] Available component results remain preserved when top-level DRS is unavailable.
 
 ---
 
@@ -223,10 +223,10 @@ Delta > .50            40
 
 Acceptance criteria:
 
-- [ ] Delta must be finite and within `[0,1]`.
-- [ ] Negative Delta is invalid/unavailable.
-- [ ] Strategy never repairs malformed Delta with `abs()`.
-- [ ] Every boundary has below/exact/above tests.
+- [x] Delta must be finite and within `[0,1]`.
+- [x] Negative Delta is invalid/unavailable.
+- [x] Strategy never repairs malformed Delta with `abs()`.
+- [x] Every boundary has below/exact/above tests.
 
 ---
 
@@ -253,9 +253,9 @@ Scores:
 
 Acceptance criteria:
 
-- [ ] UnderlyingPrice and Strike must be positive.
-- [ ] Positive distance is OTM; zero ATM; negative ITM.
-- [ ] Every boundary has deterministic below/exact/above coverage.
+- [x] UnderlyingPrice and Strike must be positive.
+- [x] Positive distance is OTM; zero ATM; negative ITM.
+- [x] Every boundary has deterministic below/exact/above coverage.
 
 ---
 
@@ -274,10 +274,10 @@ DTE <0      invalid open-position state
 
 Acceptance criteria:
 
-- [ ] DTE uses the New York defense evaluation date.
-- [ ] No undefined DTE/Delta numeric penalty exists.
-- [ ] All DTE boundaries are tested.
-- [ ] Negative DTE does not generate a normal DRS.
+- [x] DTE uses the New York defense evaluation date.
+- [x] No undefined DTE/Delta numeric penalty exists.
+- [x] All DTE boundaries are tested.
+- [x] Negative DTE does not generate a normal DRS.
 
 ---
 
@@ -303,9 +303,9 @@ Scores:
 
 Acceptance criteria:
 
-- [ ] Exact boundaries are non-overlapping.
-- [ ] Missing opening premium or Ask makes the component unavailable.
-- [ ] Premium expansion alone does not prescribe closure.
+- [x] Exact boundaries are non-overlapping.
+- [x] Missing opening premium or Ask makes the component unavailable.
+- [x] Premium expansion alone does not prescribe closure.
 
 ---
 
@@ -322,12 +322,12 @@ Acceptance criteria:
 
 Acceptance criteria:
 
-- [ ] 20 enters NORMAL.
-- [ ] 35 enters WATCH.
-- [ ] 50 enters DEFEND.
-- [ ] 65 enters HIGH_RISK.
-- [ ] 80 enters CRITICAL.
-- [ ] No classification exists for unavailable DRS.
+- [x] 20 enters NORMAL.
+- [x] 35 enters WATCH.
+- [x] 50 enters DEFEND.
+- [x] 65 enters HIGH_RISK.
+- [x] 80 enters CRITICAL.
+- [x] No classification exists for unavailable DRS.
 
 ---
 
@@ -356,16 +356,16 @@ RAPID_DELTA_INCREASE
 
 Acceptance criteria:
 
-- [ ] Each trigger is represented independently.
-- [ ] Trigger status distinguishes Triggered, NotTriggered, InsufficientData, NotApplicable.
-- [ ] Exact .40 Delta triggers.
-- [ ] Exact 1% proximity and .30 Delta trigger.
-- [ ] Strike equality is ATM, not ITM.
-- [ ] Exact 3 DTE and .25 Delta trigger.
-- [ ] Exact .15 Delta velocity triggers.
-- [ ] Missing previous Delta makes velocity unavailable, not zero.
-- [ ] Technical breakout hard trigger is deferred.
-- [ ] Dividend/early-assignment hard trigger is deferred.
+- [x] Each trigger is represented independently.
+- [x] Trigger status distinguishes Triggered, NotTriggered, InsufficientData, NotApplicable.
+- [x] Exact .40 Delta triggers.
+- [x] Exact 1% proximity and .30 Delta trigger.
+- [x] Strike equality is ATM, not ITM.
+- [x] Exact 3 DTE and .25 Delta trigger.
+- [x] Exact .15 Delta velocity triggers.
+- [x] Missing previous Delta makes velocity unavailable, not zero.
+- [x] Technical breakout hard trigger is deferred.
+- [x] Dividend/early-assignment hard trigger is deferred.
 
 Aggregate:
 
@@ -377,8 +377,8 @@ otherwise                   -> PartiallyEvaluated
 
 Acceptance criteria:
 
-- [ ] A known trigger wins over another unavailable trigger.
-- [ ] PartiallyEvaluated never silently becomes Clear.
+- [x] A known trigger wins over another unavailable trigger.
+- [x] PartiallyEvaluated never silently becomes Clear.
 
 ---
 
@@ -392,11 +392,11 @@ DRS >= 50
 
 Acceptance criteria:
 
-- [ ] Profit-taking alone does not activate Roll Engine.
-- [ ] Hard trigger activates Roll Engine even if DRS is unavailable.
-- [ ] DRS <50 with fully clear hard triggers does not activate Roll Engine.
+- [x] Profit-taking alone does not activate Roll Engine.
+- [x] Hard trigger activates Roll Engine even if DRS is unavailable.
+- [x] DRS <50 with fully clear hard triggers does not activate Roll Engine.
 - [ ] Partially evaluated hard triggers cannot silently produce NO_ACTION.
-- [ ] CCOS does not suppress candidate analysis.
+- [x] CCOS does not suppress candidate analysis.
 
 ---
 

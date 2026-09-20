@@ -51,19 +51,20 @@ public sealed record DefenseOptionObservation(string OptionSymbol, string Underl
 public enum DefenseDisposition { NoAction, Monitor, ProfitClose, DefenseReview, Roll, CloseWait }
 public enum ProfitTakingSignal { None, Monitor, CloseCandidate, StrongCloseCandidate }
 public enum DrsClassification { Safe, Normal, Watch, Defend, HighRisk, Critical }
+public enum DrsComponentCode { Delta, StrikeProximity, Dte, PremiumExpansion }
 public enum HardTriggerCode { HighDelta, StrikeProximityWithDelta, InTheMoney, LowDteWithDelta, RapidDeltaIncrease }
 public enum HardTriggerStatus { Triggered, NotTriggered, InsufficientData, NotApplicable }
 public enum HardDefenseStatus { Clear, Triggered, PartiallyEvaluated }
 public enum RollCandidateEvaluationState { Rejected, Rankable, InsufficientData }
 public enum DefenseReasonCode { NoDefenseActivation, ProfitTaking, DrsActivation, HardTriggerActivation, NoEligibleRollCandidate, CurrentCcosBelowRollThreshold, InsufficientData }
-public enum DefenseMissingInputCode { OpeningPremiumPerShare, CurrentAsk, CurrentDelta, PreviousDelta, UnderlyingPrice, CurrentCcos, EarningsDate, Configuration }
+public enum DefenseMissingInputCode { OpeningPremiumPerShare, CurrentAsk, CurrentDelta, PreviousDelta, UnderlyingPrice, Dte, CurrentCcos, EarningsDate, Configuration }
 public enum RollReasonCode { DteOutsideRange, ExpirationNotImproved, DeltaNotReduced, DeltaExceedsMaximum, StrikeNotImproved, StrikeNotStrictlyOtm, InsufficientLiquidity, EarningsCrossing, DebitExceedsMaximum, ProjectedDrsNotImproved, ProjectedDrsExceedsMaximum, InsufficientData }
 public enum RollMissingInputCode { CandidateBid, CandidateAsk, CandidateDelta, CandidateOpenInterest, ExistingAsk, ExistingDelta, UnderlyingPrice, EarningsDate, CurrentDrs, ProjectedDrs, Configuration }
 public enum RqsComponentCode { DrsReduction, DeltaReduction, StrikeImprovement, RollEconomics, ReplacementLiquidity, TimeEfficiency }
 public enum EvaluationValueStatus { Available, InsufficientData, NotApplicable }
 
-public sealed record ExplanationComponent(string Code, EvaluationValueStatus Status, double? Value, double MaximumValue,
-    ImmutableArray<string> MissingInputs, string Explanation);
+public sealed record ExplanationComponent(DrsComponentCode Code, EvaluationValueStatus Status, double? ObservedValue,
+    double? Score, double MaximumScore, ImmutableArray<DefenseMissingInputCode> MissingInputs, string Explanation);
 public sealed record ProfitTakingResult(EvaluationValueStatus Status, ProfitTakingSignal Signal,
     decimal? GrossOpeningPremium, decimal? EstimatedCurrentBtcCost, decimal? GrossPremiumCaptured,
     double? GrossPremiumCapturedRatio, ImmutableArray<DefenseMissingInputCode> MissingInputs, string Explanation);
@@ -71,6 +72,9 @@ public sealed record DrsResult(EvaluationValueStatus Status, double? Score, DrsC
     ImmutableArray<ExplanationComponent> Components, ImmutableArray<DefenseMissingInputCode> MissingInputs, string Explanation);
 public sealed record HardTriggerResult(HardTriggerCode Code, HardTriggerStatus Status,
     ImmutableDictionary<string, double?> ObservedValues, ImmutableArray<DefenseMissingInputCode> MissingInputs, string Explanation);
+public sealed record DefenseStrategyResult(DateOnly DefenseEvaluationDate, int Dte,
+    ProfitTakingResult ProfitTaking, DrsResult Drs, double? DeltaVelocity,
+    ImmutableArray<HardTriggerResult> HardTriggers, HardDefenseStatus HardDefenseStatus, bool RollEngineRequired);
 public sealed record RqsComponentResult(RqsComponentCode Code, EvaluationValueStatus Status, double? Score,
     double MaximumScore, ImmutableArray<RollMissingInputCode> MissingInputs, string Explanation);
 public sealed record RqsResult(EvaluationValueStatus Status, double? Score, ImmutableArray<RqsComponentResult> Components,
