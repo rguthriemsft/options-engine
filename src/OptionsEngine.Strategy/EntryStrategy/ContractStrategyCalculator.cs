@@ -200,9 +200,9 @@ public sealed class ContractStrategyCalculator
 
         var spread = metrics.BidAskSpreadPercent!.Value;
         var openInterest = contract.OpenInterest!.Value;
+        var liquidityScore = ContractLiquidityScorer.Score(spread, openInterest, config.Liquidity);
         var liquidityComponent = Available(ScoreComponentCode.ContractLiquidity, "Liquidity",
-            Score(config.Liquidity.SpreadPercent, spread) +
-            Score(config.Liquidity.OpenInterest, openInterest > int.MaxValue ? int.MaxValue : (int)openInterest),
+            liquidityScore.Score,
             config.LiquidityMaximumScore, [Input("BID_ASK_SPREAD_PERCENT", spread), Input("OPEN_INTEREST", openInterest)]);
 
         var thetaValid = contract.Theta is { } theta && double.IsFinite(theta) && theta < 0;

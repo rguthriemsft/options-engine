@@ -21,6 +21,9 @@ public sealed record ContractLiquidityEligibilityResult(
     double? BidAskSpreadPercent,
     ImmutableArray<ContractLiquidityMissingInput> MissingInputs);
 
+internal sealed record ContractLiquidityScoreResult(double Score, double SpreadScore,
+    double OpenInterestScore);
+
 /// <summary>Shared Phase 4/6 V1 liquidity hard-gate semantics.</summary>
 public static class ContractLiquidityEvaluator
 {
@@ -52,5 +55,31 @@ public static class ContractLiquidityEvaluator
         return mid is > 0 && bid is { } spreadBid && ask is { } spreadAsk
             ? (double)((spreadAsk - spreadBid) / mid.Value)
             : null;
+    }
+}
+
+/// <summary>Shared Phase 4/6 V1 liquidity-score semantics.</summary>
+internal static class ContractLiquidityScorer
+{
+    public static ContractLiquidityScoreResult Score(double bidAskSpreadPercent, long openInterest,
+        ContractLiquidityScoringConfiguration configuration)
+    {
+        ArgumentNullException.ThrowIfNull(configuration);
+        if (!double.IsFinite(bidAskSpreadPercent) || bidAskSpreadPercent < 0)
+            throw new ArgumentOutOfRangeException(nameof(bidAskSpreadPercent));
+        if (openInterest < 0)
+            throw new ArgumentOutOfRangeException(nameof(openInterest));
+
+        var spreadScore = configuration.SpreadPercent.Bands.Single(band =>
+            (band.Minimum is null || bidAskSpreadPercent > band.Minimum ||
+             bidAskSpreadPercent == band.Minimum && band.IncludesMinimum) &&
+            (band.Maximum is null || bidAskSpreadPercent < band.Maximum ||
+             bidAskSpreadPercent == band.Maximum && band.IncludesMaximum)).Points;
+        var boundedOpenInterest = openInterest > int.MaxValue ? int.MaxValue : (int)openInterest;
+        var openInterestScore = configuration.OpenInterest.Bands.Single(band =>
+            boundedOpenInterest >= band.Minimum &&
+            (band.Maximum is null || boundedOpenInterest <= band.Maximum)).Points;
+        return new ContractLiquidityScoreResult(spreadScore + openInterestScore,
+            spreadScore, openInterestScore);
     }
 }

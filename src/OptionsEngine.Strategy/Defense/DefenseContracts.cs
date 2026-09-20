@@ -55,12 +55,12 @@ public enum DrsComponentCode { Delta, StrikeProximity, Dte, PremiumExpansion }
 public enum HardTriggerCode { HighDelta, StrikeProximityWithDelta, InTheMoney, LowDteWithDelta, RapidDeltaIncrease }
 public enum HardTriggerStatus { Triggered, NotTriggered, InsufficientData, NotApplicable }
 public enum HardDefenseStatus { Clear, Triggered, PartiallyEvaluated }
-public enum RollCandidateEvaluationState { Rejected, Rankable, InsufficientData, EligibleForRqs }
+public enum RollCandidateEvaluationState { Rejected, Rankable, InsufficientData }
 public enum ReplacementDteWindow { Preferred, Extended }
 public enum DefenseReasonCode { NoDefenseActivation, ProfitTaking, DrsActivation, HardTriggerActivation, NoEligibleRollCandidate, CurrentCcosBelowRollThreshold, InsufficientData }
 public enum DefenseMissingInputCode { OpeningPremiumPerShare, CurrentAsk, CurrentDelta, PreviousDelta, UnderlyingPrice, Dte, CurrentCcos, EarningsDate, Configuration }
 public enum RollReasonCode { DteOutsideRange, ExpirationNotImproved, DeltaNotReduced, DeltaExceedsMaximum, StrikeNotImproved, StrikeNotStrictlyOtm, InsufficientLiquidity, EarningsCrossing, DebitExceedsMaximum, ProjectedDrsNotImproved, ProjectedDrsExceedsMaximum, InsufficientData, OptionTypeNotCall }
-public enum RollMissingInputCode { CandidateBid, CandidateAsk, CandidateDelta, CandidateOpenInterest, ExistingAsk, ExistingDelta, UnderlyingPrice, EarningsDate, CurrentDrs, ProjectedDrs, Configuration }
+public enum RollMissingInputCode { CandidateBid, CandidateAsk, CandidateDelta, CandidateOpenInterest, ExistingAsk, ExistingDelta, UnderlyingPrice, EarningsDate, CurrentDrs, ProjectedDrs, Configuration, ExistingStrike, ReplacementStrike, NetRollPerShare, ReplacementStoPerShare, NewDte }
 public enum RqsComponentCode { DrsReduction, DeltaReduction, StrikeImprovement, RollEconomics, ReplacementLiquidity, TimeEfficiency }
 public enum EvaluationValueStatus { Available, InsufficientData, NotApplicable }
 
@@ -77,9 +77,15 @@ public sealed record DefenseStrategyResult(DateOnly DefenseEvaluationDate, int D
     ProfitTakingResult ProfitTaking, DrsResult Drs, double? DeltaVelocity,
     ImmutableArray<HardTriggerResult> HardTriggers, HardDefenseStatus HardDefenseStatus, bool RollEngineRequired);
 public sealed record RqsComponentResult(RqsComponentCode Code, EvaluationValueStatus Status, double? Score,
-    double MaximumScore, ImmutableArray<RollMissingInputCode> MissingInputs, string Explanation);
+    double MaximumScore, ImmutableDictionary<string, double?> DerivedValues,
+    ImmutableArray<RollMissingInputCode> MissingInputs, string Explanation);
 public sealed record RqsResult(EvaluationValueStatus Status, double? Score, ImmutableArray<RqsComponentResult> Components,
     ImmutableArray<RollMissingInputCode> MissingInputs, string Explanation);
+public sealed record RollQualityScoringInput(double? CurrentDrs, double? ProjectedDrs,
+    double? CurrentDelta, double? NewDelta, decimal? ExistingStrike, decimal? ReplacementStrike,
+    decimal? NetRollPerShare, decimal? RollDebitPerShare, decimal? ReplacementStoPerShare,
+    decimal? CandidateBid, decimal? CandidateAsk, long? CandidateOpenInterest, int? NewDte,
+    RollConfiguration Configuration);
 public sealed record RollCandidateDerivedMetrics(int NewDte, int AdditionalDte,
     ReplacementDteWindow? DteWindow, bool? PreferredDeltaWindow,
     decimal StrikeImprovement, double StrikeImprovementRatio, double? DeltaReduction,
@@ -147,7 +153,16 @@ public sealed record RollCandidateEvaluationInput(OpenShortCallPositionSnapshot 
 }
 public sealed record RollCandidateStrategyResult(
     ImmutableArray<SelectedRollChainSnapshot> SelectedChainSnapshots,
-    ImmutableArray<RollCandidateEvaluation> Candidates);
+    ImmutableArray<RollCandidateEvaluation> Candidates,
+    string? PreferredOptionSymbol, decimal? PreferredStrike,
+    DateOnly? PreferredExpiration, double? PreferredRqs);
+public sealed record DefenseDispositionEvaluationInput(DefenseStrategyResult CurrentDefense,
+    RollCandidateStrategyResult? RollCandidates, double? CurrentCcos,
+    RollConfiguration RollConfiguration);
+public sealed record DefenseDispositionResult(DefenseDisposition Disposition,
+    ImmutableArray<DefenseReasonCode> ReasonCodes,
+    ImmutableArray<DefenseMissingInputCode> MissingInputs,
+    ImmutableArray<string> Explanations);
 public sealed record RollEvaluation(Guid RollEvaluationId, Guid DefenseEvaluationId,
     DateTimeOffset DefenseEvaluationTimestampUtc, DateTimeOffset CalculatedAtUtc,
     OpenShortCallPositionSnapshot CurrentPositionSnapshot, double? CurrentCcos, decimal? ExistingBtcPerShare,

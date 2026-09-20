@@ -395,7 +395,7 @@ Acceptance criteria:
 - [x] Profit-taking alone does not activate Roll Engine.
 - [x] Hard trigger activates Roll Engine even if DRS is unavailable.
 - [x] DRS <50 with fully clear hard triggers does not activate Roll Engine.
-- [ ] Partially evaluated hard triggers cannot silently produce NO_ACTION.
+- [x] Partially evaluated hard triggers cannot silently produce NO_ACTION.
 - [x] CCOS does not suppress candidate analysis.
 
 ---
@@ -551,11 +551,11 @@ Time Efficiency         5
 
 Acceptance criteria:
 
-- [ ] No Phase 4 Contract Score is required for RQS.
-- [ ] Replacement Liquidity reuses the existing Phase 4 0–10 Liquidity Score.
-- [ ] All RQS components are required.
-- [ ] Missing one component makes RQS unavailable.
-- [ ] No reweighting occurs around missing components.
+- [x] No Phase 4 Contract Score is required for RQS.
+- [x] Replacement Liquidity reuses the existing Phase 4 0–10 Liquidity Score.
+- [x] All RQS components are required.
+- [x] Missing one component makes RQS unavailable.
+- [x] No reweighting occurs around missing components.
 
 ---
 
@@ -611,17 +611,17 @@ Time efficiency:
 
 Acceptance criteria:
 
-- [ ] Each ratio validates its denominator.
-- [ ] FullStrikeImprovementRatio is positive configuration.
-- [ ] Default approved value is 0.10.
-- [ ] FullCreditEconomicsRatio is positive configuration.
-- [ ] Default approved value is 0.25.
-- [ ] Debit-utilization scoring reaches 0 at the exact debit limit.
-- [ ] Even roll scores 10 economics points.
-- [ ] Credit score saturates at 15.
-- [ ] Time efficiency is 5 at 21 DTE.
-- [ ] Time efficiency is 0 at 60 DTE.
-- [ ] RQS remains within [0,100].
+- [x] Each ratio validates its denominator.
+- [x] FullStrikeImprovementRatio is positive configuration.
+- [x] Default approved value is 0.10.
+- [x] FullCreditEconomicsRatio is positive configuration.
+- [x] Default approved value is 0.25.
+- [x] Debit-utilization scoring reaches 0 at the exact debit limit.
+- [x] Even roll scores 10 economics points.
+- [x] Credit score saturates at 15.
+- [x] Time efficiency is 5 at 21 DTE.
+- [x] Time efficiency is 0 at 60 DTE.
+- [x] RQS remains within [0,100].
 
 ---
 
@@ -637,12 +637,12 @@ InsufficientData
 
 Acceptance criteria:
 
-- [ ] Known gate failure produces Rejected.
-- [ ] Unknown required gate input produces InsufficientData, not Rejected.
-- [ ] Complete eligible candidate with complete RQS is Rankable.
-- [ ] Rejected candidates are retained with reasons.
-- [ ] Insufficient candidates are retained with missing inputs.
-- [ ] Only Rankable candidates receive Rank.
+- [x] Known gate failure produces Rejected.
+- [x] Unknown required gate input produces InsufficientData, not Rejected.
+- [x] Complete eligible candidate with complete RQS is Rankable.
+- [x] Rejected candidates are retained with reasons.
+- [x] Insufficient candidates are retained with missing inputs.
+- [x] Only Rankable candidates receive Rank.
 
 Ranking:
 
@@ -658,10 +658,10 @@ OptionSymbol ordinal ASC
 
 Acceptance criteria:
 
-- [ ] Every tie-break level is deterministic.
-- [ ] Final symbol tie-break is ordinal.
-- [ ] Rank 1 is the preferred roll candidate.
-- [ ] No minimum RQS threshold exists.
+- [x] Every tie-break level is deterministic.
+- [x] Final symbol tie-break is ordinal.
+- [x] Rank 1 is the preferred roll candidate.
+- [x] No minimum RQS threshold exists.
 
 ---
 
@@ -680,19 +680,19 @@ CLOSE_WAIT
 
 Acceptance criteria:
 
-- [ ] These are Phase 6 analytical dispositions, not final Recommendation lifecycle values.
-- [ ] No-defense StrongCloseCandidate -> PROFIT_CLOSE.
-- [ ] No-defense CloseCandidate -> PROFIT_CLOSE.
-- [ ] No-defense Monitor -> MONITOR.
-- [ ] No-defense None -> NO_ACTION.
-- [ ] Defensive activation takes precedence over ordinary profit-taking state.
-- [ ] Rankable candidate + CurrentCCOS >=55 -> ROLL.
-- [ ] Rankable candidate + CurrentCCOS <55 -> CLOSE_WAIT.
-- [ ] Rankable candidate + unavailable CurrentCCOS -> DEFENSE_REVIEW.
-- [ ] No Rankable candidate + any candidate InsufficientData -> DEFENSE_REVIEW.
-- [ ] All candidates rejected + hard trigger -> DEFENSE_REVIEW.
-- [ ] All candidates rejected + DRS-only activation -> CLOSE_WAIT.
-- [ ] Partially evaluated hard-defense state never silently resolves to NO_ACTION.
+- [x] These are Phase 6 analytical dispositions, not final Recommendation lifecycle values.
+- [x] No-defense StrongCloseCandidate -> PROFIT_CLOSE.
+- [x] No-defense CloseCandidate -> PROFIT_CLOSE.
+- [x] No-defense Monitor -> MONITOR.
+- [x] No-defense None -> NO_ACTION.
+- [x] Defensive activation takes precedence over ordinary profit-taking state.
+- [x] Rankable candidate + CurrentCCOS >=55 -> ROLL.
+- [x] Rankable candidate + CurrentCCOS <55 -> CLOSE_WAIT.
+- [x] Rankable candidate + unavailable CurrentCCOS -> DEFENSE_REVIEW.
+- [x] No Rankable candidate + any candidate InsufficientData -> DEFENSE_REVIEW.
+- [x] All candidates rejected + hard trigger -> DEFENSE_REVIEW.
+- [x] All candidates rejected + DRS-only activation -> CLOSE_WAIT.
+- [x] Partially evaluated hard-defense state never silently resolves to NO_ACTION.
 
 ---
 
@@ -703,9 +703,9 @@ Acceptance criteria:
 - [ ] Current CCOS uses existing Phase 4 CCOS semantics.
 - [ ] Application resolves current approved indicator/context inputs.
 - [ ] Current CCOS is not reused from an unrelated historical Phase 4 evaluation.
-- [ ] CCOS does not decide whether candidate analysis runs.
-- [ ] Exact 55 enters the ROLL side when a Rankable candidate exists.
-- [ ] Unavailable CCOS preserves explicit missing data.
+- [x] CCOS does not decide whether candidate analysis runs.
+- [x] Exact 55 enters the ROLL side when a Rankable candidate exists.
+- [x] Unavailable CCOS preserves explicit missing data.
 
 ---
 
@@ -804,12 +804,12 @@ Acceptance criteria:
 - [ ] Every hard-trigger result is preserved, not only triggered ones.
 - [ ] Profit-taking inputs and gross captured ratio are preserved.
 - [ ] Every roll hard gate is observable.
-- [ ] Every candidate state is explicit.
-- [ ] Roll economics preserves BTC Ask, replacement Bid, NetRollPerShare, NetRollTotal, debit utilization, and credit ratio where applicable.
-- [ ] RQS component values are preserved.
+- [x] Every candidate state is explicit.
+- [x] Roll economics preserves BTC Ask, replacement Bid, NetRollPerShare, NetRollTotal, debit utilization, and credit ratio where applicable.
+- [x] RQS component values are preserved.
 - [ ] Candidate rejection/missing-data reasons are preserved.
-- [ ] Preferred candidate and tie-break ordering are reproducible.
-- [ ] Disposition reason is available without consumers reconstructing strategy logic.
+- [x] Preferred candidate and tie-break ordering are reproducible.
+- [x] Disposition reason is available without consumers reconstructing strategy logic.
 
 ---
 
@@ -863,9 +863,9 @@ Acceptance criteria:
 - [ ] HighTaxDeltaRejected proves .20 cap.
 - [ ] NewEarningsCrossingRejected proves only newly introduced crossing rejects.
 - [ ] StrictOtmReplacementRequired rejects a higher strike that is still ATM/ITM.
-- [ ] PoorCcosCloseWait uses a Rankable candidate but CurrentCCOS <55.
-- [ ] NoValidRollHardTriggerReview yields DEFENSE_REVIEW.
-- [ ] CandidateInsufficientDataReview does not misclassify unknown candidate eligibility as rejection.
+- [x] PoorCcosCloseWait uses a Rankable candidate but CurrentCCOS <55.
+- [x] NoValidRollHardTriggerReview yields DEFENSE_REVIEW.
+- [x] CandidateInsufficientDataReview does not misclassify unknown candidate eligibility as rejection.
 - [ ] DefenseInsufficientData preserves partial components/triggers without fabricated zero values.
 
 ---

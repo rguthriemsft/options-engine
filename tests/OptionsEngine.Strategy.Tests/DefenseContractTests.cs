@@ -8,10 +8,25 @@ namespace OptionsEngine.Strategy.Tests;
 public sealed class DefenseContractTests
 {
     [Fact]
+    public void FinalCandidateStatesContainNoTemporaryPhaseSixCState()
+    {
+        Assert.Equal(
+        [
+            RollCandidateEvaluationState.Rejected,
+            RollCandidateEvaluationState.Rankable,
+            RollCandidateEvaluationState.InsufficientData
+        ], Enum.GetValues<RollCandidateEvaluationState>());
+    }
+
+    [Fact]
     public void ApprovedDefaultConfigurationStructureValidates()
     {
         new DefenseConfiguration { Version = new ConfigurationVersion(1) }.Validate();
-        Roll().Validate();
+        var roll = Roll();
+        roll.Validate();
+        Assert.Equal(.10, roll.FullStrikeImprovementRatio);
+        Assert.Equal(.25, roll.FullCreditEconomicsRatio);
+        Assert.Equal(55, roll.CurrentCcosRollThreshold);
     }
 
     [Fact]

@@ -8,17 +8,82 @@ namespace OptionsEngine.Strategy.Defense;
 public sealed class RollCandidateEvaluator
 {
     private const int ContractMultiplier = 100;
+    private readonly RollQualityScorer qualityScorer = new();
 
     public RollCandidateStrategyResult Evaluate(RollCandidateEvaluationInput input)
     {
         ArgumentNullException.ThrowIfNull(input);
         input.Validate();
 
-        var candidates = input.SelectedChainSnapshots
+        var hardGateCandidates = input.SelectedChainSnapshots
             .SelectMany(chain => chain.Contracts)
             .Select(candidate => EvaluateCandidate(input, candidate))
             .ToImmutableArray();
-        return new RollCandidateStrategyResult(input.SelectedChainSnapshots, candidates);
+        var scoredCandidates = hardGateCandidates.Select(candidate => ScoreCandidate(input, candidate))
+            .ToImmutableArray();
+        var candidates = Rank(scoredCandidates).ToImmutableArray();
+        var preferred = candidates.SingleOrDefault(candidate => candidate.Rank == 1);
+        return new RollCandidateStrategyResult(input.SelectedChainSnapshots, candidates,
+            preferred?.Candidate.OptionSymbol, preferred?.Candidate.Strike,
+            preferred?.Candidate.Expiration, preferred?.Rqs?.Score);
+    }
+
+    /// <summary>Assigns rank only to complete Rankable candidates using the approved Phase 6D ordering.</summary>
+    public static IReadOnlyList<RollCandidateEvaluation> Rank(
+        IReadOnlyList<RollCandidateEvaluation> candidates)
+    {
+        ArgumentNullException.ThrowIfNull(candidates);
+        var evaluated = candidates.Select(candidate => candidate with { Rank = null }).ToArray();
+        var ranked = evaluated.Select((value, index) => (value, index))
+            .Where(item => item.value.State == RollCandidateEvaluationState.Rankable)
+            .OrderByDescending(item => item.value.Rqs!.Score!.Value)
+            .ThenBy(item => item.value.Metrics.ProjectedDrs!.Value)
+            .ThenBy(item => item.value.Candidate.Delta!.Value)
+            .ThenByDescending(item => item.value.Candidate.Strike)
+            .ThenByDescending(item => item.value.Metrics.NetRollPerShare!.Value)
+            .ThenBy(item => item.value.Candidate.Expiration)
+            .ThenBy(item => item.value.Candidate.OptionSymbol, StringComparer.Ordinal)
+            .ToArray();
+        for (var index = 0; index < ranked.Length; index++)
+            evaluated[ranked[index].index] = ranked[index].value with { Rank = index + 1 };
+        return evaluated;
+    }
+
+    private RollCandidateEvaluation ScoreCandidate(RollCandidateEvaluationInput input,
+        RollCandidateEvaluation candidate)
+    {
+        if (candidate.State == RollCandidateEvaluationState.Rejected)
+            return candidate;
+
+        var currentDrs = input.CurrentDefense.Drs.Status == EvaluationValueStatus.Available
+            ? input.CurrentDefense.Drs.Score : null;
+        var projectedDrs = candidate.Metrics.ProjectedDrsResult.Status == EvaluationValueStatus.Available
+            ? candidate.Metrics.ProjectedDrs : null;
+        var rqs = qualityScorer.Evaluate(new RollQualityScoringInput(
+            currentDrs, projectedDrs,
+            input.CurrentOptionObservation?.Delta, candidate.Candidate.Delta,
+            input.Position.Strike, candidate.Candidate.Strike,
+            candidate.Metrics.NetRollPerShare, candidate.Metrics.RollDebitPerShare,
+            candidate.Metrics.ReplacementStoPerShare, candidate.Candidate.Bid,
+            candidate.Candidate.Ask, candidate.Candidate.OpenInterest,
+            candidate.Metrics.NewDte, input.RollConfiguration));
+        var state = candidate.State == RollCandidateEvaluationState.InsufficientData ||
+                    rqs.Status != EvaluationValueStatus.Available
+            ? RollCandidateEvaluationState.InsufficientData
+            : RollCandidateEvaluationState.Rankable;
+        var missing = candidate.MissingInputs.Concat(rqs.MissingInputs).Distinct().ToImmutableArray();
+        var reasons = candidate.ReasonCodes;
+        if (state == RollCandidateEvaluationState.InsufficientData &&
+            !reasons.Contains(RollReasonCode.InsufficientData))
+            reasons = reasons.Add(RollReasonCode.InsufficientData);
+        return candidate with
+        {
+            State = state,
+            Rqs = rqs,
+            MissingInputs = missing,
+            ReasonCodes = reasons,
+            Explanations = candidate.Explanations.Add(rqs.Explanation)
+        };
     }
 
     private static RollCandidateEvaluation EvaluateCandidate(RollCandidateEvaluationInput input,
@@ -172,7 +237,7 @@ public sealed class RollCandidateEvaluator
             ? RollCandidateEvaluationState.Rejected
             : missingInputs.Length > 0
                 ? RollCandidateEvaluationState.InsufficientData
-                : RollCandidateEvaluationState.EligibleForRqs;
+                : RollCandidateEvaluationState.Rankable;
         var metrics = new RollCandidateDerivedMetrics(newDte, additionalDte, dteWindow,
             preferredDeltaWindow, strikeImprovement, strikeImprovementRatio, deltaReduction,
             liquidity.BidAskSpreadPercent, input.Position.Contracts,

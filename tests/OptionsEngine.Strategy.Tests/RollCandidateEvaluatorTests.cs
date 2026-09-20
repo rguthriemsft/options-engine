@@ -14,10 +14,10 @@ public sealed class RollCandidateEvaluatorTests
 
     [Theory]
     [InlineData(20, RollCandidateEvaluationState.Rejected, null)]
-    [InlineData(21, RollCandidateEvaluationState.EligibleForRqs, ReplacementDteWindow.Preferred)]
-    [InlineData(45, RollCandidateEvaluationState.EligibleForRqs, ReplacementDteWindow.Preferred)]
-    [InlineData(46, RollCandidateEvaluationState.EligibleForRqs, ReplacementDteWindow.Extended)]
-    [InlineData(60, RollCandidateEvaluationState.EligibleForRqs, ReplacementDteWindow.Extended)]
+    [InlineData(21, RollCandidateEvaluationState.Rankable, ReplacementDteWindow.Preferred)]
+    [InlineData(45, RollCandidateEvaluationState.Rankable, ReplacementDteWindow.Preferred)]
+    [InlineData(46, RollCandidateEvaluationState.Rankable, ReplacementDteWindow.Extended)]
+    [InlineData(60, RollCandidateEvaluationState.Rankable, ReplacementDteWindow.Extended)]
     [InlineData(61, RollCandidateEvaluationState.Rejected, null)]
     public void ReplacementDteUsesInclusiveRangeAndRecordsWindow(int dte,
         RollCandidateEvaluationState expectedState, ReplacementDteWindow? expectedWindow)
@@ -119,7 +119,7 @@ public sealed class RollCandidateEvaluatorTests
     {
         var result = Evaluate(Candidate(delta: 0), Roll(maximumDebit: 2m));
 
-        Assert.Equal(RollCandidateEvaluationState.EligibleForRqs, result.State);
+        Assert.Equal(RollCandidateEvaluationState.Rankable, result.State);
         Assert.DoesNotContain(RollReasonCode.DeltaExceedsMaximum, result.ReasonCodes);
     }
 
@@ -217,6 +217,9 @@ public sealed class RollCandidateEvaluatorTests
             "ask" => RollMissingInputCode.CandidateAsk,
             _ => RollMissingInputCode.CandidateOpenInterest
         }, result.MissingInputs);
+        Assert.Equal(EvaluationValueStatus.InsufficientData, result.Rqs?.Status);
+        Assert.NotEmpty(result.Rqs!.Components.Where(component =>
+            component.Status == EvaluationValueStatus.Available));
     }
 
     [Fact]
@@ -261,7 +264,7 @@ public sealed class RollCandidateEvaluatorTests
         var result = Evaluate(Candidate(), assetType: AssetType.ExchangeTradedFund,
             earnings: new EarningsContext(AvailabilityStatus.NotApplicable, null));
 
-        Assert.Equal(RollCandidateEvaluationState.EligibleForRqs, result.State);
+        Assert.Equal(RollCandidateEvaluationState.Rankable, result.State);
         Assert.DoesNotContain(RollMissingInputCode.EarningsDate, result.MissingInputs);
     }
 
@@ -345,7 +348,7 @@ public sealed class RollCandidateEvaluatorTests
         Assert.Equal(1, premium.ObservedValue);
         Assert.Equal(6, premium.Score);
         Assert.Equal(21, result.Metrics.ProjectedDrs);
-        Assert.Equal(RollCandidateEvaluationState.EligibleForRqs, result.State);
+        Assert.Equal(RollCandidateEvaluationState.Rankable, result.State);
     }
 
     [Theory]
@@ -376,9 +379,9 @@ public sealed class RollCandidateEvaluatorTests
 
         Assert.Equal(21, result.Metrics.ProjectedDrs);
         Assert.Equal(59, result.Metrics.DrsReduction);
-        Assert.Equal(RollCandidateEvaluationState.EligibleForRqs, result.State);
-        Assert.Null(result.Rqs);
-        Assert.Null(result.Rank);
+        Assert.Equal(RollCandidateEvaluationState.Rankable, result.State);
+        Assert.Equal(EvaluationValueStatus.Available, result.Rqs?.Status);
+        Assert.Equal(1, result.Rank);
     }
 
     [Fact]
@@ -420,6 +423,8 @@ public sealed class RollCandidateEvaluatorTests
         Assert.Contains(RollReasonCode.DteOutsideRange, result.ReasonCodes);
         Assert.Contains(RollReasonCode.InsufficientData, result.ReasonCodes);
         Assert.Contains(RollMissingInputCode.CandidateAsk, result.MissingInputs);
+        Assert.Null(result.Rqs);
+        Assert.Null(result.Rank);
     }
 
     [Fact]
@@ -453,6 +458,30 @@ public sealed class RollCandidateEvaluatorTests
     }
 
     [Fact]
+    public void RankOneCandidateIsPreservedAsPreferredReplacement()
+    {
+        var lower = Candidate(delta: .20) with { OptionSymbol = "LOWER" };
+        var preferred = Candidate(delta: .10) with { OptionSymbol = "PREFERRED" };
+        var input = Input(lower) with
+        {
+            SelectedChainSnapshots =
+            [
+                new SelectedRollChainSnapshot(lower.UnderlyingSymbol, lower.Expiration,
+                    lower.ObservationTimestampUtc, lower.Provider, [lower, preferred])
+            ]
+        };
+
+        var result = evaluator.Evaluate(input);
+
+        var rankOne = Assert.Single(result.Candidates, candidate => candidate.Rank == 1);
+        Assert.Equal("PREFERRED", rankOne.Candidate.OptionSymbol);
+        Assert.Equal("PREFERRED", result.PreferredOptionSymbol);
+        Assert.Equal(preferred.Strike, result.PreferredStrike);
+        Assert.Equal(preferred.Expiration, result.PreferredExpiration);
+        Assert.Equal(rankOne.Rqs!.Score, result.PreferredRqs);
+    }
+
+    [Fact]
     public void EmptySelectedChainRemainsValidAndProducesNoCandidates()
     {
         var candidate = Candidate();
@@ -466,6 +495,10 @@ public sealed class RollCandidateEvaluatorTests
         var result = evaluator.Evaluate(input);
 
         Assert.Empty(result.Candidates);
+        Assert.Null(result.PreferredOptionSymbol);
+        Assert.Null(result.PreferredStrike);
+        Assert.Null(result.PreferredExpiration);
+        Assert.Null(result.PreferredRqs);
     }
 
     public static TheoryData<double?> InvalidCandidateDeltas => new()
