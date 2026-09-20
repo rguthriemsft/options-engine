@@ -247,6 +247,48 @@ public sealed class PositionSizingEvaluationPersistenceTests : IAsyncLifetime
         }
     }
 
+    [Fact]
+    public async Task PhaseFiveOpenPositionUpgradesToPhaseSixWithIdentityAndNullNewFactsPreserved()
+    {
+        var upgradePath = Path.Combine(Path.GetTempPath(), $"options-engine-phase5-to-phase6-{Guid.NewGuid():N}.db");
+        try
+        {
+            long generatedId;
+            var phaseFiveRow = new OpenShortCallPositionEntity
+            {
+                HoldingId = HoldingId, OptionSymbol = "MSFT261016C00105000", Contracts = 2, Strike = 105m,
+                Expiration = new DateOnly(2026, 10, 16)
+            };
+            await using (var phaseFive = CreateContext(upgradePath))
+            {
+                await phaseFive.Database.MigrateAsync("20260919210206_AddPositionSizing");
+                await phaseFive.Database.ExecuteSqlInterpolatedAsync($"""
+                    INSERT INTO OpenShortCallPositions (HoldingId, OptionSymbol, Contracts, Strike, Expiration)
+                    VALUES ({phaseFiveRow.HoldingId}, {phaseFiveRow.OptionSymbol}, {phaseFiveRow.Contracts},
+                        {phaseFiveRow.Strike}, {phaseFiveRow.Expiration})
+                    """);
+                await phaseFive.Database.OpenConnectionAsync();
+                await using var command = phaseFive.Database.GetDbConnection().CreateCommand();
+                command.CommandText = "SELECT last_insert_rowid();";
+                generatedId = Convert.ToInt64(await command.ExecuteScalarAsync());
+            }
+            await using (var phaseSix = CreateContext(upgradePath))
+            {
+                await phaseSix.Database.MigrateAsync();
+                var row = await phaseSix.OpenShortCallPositions.SingleAsync();
+                Assert.Equal(generatedId, row.OpenShortCallPositionId);
+                Assert.Equal(phaseFiveRow.HoldingId, row.HoldingId); Assert.Equal(phaseFiveRow.OptionSymbol, row.OptionSymbol);
+                Assert.Equal(phaseFiveRow.Contracts, row.Contracts); Assert.Equal(phaseFiveRow.Strike, row.Strike);
+                Assert.Equal(phaseFiveRow.Expiration, row.Expiration); Assert.Null(row.OpeningPremiumPerShare);
+                Assert.Null(row.OpenedAtUtc); Assert.Empty(await phaseSix.Database.GetPendingMigrationsAsync());
+            }
+        }
+        finally
+        {
+            File.Delete(upgradePath); File.Delete($"{upgradePath}-shm"); File.Delete($"{upgradePath}-wal");
+        }
+    }
+
     private OptionsEngineDbContext CreateContext() => new(new DbContextOptionsBuilder<OptionsEngineDbContext>()
         .UseSqlite($"Data Source={path}").Options);
 

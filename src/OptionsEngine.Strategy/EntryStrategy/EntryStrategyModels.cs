@@ -398,15 +398,31 @@ public sealed record ContractEligibilityConfiguration
             throw new ArgumentOutOfRangeException(nameof(MaximumDte), "DTE limits must be positive and ordered.");
         RequireDelta(GlobalMaximumInitialDelta, nameof(GlobalMaximumInitialDelta));
         RequireDelta(HighTaxMaximumDelta, nameof(HighTaxMaximumDelta));
-        if (MinimumOpenInterest < 0) throw new ArgumentOutOfRangeException(nameof(MinimumOpenInterest), "Minimum open interest cannot be negative.");
-        if (!double.IsFinite(MaximumBidAskSpreadPercent) || MaximumBidAskSpreadPercent < 0)
-            throw new ArgumentOutOfRangeException(nameof(MaximumBidAskSpreadPercent), "Maximum bid-ask spread percent must be finite and non-negative.");
+        LiquidityEligibility.Validate();
     }
+
+    public ContractLiquidityEligibilityConfiguration LiquidityEligibility =>
+        new(MinimumOpenInterest, MaximumBidAskSpreadPercent);
 
     private static void RequireDelta(double value, string name)
     {
         if (!double.IsFinite(value) || value < 0 || value > 1)
             throw new ArgumentOutOfRangeException(name, "Delta limits must be finite and between 0 and 1.");
+    }
+}
+
+/// <summary>Shared entry/roll liquidity eligibility values; contains no DTE or Delta semantics.</summary>
+public sealed record ContractLiquidityEligibilityConfiguration(
+    long MinimumOpenInterest = 100,
+    double MaximumBidAskSpreadPercent = .20)
+{
+    public void Validate()
+    {
+        if (MinimumOpenInterest < 0)
+            throw new ArgumentOutOfRangeException(nameof(MinimumOpenInterest), "Minimum open interest cannot be negative.");
+        if (!double.IsFinite(MaximumBidAskSpreadPercent) || MaximumBidAskSpreadPercent < 0)
+            throw new ArgumentOutOfRangeException(nameof(MaximumBidAskSpreadPercent),
+                "Maximum bid-ask spread percent must be finite and non-negative.");
     }
 }
 

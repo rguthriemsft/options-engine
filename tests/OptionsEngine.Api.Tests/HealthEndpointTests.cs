@@ -5,6 +5,7 @@ using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.Extensions.DependencyInjection;
 using OptionsEngine.Application.EntryStrategy;
 using OptionsEngine.Application.PositionSizing;
+using OptionsEngine.Application.Defense;
 
 namespace OptionsEngine.Api.Tests;
 
@@ -74,10 +75,28 @@ public sealed class HealthEndpointTests : IAsyncLifetime
             Assert.NotNull(scope.ServiceProvider.GetRequiredService<IPositionSizingEvaluationOrchestrator>());
             Assert.NotNull(scope.ServiceProvider.GetRequiredService<IPositionSizingEvaluationRepository>());
             Assert.NotNull(scope.ServiceProvider.GetRequiredService<IPositionSizingEvaluationWriter>());
+            Assert.NotNull(scope.ServiceProvider.GetRequiredService<DefenseRollConfiguration>());
         }
         finally
         {
             Environment.SetEnvironmentVariable(connectionStringKey, originalConnectionString);
         }
+    }
+
+    [Theory]
+    [InlineData("Defense:StrategyVersion", " ")]
+    [InlineData("Defense:RollStrategyVersion", "")]
+    [InlineData("Defense:MaximumRollDebitPerShare", "-0.01")]
+    [InlineData("Defense:ProfitTaking:CloseRatio", "0.40")]
+    [InlineData("Defense:Roll:PreferredMaximumDte", "61")]
+    public void InvalidPhaseSixConfigurationFailsDuringComposition(string key, string value)
+    {
+        using var factory = new WebApplicationFactory<Program>().WithWebHostBuilder(builder =>
+        {
+            builder.UseEnvironment("Testing");
+            builder.UseSetting("ConnectionStrings:OptionsEngine", $"Data Source={databasePath}");
+            builder.UseSetting(key, value);
+        });
+        Assert.ThrowsAny<Exception>(() => _ = factory.Services);
     }
 }

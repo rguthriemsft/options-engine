@@ -1,5 +1,7 @@
 using OptionsEngine.Strategy.Defense;
 using OptionsEngine.Strategy.Indicators;
+using OptionsEngine.Strategy.EntryStrategy;
+using OptionsEngine.Domain.Accounts;
 
 namespace OptionsEngine.Strategy.Tests;
 
@@ -73,6 +75,28 @@ public sealed class DefenseContractTests
         Assert.Equal(-.25, observation.Delta);
     }
 
+    [Fact]
+    public void DefenseInputValidatesIdentityHoldingTimeAndSharedConfigurationVersion()
+    {
+        var input = Input();
+        input.Validate();
+        Assert.Throws<ArgumentOutOfRangeException>(() => (input with { Position = Position(null) with { OpenShortCallPositionId = 0 } }).Validate());
+        Assert.Throws<ArgumentException>(() => (input with { Holding = input.Holding with { HoldingId = Guid.NewGuid() } }).Validate());
+        Assert.Throws<ArgumentException>(() => (input with
+        {
+            DefenseEvaluationTimestampUtc = new DateTimeOffset(2026, 9, 20, 12, 0, 0, TimeSpan.FromHours(-7))
+        }).Validate());
+        Assert.Throws<ArgumentException>(() => (input with { ConfigurationVersion = new ConfigurationVersion(2) }).Validate());
+    }
+
+    [Fact]
+    public void EmptySelectedRollChainRemainsRepresentable()
+    {
+        var chain = new SelectedRollChainSnapshot("MSFT", new DateOnly(2026, 11, 20), DateTimeOffset.UnixEpoch,
+            "Test", []);
+        Assert.Empty(chain.Contracts);
+    }
+
     private static RollConfiguration Roll() => new()
     {
         Version = new ConfigurationVersion(1),
@@ -81,4 +105,16 @@ public sealed class DefenseContractTests
 
     private static OpenShortCallPositionSnapshot Position(decimal? premium) => new(42, Guid.NewGuid(), "MSFT-C", 1,
         100m, new DateOnly(2026, 10, 16), premium, null);
+
+    private static DefenseEvaluationInput Input()
+    {
+        var position = Position(null);
+        var version = new ConfigurationVersion(1);
+        return new DefenseEvaluationInput(position,
+            new DefenseHoldingContext(position.HoldingId, "MSFT", AssetType.Stock, AssignmentSensitivity.Level3,
+                TaxSensitivity.Moderate), null, null, null,
+            new EarningsContext(AvailabilityStatus.Unavailable, null), DateTimeOffset.UnixEpoch,
+            new DefenseConfiguration { Version = version }, Roll() with { Version = version }, version,
+            new DefenseStrategyVersion("6.0.0"), new RollStrategyVersion("6.0.0"));
+    }
 }

@@ -15,7 +15,8 @@ public sealed record OpenShortCallPositionSnapshot(long OpenShortCallPositionId,
         ArgumentException.ThrowIfNullOrWhiteSpace(OptionSymbol);
         if (Contracts <= 0) throw new ArgumentOutOfRangeException(nameof(Contracts));
         if (Strike <= 0) throw new ArgumentOutOfRangeException(nameof(Strike));
-        if (OpenedAtUtc is { Offset: not TimeSpan.Zero }) throw new ArgumentException("OpenedAtUtc must be UTC.", nameof(OpenedAtUtc));
+        if (OpenedAtUtc is { } openedAt && openedAt.Offset != TimeSpan.Zero)
+            throw new ArgumentException("OpenedAtUtc must be UTC.", nameof(OpenedAtUtc));
     }
 }
 public sealed record DefenseHoldingContext(Guid HoldingId, string Symbol, AssetType AssetType,

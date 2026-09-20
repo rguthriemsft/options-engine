@@ -96,7 +96,7 @@ public sealed record RollConfiguration
     public required decimal MaximumRollDebitPerShare { get; init; }
     public double FullCreditEconomicsRatio { get; init; } = .25;
     public double CurrentCcosRollThreshold { get; init; } = 55;
-    public ContractEligibilityConfiguration LiquidityEligibility { get; init; } = new();
+    public ContractLiquidityEligibilityConfiguration LiquidityEligibility { get; init; } = new();
     public ContractLiquidityScoringConfiguration LiquidityScoring { get; init; } = new();
     public void Validate()
     {

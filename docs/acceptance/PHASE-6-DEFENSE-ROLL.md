@@ -123,7 +123,7 @@ Acceptance criteria:
 - [x] Weighted-average opening credit may represent multiple fills in the same current position.
 - [x] Unknown imported opening premium remains unavailable.
 - [x] Current open-position state remains mutable; historical evaluations are immutable.
-- [ ] Strongly typed configuration validates at startup/load time (composition-root loading is deferred to Phase 6E/6G).
+- [x] Strongly typed configuration validates at startup/load time.
 - [x] No numeric sentinel represents unavailable financial data.
 
 ---

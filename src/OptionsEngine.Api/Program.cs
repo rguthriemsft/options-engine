@@ -13,6 +13,8 @@ using OptionsEngine.MarketData.Tradier;
 using OptionsEngine.Strategy.Indicators;
 using OptionsEngine.Strategy.PositionSizing;
 using OptionsEngine.Application.PositionSizing;
+using OptionsEngine.Api.Defense;
+using OptionsEngine.Application.Defense;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -47,6 +49,8 @@ builder.Services.AddSingleton(earningsCalendar);
 builder.Services.AddSingleton<IEarningsDateSource, ConfiguredEarningsDateSource>();
 var positionSizingConfiguration = PositionSizingApiConfiguration.Load(builder.Configuration, indicatorConfiguration);
 builder.Services.AddSingleton(positionSizingConfiguration);
+var defenseRollConfiguration = DefenseApiConfiguration.Load(builder.Configuration, indicatorConfiguration.Version);
+builder.Services.AddSingleton(defenseRollConfiguration);
 builder.Services.AddScoped<SqliteHoldingRepository>();
 builder.Services.AddScoped<IHoldingRepository>(sp => sp.GetRequiredService<SqliteHoldingRepository>());
 builder.Services.AddScoped<IPositionSizingHoldingRepository>(sp => sp.GetRequiredService<SqliteHoldingRepository>());
