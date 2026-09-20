@@ -4,6 +4,7 @@ using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.Extensions.DependencyInjection;
 using OptionsEngine.Application.EntryStrategy;
+using OptionsEngine.Application.PositionSizing;
 
 namespace OptionsEngine.Api.Tests;
 
@@ -67,6 +68,12 @@ public sealed class HealthEndpointTests : IAsyncLifetime
             Assert.NotNull(scope.ServiceProvider.GetRequiredService<IEntryStrategyEvaluationRepository>());
             Assert.NotNull(scope.ServiceProvider.GetRequiredService<EntryStrategyEvaluationPersistenceService>());
             Assert.NotNull(scope.ServiceProvider.GetRequiredService<IEntryStrategyEvaluationWriter>());
+            Assert.NotNull(scope.ServiceProvider.GetRequiredService<IPositionSizingHoldingRepository>());
+            Assert.NotNull(scope.ServiceProvider.GetRequiredService<IPositionSizingMarketDataRepository>());
+            Assert.NotNull(scope.ServiceProvider.GetRequiredService<IOpenShortCallPositionRepository>());
+            Assert.NotNull(scope.ServiceProvider.GetRequiredService<IPositionSizingEvaluationOrchestrator>());
+            Assert.NotNull(scope.ServiceProvider.GetRequiredService<IPositionSizingEvaluationRepository>());
+            Assert.NotNull(scope.ServiceProvider.GetRequiredService<IPositionSizingEvaluationWriter>());
         }
         finally
         {

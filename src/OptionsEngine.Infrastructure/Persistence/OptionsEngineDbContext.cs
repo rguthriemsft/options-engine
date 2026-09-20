@@ -17,6 +17,8 @@ public sealed class OptionsEngineDbContext(DbContextOptions<OptionsEngineDbConte
     public DbSet<IndicatorSnapshotEntity> IndicatorSnapshots => Set<IndicatorSnapshotEntity>();
     public DbSet<EmptyOptionChainSnapshotEntity> EmptyOptionChainSnapshots => Set<EmptyOptionChainSnapshotEntity>();
     public DbSet<EntryStrategyEvaluationEntity> EntryStrategyEvaluations => Set<EntryStrategyEvaluationEntity>();
+    public DbSet<PositionSizingEvaluationEntity> PositionSizingEvaluations => Set<PositionSizingEvaluationEntity>();
+    public DbSet<OpenShortCallPositionEntity> OpenShortCallPositions => Set<OpenShortCallPositionEntity>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -97,6 +99,30 @@ public sealed class OptionsEngineDbContext(DbContextOptions<OptionsEngineDbConte
             entity.Property(x => x.EvaluationJson).IsRequired();
             entity.HasIndex(x => new { x.HoldingId, x.CalculatedAtUtc }).IsDescending(false, true);
             entity.HasIndex(x => x.Symbol);
+        });
+        modelBuilder.Entity<PositionSizingEvaluationEntity>(entity =>
+        {
+            entity.ToTable("PositionSizingEvaluations");
+            entity.HasKey(x => x.PositionSizingEvaluationEntityId);
+            entity.Property(x => x.Symbol).HasMaxLength(32);
+            entity.Property(x => x.Status).HasMaxLength(32).IsRequired();
+            entity.Property(x => x.PositionSizingStrategyVersion).HasMaxLength(64).IsRequired();
+            entity.Property(x => x.EvaluationJson).IsRequired();
+            entity.HasIndex(x => x.PositionSizingEvaluationId).IsUnique();
+            entity.HasIndex(x => new { x.EntryStrategyEvaluationId, x.CalculatedAtUtc }).IsDescending(false, true);
+            entity.HasOne<EntryStrategyEvaluationEntity>()
+                .WithMany()
+                .HasForeignKey(x => x.EntryStrategyEvaluationId)
+                .HasPrincipalKey(x => x.EntryStrategyEvaluationId)
+                .OnDelete(DeleteBehavior.Restrict);
+        });
+        modelBuilder.Entity<OpenShortCallPositionEntity>(entity =>
+        {
+            entity.ToTable("OpenShortCallPositions");
+            entity.HasKey(x => x.OpenShortCallPositionId);
+            entity.Property(x => x.OptionSymbol).HasMaxLength(64).IsRequired();
+            entity.Property(x => x.Strike).HasPrecision(18, 6);
+            entity.HasIndex(x => new { x.HoldingId, x.OptionSymbol });
         });
     }
 }

@@ -7,9 +7,12 @@ using OptionsEngine.Application.MarketData;
 using OptionsEngine.Application.Indicators;
 using OptionsEngine.Application.EntryStrategy;
 using OptionsEngine.Api.EntryStrategy;
+using OptionsEngine.Api.PositionSizing;
 using OptionsEngine.MarketData;
 using OptionsEngine.MarketData.Tradier;
 using OptionsEngine.Strategy.Indicators;
+using OptionsEngine.Strategy.PositionSizing;
+using OptionsEngine.Application.PositionSizing;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -42,13 +45,27 @@ var earningsCalendar = EntryStrategyApiConfiguration.LoadEarningsCalendar(builde
 builder.Services.AddSingleton(entryStrategyConfiguration);
 builder.Services.AddSingleton(earningsCalendar);
 builder.Services.AddSingleton<IEarningsDateSource, ConfiguredEarningsDateSource>();
-builder.Services.AddScoped<IHoldingRepository, SqliteHoldingRepository>();
+var positionSizingConfiguration = PositionSizingApiConfiguration.Load(builder.Configuration, indicatorConfiguration);
+builder.Services.AddSingleton(positionSizingConfiguration);
+builder.Services.AddScoped<SqliteHoldingRepository>();
+builder.Services.AddScoped<IHoldingRepository>(sp => sp.GetRequiredService<SqliteHoldingRepository>());
+builder.Services.AddScoped<IPositionSizingHoldingRepository>(sp => sp.GetRequiredService<SqliteHoldingRepository>());
 builder.Services.AddScoped<IEntryStrategyMarketDataRepository, SqliteEntryStrategyMarketDataRepository>();
 builder.Services.AddScoped<EntryStrategyEvaluationOrchestrator>();
 builder.Services.AddScoped<IEntryStrategyEvaluationRepository, SqliteEntryStrategyEvaluationRepository>();
 builder.Services.AddScoped<EntryStrategyEvaluationPersistenceService>();
 builder.Services.AddScoped<IEntryStrategyEvaluationWriter>(sp =>
     sp.GetRequiredService<EntryStrategyEvaluationPersistenceService>());
+builder.Services.AddScoped<IPositionSizingMarketDataRepository, SqlitePositionSizingMarketDataRepository>();
+builder.Services.AddScoped<IOpenShortCallPositionRepository, SqliteOpenShortCallPositionRepository>();
+builder.Services.AddScoped<IPositionSizingEngine, PositionSizingEngine>();
+builder.Services.AddScoped<PositionSizingEvaluationOrchestrator>();
+builder.Services.AddScoped<IPositionSizingEvaluationOrchestrator>(sp =>
+    sp.GetRequiredService<PositionSizingEvaluationOrchestrator>());
+builder.Services.AddScoped<IPositionSizingEvaluationRepository, SqlitePositionSizingEvaluationRepository>();
+builder.Services.AddScoped<PositionSizingEvaluationPersistenceService>();
+builder.Services.AddScoped<IPositionSizingEvaluationWriter>(sp =>
+    sp.GetRequiredService<PositionSizingEvaluationPersistenceService>());
 builder.Services.AddSingleton(TimeProvider.System);
 builder.Services.AddHealthChecks().AddCheck<DatabaseHealthCheck>("database");
 
@@ -65,6 +82,7 @@ await using (var scope = app.Services.CreateAsyncScope())
 app.MapHealthChecks("/health", new HealthCheckOptions { ResponseWriter = HealthResponseWriter.WriteAsync });
 app.MapIndicatorEndpoints();
 app.MapEntryStrategyEndpoints();
+app.MapPositionSizingEndpoints();
 var market = app.MapGroup("/api/market").AddEndpointFilter(async (context, next) =>
 {
     try { return await next(context); }

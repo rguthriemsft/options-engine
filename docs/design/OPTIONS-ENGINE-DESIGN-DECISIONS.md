@@ -882,6 +882,234 @@ fallbacks.
 See `docs/acceptance/PHASE-4-ENTRY-STRATEGY.md` for the complete acceptance
 matrix.
 
+
+## Phase 5 Position Sizing
+
+### Boundary and Artifact
+
+- Phase 5 consumes an immutable Phase 4 `EntryStrategyEvaluation`.
+- Phase 5 creates a separate immutable `PositionSizingEvaluation`.
+- Phase 5 does not rewrite `EntryStrategyEvaluation`.
+- Phase 5 does not create the final `Recommendation`; recommendation assembly remains downstream.
+- Each `PositionSizingEvaluation` permanently references its source `EntryStrategyEvaluationId`.
+- Phase 5 V1 sizes only `PreferredInitialContract`; multiple-contract allocation and strike laddering are deferred.
+- If `EntryCandidateExists == false`, sizing is `NotApplicable`, zero additional contracts, reason `NO_ENTRY_CANDIDATE`.
+
+### Shares and Physical Capacity
+
+- `Holding.Shares` is authoritative for owned shares.
+- `MaximumCoveragePercent` is a fractional ratio in `[0,1]`; `0.70 = 70%`.
+- `MaximumDeltaExposureRatio` is a fractional ratio in `[0,1]`.
+- Physical capacity is `floor(Shares / 100)`.
+- Whole-contract conversion always floors.
+- The old tax-sensitive rounding statement is removed as redundant; there is no extra tax-specific rounding penalty in Phase 5.
+- Negative shares are invalid.
+- Zero shares are a valid zero-capacity state only when no existing short-call obligation remains.
+
+### Existing Short-Call Exposure
+
+- The repository currently lacks a Transaction/Campaign/open-option-position implementation sufficient for Phase 5.
+- Phase 5 adds only the minimum current-state model needed to represent net open short call contracts by Holding.
+- This is not Phase 7 transaction-ledger or campaign accounting.
+- Existing coverage counts net open short calls for the same Holding only.
+- Pending brokerage orders are not modeled and do not reserve shares in V1.
+- `ExistingCoveredShares = ExistingCoveredContracts * 100`.
+- `AvailableShares = max(0, SharesOwned - ExistingCoveredShares)`.
+- `AvailableContracts = floor(AvailableShares / 100)`.
+- Existing exposure above physical capacity yields zero additional contracts plus an explicit anomaly/limiting reason.
+
+### Base Coverage
+
+Approved CCOS curve:
+
+```text
+CCOS < 70         0.00
+70 <= CCOS < 75   0.20
+75 <= CCOS < 80   0.30
+80 <= CCOS < 85   0.40
+85 <= CCOS < 90   0.50
+90 <= CCOS < 95   0.60
+95 <= CCOS <=100  0.70
+```
+
+A custom Phase 4 threshold permitting CCOS below 70 does not create a new sizing band; base coverage remains zero.
+
+### Assignment Sensitivity
+
+Both modifier and maximum apply:
+
+```text
+ASL1  modifier 1.25   maximum 1.00
+ASL2  modifier 1.10   maximum 0.90
+ASL3  modifier 1.00   maximum 0.80
+ASL4  modifier 0.85   maximum 0.70
+ASL5  modifier 0.70   maximum 0.50
+```
+
+- The old ASL5 `50–60%` ambiguity is resolved to a default maximum of `0.50`.
+- Sizing tables are configurable and versioned.
+
+### Contract Quality
+
+Use the persisted Contract Score of the Phase 4 preferred contract:
+
+```text
+Contract Score < 80         0.00
+80 <= score < 85            0.90
+85 <= score < 90            1.00
+90 <= score < 95            1.10
+95 <= score <= 100          1.15
+```
+
+A preferred contract below 80 under custom Phase 4 thresholds produces a valid zero-size result.
+
+### Portfolio Concentration
+
+- V1 concentration scope is the Holding's own Account.
+- All tracked holdings in the same Account participate regardless of strategy enabled state.
+- Cash and untracked assets are excluded.
+- Use the latest persisted daily Close at or before the source Phase 4 `IndicatorAsOfDate`.
+- `HoldingMarketValue = Shares * AsOfPrice`.
+- `PortfolioWeight = TargetHoldingMarketValue / Sum(tracked same-account HoldingMarketValue)`.
+- Missing a required participating price makes stock concentration unavailable; never ignore, zero-fill, or renormalize.
+- Stock modifiers:
+
+```text
+weight < 5%           1.10
+5% <= weight < 15%    1.00
+15% <= weight < 25%   0.90
+25% <= weight <= 40%  0.80
+weight > 40%          0.70
+```
+
+- ETF concentration is `NotApplicable` with effective modifier `1.00`.
+- `AssetType.Other` has no approved V1 concentration rule and is unsupported/insufficient for sizing.
+
+### Calculation Order
+
+```text
+RawCoverageRatio =
+    CcosBaseCoverageRatio
+    * AssignmentSensitivityModifier
+    * ContractQualityModifier
+    * ConcentrationModifier
+
+DesiredCoverageRatio =
+    min(
+        RawCoverageRatio,
+        AssignmentSensitivityMaximumRatio,
+        Holding.MaximumCoveragePercent
+    )
+
+DesiredTotalContracts =
+    floor(
+        SharesOwned * DesiredCoverageRatio / 100
+    )
+
+DesiredAdditionalContracts =
+    max(
+        0,
+        DesiredTotalContracts - ExistingCoveredContracts
+    )
+
+AdditionalContracts =
+    min(
+        DesiredAdditionalContracts,
+        AvailableContracts,
+        DERLimitedAdditionalContracts
+    )
+
+ResultingTotalContracts =
+    ExistingCoveredContracts + AdditionalContracts
+```
+
+### Delta Exposure Ratio
+
+```text
+ExistingDeltaShares =
+    SUM(ExistingContracts_i * ExistingCallDelta_i * 100)
+
+ExistingDER =
+    ExistingDeltaShares / SharesOwned
+
+ProposedDER(N) =
+    (
+        ExistingDeltaShares
+        + N * PreferredContractDelta * 100
+    )
+    / SharesOwned
+```
+
+- DER constrains only the already-calculated physically eligible action.
+- Choose the largest integer `N` in `0 <= N <= PhysicalLimitedAdditionalContracts` for which `ProposedDER(N) <= MaximumDeltaExposureRatio`.
+- Equality is allowed.
+- If `PreferredContractDelta == 0` and existing DER is within the maximum, `DERLimitedAdditionalContracts = PhysicalLimitedAdditionalContracts`; no artificial infinite/unbounded DER capacity is represented.
+- Existing positions use their own Deltas.
+- Call Delta must be finite and in `[0,1]`; do not repair malformed Delta with `abs()`.
+- Proposed new-contract Delta comes from the immutable Phase 4 preferred-contract observation.
+- Existing call Delta comes from the latest persisted normalized option observation at/before `SizingTimestampUtc`.
+- Persist the exact observations/timestamps consumed.
+- No hidden Delta freshness threshold exists in V1.
+- Missing required Delta produces `InsufficientData`.
+- Existing DER above maximum produces zero additional contracts, not a close recommendation.
+- Existing DER exactly at maximum permits only additions that keep ProposedDER at or below the maximum; therefore a positive preferred Delta allows zero additional contracts, while preferred Delta = 0 leaves the physically eligible action unchanged.
+
+### Scaling and Status
+
+Phase 5 returns both target state and immediate action:
+
+```text
+DesiredCoverageRatio
+DesiredTotalContracts
+DesiredAdditionalContracts
+AdditionalContracts
+ResultingTotalContracts
+```
+
+- Existing below target: add subject to capacity and DER.
+- Existing at target: zero additional.
+- Existing above target: zero additional and `EXISTING_COVERAGE_ABOVE_TARGET`.
+- Phase 5 never recommends closing calls because target coverage declined.
+- Top-level status distinguishes `Available`, `InsufficientData`, and `NotApplicable`.
+- An `Available` result may legitimately have `AdditionalContracts = 0`.
+- Missing required data is never converted to zero.
+
+### Time, Persistence, and Versioning
+
+- Phase 5 owns `SizingTimestampUtc`, separate from Phase 4 `EvaluationTimestampUtc`.
+- Immutable Phase 4 facts remain authoritative for CCOS, preferred contract, Contract Score, and proposed-contract Delta.
+- Mutable Phase 5 facts are snapshotted at sizing time.
+- Concentration prices are anchored to Phase 4 `IndicatorAsOfDate`.
+- V1 defines no hidden maximum age between Phase 4 and Phase 5.
+- Position Sizing evaluations are append-only and preserve complete exposure, Delta, concentration, configuration, version, limiting-factor, missing-input, and explanation context.
+- V1 continues the shared `ConfigurationVersion`.
+- Position Sizing has explicit strategy-version identity; do not overload `IndicatorCalculationVersion`.
+
+### API and Packets
+
+Conceptual immutable resource boundary:
+
+```http
+POST /api/entry-evaluations/{entryStrategyEvaluationId}/position-sizing-evaluations
+GET /api/position-sizing-evaluations/{positionSizingEvaluationId}
+```
+
+The existing Phase 4 POST retains its established meaning.
+
+Approved packet sequence:
+
+```text
+5A — Position Sizing foundations
+5B — Base coverage and caps
+5C — Portfolio concentration
+5D — Existing exposure and DER
+5E — Application orchestration
+5F — Immutable persistence
+5G — API and merge gate
+```
+
+See `docs/design/PHASE-5-POSITION-SIZING-DESIGN.md` and `docs/acceptance/PHASE-5-POSITION-SIZING.md`.
+
 ## Phase Boundaries
 
 Phase 3 calculates facts/classifications.
