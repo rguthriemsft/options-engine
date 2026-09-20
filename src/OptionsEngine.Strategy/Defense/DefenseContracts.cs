@@ -31,9 +31,22 @@ public sealed record DefenseHoldingContext(Guid HoldingId, string Symbol, AssetT
         if (!Enum.IsDefined(TaxSensitivity)) throw new ArgumentOutOfRangeException(nameof(TaxSensitivity));
     }
 }
-public sealed record DefenseOptionObservation(string OptionSymbol, DateTimeOffset ObservationTimestampUtc, string Provider,
+public sealed record DefenseOptionObservation(string OptionSymbol, string UnderlyingSymbol,
+    DateTimeOffset ObservationTimestampUtc, DateOnly Expiration, decimal Strike, OptionContractType OptionType,
     decimal? Bid, decimal? Ask, decimal? Last, long? OpenInterest, double? ImpliedVolatility, double? Delta,
-    double? Gamma, double? Theta, double? Vega, decimal? UnderlyingPrice);
+    double? Gamma, double? Theta, double? Vega, decimal? UnderlyingPrice, string Provider)
+{
+    public void Validate()
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(OptionSymbol);
+        ArgumentException.ThrowIfNullOrWhiteSpace(UnderlyingSymbol);
+        ArgumentException.ThrowIfNullOrWhiteSpace(Provider);
+        if (ObservationTimestampUtc.Offset != TimeSpan.Zero)
+            throw new ArgumentException("ObservationTimestampUtc must be UTC.", nameof(ObservationTimestampUtc));
+        if (Strike <= 0) throw new ArgumentOutOfRangeException(nameof(Strike));
+        if (!Enum.IsDefined(OptionType)) throw new ArgumentOutOfRangeException(nameof(OptionType));
+    }
+}
 
 public enum DefenseDisposition { NoAction, Monitor, ProfitClose, DefenseReview, Roll, CloseWait }
 public enum ProfitTakingSignal { None, Monitor, CloseCandidate, StrongCloseCandidate }
@@ -75,7 +88,29 @@ public sealed record RollEvaluation(Guid RollEvaluationId, Guid DefenseEvaluatio
     ConfigurationVersion ConfigurationVersion, RollStrategyVersion StrategyVersion,
     ImmutableArray<RollMissingInputCode> MissingInputs, ImmutableArray<string> Explanations);
 public sealed record SelectedRollChainSnapshot(string UnderlyingSymbol, DateOnly Expiration,
-    DateTimeOffset ObservationTimestampUtc, string Provider, ImmutableArray<DefenseOptionObservation> Contracts);
+    DateTimeOffset ObservationTimestampUtc, string Provider, ImmutableArray<DefenseOptionObservation> Contracts)
+{
+    public void Validate()
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(UnderlyingSymbol);
+        ArgumentException.ThrowIfNullOrWhiteSpace(Provider);
+        if (ObservationTimestampUtc.Offset != TimeSpan.Zero)
+            throw new ArgumentException("ObservationTimestampUtc must be UTC.", nameof(ObservationTimestampUtc));
+        if (Contracts.IsDefault)
+            throw new ArgumentException("Contracts must be initialized; an empty selected chain is valid.", nameof(Contracts));
+
+        foreach (var contract in Contracts)
+        {
+            ArgumentNullException.ThrowIfNull(contract);
+            contract.Validate();
+            if (!string.Equals(contract.UnderlyingSymbol, UnderlyingSymbol, StringComparison.Ordinal) ||
+                contract.Expiration != Expiration ||
+                contract.ObservationTimestampUtc != ObservationTimestampUtc ||
+                !string.Equals(contract.Provider, Provider, StringComparison.Ordinal))
+                throw new ArgumentException("Every contract must belong to the selected chain snapshot.", nameof(Contracts));
+        }
+    }
+}
 public sealed record DefenseEvaluationInput(OpenShortCallPositionSnapshot Position, DefenseHoldingContext Holding,
     DefenseOptionObservation? CurrentOptionObservation, DefenseOptionObservation? PreviousDeltaObservation,
     double? CurrentCcos, EarningsContext Earnings, DateTimeOffset DefenseEvaluationTimestampUtc,

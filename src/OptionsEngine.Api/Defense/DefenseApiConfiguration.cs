@@ -1,14 +1,17 @@
 using System.Globalization;
 using OptionsEngine.Application.Defense;
 using OptionsEngine.Strategy.Defense;
+using OptionsEngine.Strategy.EntryStrategy;
 using OptionsEngine.Strategy.Indicators;
 
 namespace OptionsEngine.Api.Defense;
 
 internal static class DefenseApiConfiguration
 {
-    public static DefenseRollConfiguration Load(IConfiguration configuration, ConfigurationVersion sharedVersion)
+    public static DefenseRollConfiguration Load(IConfiguration configuration, ConfigurationVersion sharedVersion,
+        EntryStrategyConfiguration entryStrategyConfiguration)
     {
+        ArgumentNullException.ThrowIfNull(entryStrategyConfiguration);
         var section = configuration.GetSection("Defense");
         var defenseVersion = section["StrategyVersion"];
         var rollVersion = section["RollStrategyVersion"];
@@ -19,6 +22,10 @@ internal static class DefenseApiConfiguration
         if (!decimal.TryParse(section["MaximumRollDebitPerShare"], NumberStyles.Number,
                 CultureInfo.InvariantCulture, out var maximumDebit) || maximumDebit < 0)
             throw new InvalidOperationException("Defense:MaximumRollDebitPerShare must be a non-negative decimal.");
+        if (section.GetSection("Roll:LiquidityEligibility").Exists() ||
+            section.GetSection("Roll:LiquidityScoring").Exists())
+            throw new InvalidOperationException(
+                "Phase 6 Roll liquidity is shared with EntryStrategy and cannot be configured independently.");
 
         var loadedDefense = section.GetSection("Configuration").Get<DefenseConfiguration>();
         var loadedRoll = section.GetSection("Roll").Get<RollConfiguration>();
@@ -32,10 +39,14 @@ internal static class DefenseApiConfiguration
                 HardTriggers = section.GetSection("HardTriggers").Get<HardTriggerConfiguration>()
                     ?? loadedDefense?.HardTriggers ?? new HardTriggerConfiguration()
             },
-            Roll = (loadedRoll ?? new RollConfiguration
+            Roll = ((loadedRoll ?? new RollConfiguration
             {
                 Version = sharedVersion, MaximumRollDebitPerShare = maximumDebit
-            }) with { Version = sharedVersion, MaximumRollDebitPerShare = maximumDebit },
+            }) with
+            {
+                Version = sharedVersion,
+                MaximumRollDebitPerShare = maximumDebit
+            }).WithLiquidityFrom(entryStrategyConfiguration),
             DefenseStrategyVersion = new DefenseStrategyVersion(defenseVersion),
             RollStrategyVersion = new RollStrategyVersion(rollVersion)
         };

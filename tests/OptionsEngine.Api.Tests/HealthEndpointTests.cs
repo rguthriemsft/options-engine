@@ -89,6 +89,8 @@ public sealed class HealthEndpointTests : IAsyncLifetime
     [InlineData("Defense:MaximumRollDebitPerShare", "-0.01")]
     [InlineData("Defense:ProfitTaking:CloseRatio", "0.40")]
     [InlineData("Defense:Roll:PreferredMaximumDte", "61")]
+    [InlineData("Defense:Roll:LiquidityEligibility:MinimumOpenInterest", "999")]
+    [InlineData("Defense:Roll:LiquidityScoring:MaximumBidAskSpreadPercent", "0.01")]
     public void InvalidPhaseSixConfigurationFailsDuringComposition(string key, string value)
     {
         using var factory = new WebApplicationFactory<Program>().WithWebHostBuilder(builder =>
@@ -98,5 +100,23 @@ public sealed class HealthEndpointTests : IAsyncLifetime
             builder.UseSetting(key, value);
         });
         Assert.ThrowsAny<Exception>(() => _ = factory.Services);
+    }
+
+    [Fact]
+    public void PhaseSixRollReusesResolvedPhaseFourLiquidityConfiguration()
+    {
+        using var factory = new WebApplicationFactory<Program>().WithWebHostBuilder(builder =>
+        {
+            builder.UseEnvironment("Testing");
+            builder.UseSetting("ConnectionStrings:OptionsEngine", $"Data Source={databasePath}");
+        });
+        using var scope = factory.Services.CreateScope();
+        var entry = scope.ServiceProvider.GetRequiredService<EntryStrategyOrchestrationConfiguration>();
+        var defense = scope.ServiceProvider.GetRequiredService<DefenseRollConfiguration>();
+
+        Assert.Equal(entry.StrategyConfiguration.ContractEligibility.LiquidityEligibility,
+            defense.Roll.LiquidityEligibility);
+        Assert.Same(entry.StrategyConfiguration.ContractScore.Liquidity, defense.Roll.LiquidityScoring);
+        Assert.Equal(.25, defense.Roll.NormalMaximumDelta);
     }
 }

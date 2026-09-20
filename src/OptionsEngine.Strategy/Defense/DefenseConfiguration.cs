@@ -98,6 +98,17 @@ public sealed record RollConfiguration
     public double CurrentCcosRollThreshold { get; init; } = 55;
     public ContractLiquidityEligibilityConfiguration LiquidityEligibility { get; init; } = new();
     public ContractLiquidityScoringConfiguration LiquidityScoring { get; init; } = new();
+
+    public RollConfiguration WithLiquidityFrom(EntryStrategyConfiguration entryStrategyConfiguration)
+    {
+        ArgumentNullException.ThrowIfNull(entryStrategyConfiguration);
+        return this with
+        {
+            LiquidityEligibility = entryStrategyConfiguration.ContractEligibility.LiquidityEligibility,
+            LiquidityScoring = entryStrategyConfiguration.ContractScore.Liquidity
+        };
+    }
+
     public void Validate()
     {
         if (Version.Value < 1) throw new ArgumentOutOfRangeException(nameof(Version));

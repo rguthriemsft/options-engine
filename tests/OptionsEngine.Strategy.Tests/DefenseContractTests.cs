@@ -42,6 +42,43 @@ public sealed class DefenseContractTests
     }
 
     [Fact]
+    public void RollConfigurationUsesResolvedPhaseFourLiquidityOnly()
+    {
+        var liquidityScoring = new ContractLiquidityScoringConfiguration
+        {
+            SpreadPercent = new ContinuousScoreTable { Bands =
+            [
+                new(null, false, .04, true, 5), new(.04, false, .08, true, 4),
+                new(.08, false, .12, true, 2), new(.12, false, .15, true, 1)
+            ] },
+            OpenInterest = new IntegerScoreTable { Bands =
+            [
+                new(250, 499, 1), new(500, 999, 2), new(1000, 1999, 3),
+                new(2000, 3999, 4), new(4000, null, 5)
+            ] }
+        };
+        var phaseFour = new EntryStrategyConfiguration
+        {
+            Version = new ConfigurationVersion(1),
+            ContractEligibility = new ContractEligibilityConfiguration
+            {
+                MinimumOpenInterest = 250,
+                MaximumBidAskSpreadPercent = .15
+            },
+            ContractScore = new ContractScoreConfiguration { Liquidity = liquidityScoring }
+        };
+        phaseFour.Validate();
+
+        var resolved = Roll().WithLiquidityFrom(phaseFour);
+
+        Assert.Equal(250, resolved.LiquidityEligibility.MinimumOpenInterest);
+        Assert.Equal(.15, resolved.LiquidityEligibility.MaximumBidAskSpreadPercent);
+        Assert.Same(liquidityScoring, resolved.LiquidityScoring);
+        Assert.Equal(21, resolved.MinimumReplacementDte);
+        Assert.Equal(.25, resolved.NormalMaximumDelta);
+    }
+
+    [Fact]
     public void MaximumRollDebitMayBeZeroButNotNegative()
     {
         (Roll() with { MaximumRollDebitPerShare = 0 }).Validate();
@@ -70,9 +107,22 @@ public sealed class DefenseContractTests
     [Fact]
     public void MalformedDeltaRemainsMalformedAndIsNotNormalized()
     {
-        var observation = new DefenseOptionObservation("MSFT-C", DateTimeOffset.UnixEpoch, "Test", null, null,
-            null, null, null, -.25, null, null, null, null);
+        var observation = Observation(delta: -.25);
         Assert.Equal(-.25, observation.Delta);
+    }
+
+    [Fact]
+    public void ReplacementObservationPreservesContractIdentityAndTerms()
+    {
+        var observation = Observation();
+
+        Assert.Equal("MSFT-C", observation.OptionSymbol);
+        Assert.Equal("MSFT", observation.UnderlyingSymbol);
+        Assert.Equal(DateTimeOffset.UnixEpoch, observation.ObservationTimestampUtc);
+        Assert.Equal(new DateOnly(2026, 11, 20), observation.Expiration);
+        Assert.Equal(110m, observation.Strike);
+        Assert.Equal(OptionContractType.Call, observation.OptionType);
+        Assert.Equal("Test", observation.Provider);
     }
 
     [Fact]
@@ -94,7 +144,17 @@ public sealed class DefenseContractTests
     {
         var chain = new SelectedRollChainSnapshot("MSFT", new DateOnly(2026, 11, 20), DateTimeOffset.UnixEpoch,
             "Test", []);
+        chain.Validate();
         Assert.Empty(chain.Contracts);
+    }
+
+    [Fact]
+    public void SelectedRollChainRejectsContractFromDifferentSnapshot()
+    {
+        var chain = new SelectedRollChainSnapshot("MSFT", new DateOnly(2026, 11, 20), DateTimeOffset.UnixEpoch,
+            "Test", [Observation() with { Expiration = new DateOnly(2026, 12, 18) }]);
+
+        Assert.Throws<ArgumentException>(chain.Validate);
     }
 
     private static RollConfiguration Roll() => new()
@@ -105,6 +165,10 @@ public sealed class DefenseContractTests
 
     private static OpenShortCallPositionSnapshot Position(decimal? premium) => new(42, Guid.NewGuid(), "MSFT-C", 1,
         100m, new DateOnly(2026, 10, 16), premium, null);
+
+    private static DefenseOptionObservation Observation(double? delta = .15) => new("MSFT-C", "MSFT",
+        DateTimeOffset.UnixEpoch, new DateOnly(2026, 11, 20), 110m, OptionContractType.Call,
+        1m, 1.10m, 1.05m, 250, .30, delta, .02, -.01, .10, 100m, "Test");
 
     private static DefenseEvaluationInput Input()
     {

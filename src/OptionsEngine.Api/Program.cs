@@ -49,7 +49,8 @@ builder.Services.AddSingleton(earningsCalendar);
 builder.Services.AddSingleton<IEarningsDateSource, ConfiguredEarningsDateSource>();
 var positionSizingConfiguration = PositionSizingApiConfiguration.Load(builder.Configuration, indicatorConfiguration);
 builder.Services.AddSingleton(positionSizingConfiguration);
-var defenseRollConfiguration = DefenseApiConfiguration.Load(builder.Configuration, indicatorConfiguration.Version);
+var defenseRollConfiguration = DefenseApiConfiguration.Load(builder.Configuration, indicatorConfiguration.Version,
+    entryStrategyConfiguration.StrategyConfiguration);
 builder.Services.AddSingleton(defenseRollConfiguration);
 builder.Services.AddScoped<SqliteHoldingRepository>();
 builder.Services.AddScoped<IHoldingRepository>(sp => sp.GetRequiredService<SqliteHoldingRepository>());
