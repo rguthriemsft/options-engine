@@ -48,7 +48,7 @@ public sealed class DefenseEvaluator
                 band.IncludesMaximum, score)).Classification;
     }
 
-    internal static DateOnly EvaluationDate(DateTimeOffset evaluationTimestampUtc) =>
+    public static DateOnly EvaluationDate(DateTimeOffset evaluationTimestampUtc) =>
         DateOnly.FromDateTime(TimeZoneInfo.ConvertTime(evaluationTimestampUtc, NewYorkTimeZone).DateTime);
 
     internal static DrsResult EvaluateDrs(OpenShortCallPositionSnapshot position,

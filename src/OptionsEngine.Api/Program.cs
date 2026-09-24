@@ -63,6 +63,12 @@ builder.Services.AddScoped<IEntryStrategyEvaluationWriter>(sp =>
     sp.GetRequiredService<EntryStrategyEvaluationPersistenceService>());
 builder.Services.AddScoped<IPositionSizingMarketDataRepository, SqlitePositionSizingMarketDataRepository>();
 builder.Services.AddScoped<IOpenShortCallPositionRepository, SqliteOpenShortCallPositionRepository>();
+builder.Services.AddScoped<ICurrentOpenShortCallPositionRepository, SqliteOpenShortCallPositionRepository>();
+builder.Services.AddScoped<IDefenseMarketDataRepository, SqliteDefenseMarketDataRepository>();
+builder.Services.AddScoped<ICurrentCcosResolver, CurrentCcosResolver>();
+builder.Services.AddScoped<DefenseEvaluationOrchestrator>();
+builder.Services.AddScoped<IDefenseEvaluationOrchestrator>(sp =>
+    sp.GetRequiredService<DefenseEvaluationOrchestrator>());
 builder.Services.AddScoped<IPositionSizingEngine, PositionSizingEngine>();
 builder.Services.AddScoped<PositionSizingEvaluationOrchestrator>();
 builder.Services.AddScoped<IPositionSizingEvaluationOrchestrator>(sp =>

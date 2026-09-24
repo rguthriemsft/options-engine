@@ -139,15 +139,15 @@ to DefenseEvaluationTimestampUtc
 Acceptance criteria:
 
 - [x] DTE uses the New York evaluation date.
-- [ ] `CalculatedAtUtc` is distinct from the logical evaluation timestamp.
+- [x] `CalculatedAtUtc` is distinct from the logical evaluation timestamp.
 - [x] Current existing-call Ask, Delta, and underlying price come from one selected normalized option observation.
 - [x] Strategy never synthesizes an observation by mixing timestamps.
-- [ ] For each candidate expiration, the latest complete chain at/before the evaluation cutoff is selected.
-- [ ] Contracts from different timestamps are never mixed within one expiration.
-- [ ] Different expirations may use different selected chain timestamps.
-- [ ] Every selected observation/timestamp used for reproducibility is preserved.
-- [ ] Cache freshness/refresh remains Application/MarketData behavior.
-- [ ] No hidden Phase 6 strategy freshness threshold exists.
+- [x] For each candidate expiration, the latest complete chain at/before the evaluation cutoff is selected.
+- [x] Contracts from different timestamps are never mixed within one expiration.
+- [x] Different expirations may use different selected chain timestamps.
+- [x] Every selected observation/timestamp used for reproducibility is preserved.
+- [x] Cache freshness/refresh remains Application/MarketData behavior.
+- [x] No hidden Phase 6 strategy freshness threshold exists.
 
 ---
 
@@ -700,9 +700,9 @@ Acceptance criteria:
 
 Acceptance criteria:
 
-- [ ] Current CCOS uses existing Phase 4 CCOS semantics.
-- [ ] Application resolves current approved indicator/context inputs.
-- [ ] Current CCOS is not reused from an unrelated historical Phase 4 evaluation.
+- [x] Current CCOS uses existing Phase 4 CCOS semantics.
+- [x] Application resolves current approved indicator/context inputs.
+- [x] Current CCOS is not reused from an unrelated historical Phase 4 evaluation.
 - [x] CCOS does not decide whether candidate analysis runs.
 - [x] Exact 55 enters the ROLL side when a Rankable candidate exists.
 - [x] Unavailable CCOS preserves explicit missing data.
@@ -730,14 +730,14 @@ DefenseEvaluationTimestampUtc
 
 Acceptance criteria:
 
-- [ ] Application, not Strategy, accesses repositories/providers.
-- [ ] Current state is snapshotted into the evaluation.
-- [ ] Selected market observations are reproducible.
-- [ ] Current CCOS context is resolved only when required by the disposition path.
-- [ ] No provider DTO reaches Strategy.
-- [ ] No strategy calculation reads wall-clock time directly.
-- [ ] Phase 6 introduces no scheduler/background service requirement.
-- [ ] No trade side effects occur.
+- [x] Application, not Strategy, accesses repositories/providers.
+- [x] Current state is snapshotted into the evaluation.
+- [x] Selected market observations are reproducible.
+- [x] Current CCOS context is resolved only when required by the disposition path.
+- [x] No provider DTO reaches Strategy.
+- [x] No strategy calculation reads wall-clock time directly.
+- [x] Phase 6 introduces no scheduler/background service requirement.
+- [x] No trade side effects occur.
 
 ---
 
@@ -799,15 +799,15 @@ Acceptance criteria:
 
 Acceptance criteria:
 
-- [ ] Stable machine-readable codes exist separately from human explanations.
-- [ ] DRS component inputs/scores/maxima are preserved.
-- [ ] Every hard-trigger result is preserved, not only triggered ones.
-- [ ] Profit-taking inputs and gross captured ratio are preserved.
-- [ ] Every roll hard gate is observable.
+- [x] Stable machine-readable codes exist separately from human explanations.
+- [x] DRS component inputs/scores/maxima are preserved.
+- [x] Every hard-trigger result is preserved, not only triggered ones.
+- [x] Profit-taking inputs and gross captured ratio are preserved.
+- [x] Every roll hard gate is observable.
 - [x] Every candidate state is explicit.
 - [x] Roll economics preserves BTC Ask, replacement Bid, NetRollPerShare, NetRollTotal, debit utilization, and credit ratio where applicable.
 - [x] RQS component values are preserved.
-- [ ] Candidate rejection/missing-data reasons are preserved.
+- [x] Candidate rejection/missing-data reasons are preserved.
 - [x] Preferred candidate and tie-break ordering are reproducible.
 - [x] Disposition reason is available without consumers reconstructing strategy logic.
 
@@ -852,8 +852,8 @@ DefenseInsufficientData
 
 Acceptance criteria:
 
-- [ ] SafeHold yields no defensive activation and NO_ACTION or MONITOR according to profit-taking state.
-- [ ] ProfitClose demonstrates low defense risk with >=70% gross capture.
+- [x] SafeHold yields no defensive activation and NO_ACTION or MONITOR according to profit-taking state.
+- [x] ProfitClose demonstrates low defense risk with >=70% gross capture.
 - [ ] HighDeltaDefense demonstrates exact .40 trigger semantics.
 - [ ] ItmDefense triggers regardless of Delta availability where ITM can be established.
 - [ ] RapidDeltaDefense uses previous trading observation, not 24-hour subtraction.

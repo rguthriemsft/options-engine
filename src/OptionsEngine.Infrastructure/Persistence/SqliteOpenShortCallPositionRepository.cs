@@ -19,12 +19,24 @@ public sealed class SqliteOpenShortCallPositionRepository(OptionsEngineDbContext
             .Select(x => new ExistingShortCallExposure(x.HoldingId, x.OptionSymbol, x.Contracts, x.Strike, x.Expiration))
             .ToListAsync(cancellationToken);
 
+    public async Task<OpenShortCallPositionSnapshot?> GetByIdAsync(Guid holdingId, long openShortCallPositionId,
+        CancellationToken cancellationToken = default)
+    {
+        var row = await db.OpenShortCallPositions.AsNoTracking()
+            .SingleOrDefaultAsync(x => x.HoldingId == holdingId &&
+                x.OpenShortCallPositionId == openShortCallPositionId, cancellationToken);
+        return row is null ? null : new OpenShortCallPositionSnapshot(row.OpenShortCallPositionId, row.HoldingId,
+            row.OptionSymbol, row.Contracts, row.Strike, row.Expiration, row.OpeningPremiumPerShare, row.OpenedAtUtc);
+    }
+
     public async Task<OpenShortCallPositionSnapshot?> GetByIdAsync(long openShortCallPositionId,
         CancellationToken cancellationToken = default)
     {
         var row = await db.OpenShortCallPositions.AsNoTracking()
-            .SingleOrDefaultAsync(x => x.OpenShortCallPositionId == openShortCallPositionId, cancellationToken);
-        return row is null ? null : new OpenShortCallPositionSnapshot(row.OpenShortCallPositionId, row.HoldingId,
-            row.OptionSymbol, row.Contracts, row.Strike, row.Expiration, row.OpeningPremiumPerShare, row.OpenedAtUtc);
+            .SingleOrDefaultAsync(x => x.OpenShortCallPositionId == openShortCallPositionId,
+                cancellationToken);
+        return row is null ? null : new OpenShortCallPositionSnapshot(row.OpenShortCallPositionId,
+            row.HoldingId, row.OptionSymbol, row.Contracts, row.Strike, row.Expiration,
+            row.OpeningPremiumPerShare, row.OpenedAtUtc);
     }
 }

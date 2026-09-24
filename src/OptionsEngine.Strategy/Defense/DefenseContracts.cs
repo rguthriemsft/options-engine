@@ -163,9 +163,14 @@ public sealed record DefenseDispositionResult(DefenseDisposition Disposition,
     ImmutableArray<DefenseReasonCode> ReasonCodes,
     ImmutableArray<DefenseMissingInputCode> MissingInputs,
     ImmutableArray<string> Explanations);
+public sealed record CurrentCcosContext(EvaluationContext EvaluationContext, ScoreResult Result)
+{
+    public double? Score => Result.Status == ScoreStatus.Available ? Result.Score : null;
+}
 public sealed record RollEvaluation(Guid RollEvaluationId, Guid DefenseEvaluationId,
     DateTimeOffset DefenseEvaluationTimestampUtc, DateTimeOffset CalculatedAtUtc,
-    OpenShortCallPositionSnapshot CurrentPositionSnapshot, double? CurrentCcos, decimal? ExistingBtcPerShare,
+    OpenShortCallPositionSnapshot CurrentPositionSnapshot, CurrentCcosContext? CurrentCcosContext,
+    double? CurrentCcos, decimal? ExistingBtcPerShare,
     ImmutableArray<SelectedRollChainSnapshot> SelectedChainSnapshots,
     ImmutableArray<RollCandidateEvaluation> Candidates, string? PreferredOptionSymbol, decimal? PreferredStrike,
     DateOnly? PreferredExpiration, double? PreferredRqs, RollConfiguration ResolvedConfiguration,
@@ -247,8 +252,13 @@ internal static class DefenseObservationValidation
     }
 }
 public sealed record DefenseEvaluation(Guid DefenseEvaluationId, long OpenShortCallPositionId, Guid HoldingId,
-    string OptionSymbol, DateTimeOffset DefenseEvaluationTimestampUtc, DateTimeOffset CalculatedAtUtc,
-    DefenseHoldingContext HoldingContext, DefenseEvaluationInput Input, ProfitTakingResult ProfitTaking, DrsResult Drs,
+    string Symbol, string OptionSymbol, DateTimeOffset DefenseEvaluationTimestampUtc, DateTimeOffset CalculatedAtUtc,
+    OpenShortCallPositionSnapshot PositionSnapshot, DefenseHoldingContext HoldingContext,
+    DefenseOptionObservation? CurrentOptionObservation, DefenseOptionObservation? PreviousDeltaObservation,
+    CurrentCcosContext? CurrentCcosContext, double? CurrentCcos, EarningsContext EarningsContext,
+    DefenseConfiguration ResolvedDefenseConfiguration, RollConfiguration ResolvedRollConfiguration,
+    ConfigurationVersion ConfigurationVersion, DefenseStrategyVersion DefenseStrategyVersion,
+    RollStrategyVersion RollStrategyVersion, ProfitTakingResult ProfitTaking, DrsResult Drs,
     ImmutableArray<HardTriggerResult> HardTriggers, HardDefenseStatus HardDefenseStatus, bool RollEngineRequired,
     Guid? RollEvaluationId, DefenseDisposition Disposition, ImmutableArray<DefenseReasonCode> ReasonCodes,
     ImmutableArray<DefenseMissingInputCode> MissingInputs, ImmutableArray<string> Explanations);
