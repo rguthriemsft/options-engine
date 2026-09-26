@@ -37,7 +37,7 @@ public sealed class CurrentCcosResolver(
             configuration.IndicatorCalculationVersion, configuration.StrategyConfiguration.Version,
             cancellationToken);
         if (snapshot is null || snapshot.CalculatedAt > evaluationTimestampUtc)
-            snapshot = await indicatorOrchestration.CalculateAndPersistAsync(holding.Symbol,
+            snapshot = await indicatorOrchestration.CalculateAsync(holding.Symbol,
                 indicatorAsOfDate.Value, configuration.IndicatorConfiguration,
                 configuration.IndicatorCalculationVersion, evaluationTimestampUtc, cancellationToken);
         if (snapshot.ConfigurationVersion != configuration.StrategyConfiguration.Version)

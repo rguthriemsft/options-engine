@@ -34,6 +34,25 @@ public sealed class IndicatorOrchestrationTests
     }
 
     [Fact]
+    public async Task CalculateComposesTheSameSnapshotWithoutPersistingCanonicalState()
+    {
+        var repository = Fixture();
+        var service = Service(repository);
+
+        var transient = await service.CalculateAsync(" msft ", AsOf, Configuration(), Version, CalculatedAt);
+
+        Assert.Equal(("MSFT", AsOf, Version, new ConfigurationVersion(1), CalculatedAt),
+            (transient.Symbol, transient.AsOfDate, transient.IndicatorCalculationVersion,
+                transient.ConfigurationVersion, transient.CalculatedAt));
+        Assert.Equal(IndicatorValueStatus.Available, transient.Sma200.Status);
+        Assert.Equal(0.3, transient.Iv30.Value!.Value, 12);
+        Assert.Equal(MarketRegime.Bullish, transient.MarketRegime);
+        Assert.Equal(MarketRegime.Bearish, transient.SectorRegime);
+        Assert.Equal(0, repository.SaveCount);
+        Assert.Empty(repository.Snapshots);
+    }
+
+    [Fact]
     public async Task RetryReplacesSameIdentityAndFutureInputsDoNotChangeHistoricalFacts()
     {
         var repository = Fixture();

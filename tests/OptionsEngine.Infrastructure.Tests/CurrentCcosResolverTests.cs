@@ -1,7 +1,9 @@
+using Microsoft.EntityFrameworkCore;
 using OptionsEngine.Application.Defense;
 using OptionsEngine.Application.EntryStrategy;
 using OptionsEngine.Application.Indicators;
 using OptionsEngine.Domain.Accounts;
+using OptionsEngine.Infrastructure.Persistence;
 using OptionsEngine.MarketData;
 using OptionsEngine.MarketData.Models;
 using OptionsEngine.Strategy.EntryStrategy;
@@ -43,6 +45,88 @@ public sealed class CurrentCcosResolverTests
             result.Result.Components.Select(component => (component.Code, component.Score)));
         Assert.Equal(ScoreStatus.Available, result.Result.Status);
         Assert.Equal(1, repository.LatestDateCalls);
+        Assert.Equal(0, repository.CalculationReadCalls);
+        Assert.Equal(0, repository.UpsertCalls);
+    }
+
+    [Fact]
+    public async Task FuturePersistedSnapshotUsesTransientCutoffSafeCalculationWithoutUpsert()
+    {
+        var repository = new FakeIndicatorRepository
+        {
+            Snapshot = Snapshot() with { CalculatedAt = EvaluationAt.AddMinutes(1) }
+        };
+        var resolver = new CurrentCcosResolver(new IndicatorOrchestrationService(repository,
+            new FakeProvider(), new IndicatorOrchestrationConfiguration()), Configuration());
+
+        var result = await resolver.ResolveAsync(Holding(),
+            new EarningsContext(AvailabilityStatus.Available, new DateOnly(2027, 1, 1)), EvaluationAt,
+            new ConfigurationVersion(1));
+
+        Assert.NotNull(result);
+        Assert.Equal(EvaluationAt, result.EvaluationContext.Indicators.IndicatorCalculatedAtUtc);
+        Assert.Equal(IndicatorVersion,
+            result.EvaluationContext.Indicators.IndicatorCalculationVersion);
+        Assert.Equal(new ConfigurationVersion(1),
+            result.EvaluationContext.Indicators.ConfigurationVersion);
+        Assert.True(repository.CalculationReadCalls > 0);
+        Assert.Equal(0, repository.UpsertCalls);
+    }
+
+    [Fact]
+    public async Task MissingPersistedSnapshotUsesTransientCalculationWithoutUpsert()
+    {
+        var repository = new FakeIndicatorRepository { Snapshot = null };
+        var resolver = new CurrentCcosResolver(new IndicatorOrchestrationService(repository,
+            new FakeProvider(), new IndicatorOrchestrationConfiguration()), Configuration());
+
+        var result = await resolver.ResolveAsync(Holding(),
+            new EarningsContext(AvailabilityStatus.Available, new DateOnly(2027, 1, 1)), EvaluationAt,
+            new ConfigurationVersion(1));
+
+        Assert.NotNull(result);
+        Assert.Equal(EvaluationAt, result.EvaluationContext.Indicators.IndicatorCalculatedAtUtc);
+        Assert.True(repository.CalculationReadCalls > 0);
+        Assert.Equal(0, repository.UpsertCalls);
+    }
+
+    [Fact]
+    public async Task HistoricalResolutionDoesNotOverwriteNewerCanonicalSqliteSnapshot()
+    {
+        var databasePath = Path.Combine(Path.GetTempPath(),
+            $"options-engine-current-ccos-{Guid.NewGuid():N}.db");
+        try
+        {
+            await using var db = CreateContext(databasePath);
+            await db.Database.MigrateAsync();
+            var repository = new SqliteIndicatorDataRepository(db);
+            var cache = new SqliteMarketDataCache(db);
+            await cache.UpsertHistoricalBarsAsync(
+                [new HistoricalBar("MSFT", AsOfDate, 100m, 101m, 99m, 100m, 1000, "FakeProvider")],
+                AsOfDate, AsOfDate, EvaluationAt.AddMinutes(-1));
+            await repository.UpsertSnapshotAsync(Snapshot() with { CalculatedAt = EvaluationAt.AddHours(1) });
+            var original = await db.IndicatorSnapshots.AsNoTracking().SingleAsync();
+
+            var resolver = new CurrentCcosResolver(new IndicatorOrchestrationService(repository,
+                new FakeProvider(), new IndicatorOrchestrationConfiguration()), Configuration());
+            var result = await resolver.ResolveAsync(Holding(),
+                new EarningsContext(AvailabilityStatus.Available, new DateOnly(2027, 1, 1)), EvaluationAt,
+                new ConfigurationVersion(1));
+
+            Assert.NotNull(result);
+            Assert.Equal(EvaluationAt, result.EvaluationContext.Indicators.IndicatorCalculatedAtUtc);
+            Assert.Equal(AsOfDate, result.EvaluationContext.IndicatorAsOfDate);
+            db.ChangeTracker.Clear();
+            var reloaded = await db.IndicatorSnapshots.AsNoTracking().SingleAsync();
+            Assert.Equal(original.CalculatedAt, reloaded.CalculatedAt);
+            Assert.Equal(original.SnapshotJson, reloaded.SnapshotJson);
+        }
+        finally
+        {
+            File.Delete(databasePath);
+            File.Delete($"{databasePath}-shm");
+            File.Delete($"{databasePath}-wal");
+        }
     }
 
     [Fact]
@@ -104,12 +188,17 @@ public sealed class CurrentCcosResolverTests
     private static IndicatorValue<T> Available<T>(T value) where T : struct =>
         IndicatorValue<T>.Available(value);
 
+    private static OptionsEngineDbContext CreateContext(string databasePath) => new(
+        new DbContextOptionsBuilder<OptionsEngineDbContext>().UseSqlite($"Data Source={databasePath}").Options);
+
     private sealed class FakeIndicatorRepository : IIndicatorDataRepository
     {
         public DateOnly? LatestDate { get; init; } = AsOfDate;
-        public required IndicatorSnapshot Snapshot { get; init; }
+        public IndicatorSnapshot? Snapshot { get; init; }
         public int LatestDateCalls { get; private set; }
         public int SnapshotCalls { get; private set; }
+        public int CalculationReadCalls { get; private set; }
+        public int UpsertCalls { get; private set; }
 
         public Task<DateOnly?> GetLatestPriceObservationDateAsync(string symbol, string provider,
             DateOnly onOrBefore, CancellationToken cancellationToken = default)
@@ -127,17 +216,33 @@ public sealed class CurrentCcosResolverTests
         }
 
         public Task<IReadOnlyList<IndicatorPriceObservation>> GetPricesThroughAsync(string symbol,
-            string provider, DateOnly asOfDate, CancellationToken cancellationToken = default) =>
-            throw new NotSupportedException();
+            string provider, DateOnly asOfDate, CancellationToken cancellationToken = default)
+        {
+            CalculationReadCalls++;
+            return Task.FromResult<IReadOnlyList<IndicatorPriceObservation>>(
+                [new(symbol, AsOfDate, 100m, 101m, 99m, 100m, 1000)]);
+        }
         public Task<IReadOnlyList<OptionChain>> GetOptionChainsThroughAsync(string symbol,
             string provider, DateOnly asOfDate, DateTimeOffset calculatedAt,
-            CancellationToken cancellationToken = default) => throw new NotSupportedException();
+            CancellationToken cancellationToken = default)
+        {
+            CalculationReadCalls++;
+            return Task.FromResult<IReadOnlyList<OptionChain>>([]);
+        }
         public Task<IReadOnlyList<HistoricalIv30Observation>> GetPriorValidIv30Async(string symbol,
             DateOnly asOfDate, IndicatorCalculationVersion calculationVersion,
             ConfigurationVersion configurationVersion, int limit,
-            CancellationToken cancellationToken = default) => throw new NotSupportedException();
+            CancellationToken cancellationToken = default)
+        {
+            CalculationReadCalls++;
+            return Task.FromResult<IReadOnlyList<HistoricalIv30Observation>>([]);
+        }
         public Task UpsertSnapshotAsync(IndicatorSnapshot snapshot,
-            CancellationToken cancellationToken = default) => throw new NotSupportedException();
+            CancellationToken cancellationToken = default)
+        {
+            UpsertCalls++;
+            return Task.CompletedTask;
+        }
     }
 
     private sealed class FakeProvider : IMarketDataProvider
