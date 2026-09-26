@@ -31,6 +31,16 @@ public sealed class IndicatorOrchestrationService(
     public async Task<IndicatorSnapshot> CalculateAndPersistAsync(string symbol, DateOnly asOfDate, IndicatorConfiguration configuration,
         IndicatorCalculationVersion calculationVersion, DateTimeOffset calculatedAt, CancellationToken cancellationToken = default)
     {
+        var snapshot = await CalculateAsync(symbol, asOfDate, configuration, calculationVersion, calculatedAt,
+            cancellationToken);
+        await repository.UpsertSnapshotAsync(snapshot, cancellationToken);
+        return snapshot;
+    }
+
+    /// <summary>Calculates a snapshot from persisted normalized inputs without changing canonical indicator state.</summary>
+    public async Task<IndicatorSnapshot> CalculateAsync(string symbol, DateOnly asOfDate, IndicatorConfiguration configuration,
+        IndicatorCalculationVersion calculationVersion, DateTimeOffset calculatedAt, CancellationToken cancellationToken = default)
+    {
         ArgumentException.ThrowIfNullOrWhiteSpace(symbol);
         ArgumentNullException.ThrowIfNull(configuration);
         ArgumentNullException.ThrowIfNull(calculationVersion);
@@ -58,9 +68,7 @@ public sealed class IndicatorOrchestrationService(
         var resistance = _resistance.Calculate(priceRequest);
         var regime = _regime.Calculate(new RegimeCalculationRequest(normalized, asOfDate, marketPrices, sectorSymbol, sectorPrices,
             configuration, calculationVersion, calculatedAt));
-        snapshot = regime.ApplyTo(resistance.ApplyTo(iv.ApplyTo(snapshot)));
-        await repository.UpsertSnapshotAsync(snapshot, cancellationToken);
-        return snapshot;
+        return regime.ApplyTo(resistance.ApplyTo(iv.ApplyTo(snapshot)));
     }
 
     public Task<IndicatorSnapshot?> GetSnapshotAsync(string symbol, DateOnly asOfDate,

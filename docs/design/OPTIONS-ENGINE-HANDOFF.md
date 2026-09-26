@@ -8,7 +8,7 @@ System (CCDSS) in a fresh ChatGPT conversation.
 
 Repository: `rguthriemsft/options-engine`
 
-Current working branch: `phase5`
+Current working branch: `phase6`
 
 At the original design handoff, `phase3` was 3 commits ahead of `main`
 and 0 behind. At that time, the only branch changes relative to `main`
@@ -598,96 +598,115 @@ actual `EarningsContext` used. A provider-backed adapter is deferred until an
 authoritative contract or sanitized captured fixture is available.
 
 
-### Phase 5 --- Design and Acceptance Ready
+### Phase 5 --- Complete and Merged
 
-Phase 5 owns Position Sizing.
+Phase 5 Position Sizing is complete and merged into `main`.
 
-Authoritative Phase 5 design documents:
+Authoritative Phase 5 documents:
 
 - `SPECIFICATION.md`
 - `docs/design/PHASE-5-POSITION-SIZING-DESIGN.md`
 - `docs/design/OPTIONS-ENGINE-DESIGN-DECISIONS.md`
 - `docs/acceptance/PHASE-5-POSITION-SIZING.md`
 
-Approved Phase 5 V1 decisions include:
+Implemented Phase 5 boundaries include:
 
 - separate immutable `PositionSizingEvaluation`;
-- no final Recommendation creation in Phase 5;
-- size only the Phase 4 `PreferredInitialContract`;
-- strike laddering deferred;
-- `Holding.Shares` is authoritative;
-- physical capacity is `floor(Shares / 100)`;
-- minimal current-state open-short-call model, not Phase 7 transaction/campaign accounting;
-- exact CCOS base-coverage bands;
-- both Assignment Sensitivity modifier and maximum;
-- ASL5 maximum defaults to 0.50;
-- Contract Quality uses persisted preferred Contract Score;
-- same-account tracked-equity concentration;
-- ETFs use concentration `NotApplicable` with modifier 1.00;
-- exact coverage/cap/floor sequence;
-- no separate tax-sensitive rounding penalty;
-- existing/proposed DER rules with equality allowed at the maximum;
-- target state and additional action are separate;
-- existing coverage above target never causes a Phase 5 close recommendation;
-- zero additional contracts may be a valid Available result;
-- missing required data remains explicit;
-- shared `ConfigurationVersion` plus Position Sizing strategy-version identity.
+- no final Recommendation creation;
+- one preferred initial contract sized per evaluation;
+- authoritative Holding shares;
+- physical-capacity and existing-open-call constraints;
+- approved CCOS/Assignment Sensitivity/Contract Quality/concentration sizing;
+- DER constraints;
+- minimal current-state `OpenShortCallPositionEntity`;
+- immutable persistence and API;
+- no DRS, Roll Engine, campaign ledger, or automatic execution.
 
-Approved Phase 5 packet sequence:
+The Phase 5 current-state open-call persistence has a stable database identity:
 
 ```text
-5A — Position Sizing foundations
-5B — Base coverage and caps
-5C — Portfolio concentration
-5D — Existing exposure and DER
-5E — Application orchestration
-5F — Immutable persistence
-5G — API and merge gate
+OpenShortCallPositionId
+HoldingId
+OptionSymbol
+Contracts
+Strike
+Expiration
 ```
 
-The specification, decision register, and acceptance checklist are mutually consistent. Phase 5 implementation may proceed through the approved 5A–5G packets.
+Phase 6 extends that narrow current-state record only with the additional opening economics/timestamp required for defense analysis; this remains distinct from the Phase 7 transaction ledger.
+
+### Phase 6 --- Complete
+
+Phase 6 Defense and Roll design is approved and reconciled.
+
+Authoritative Phase 6 documents:
+
+- `SPECIFICATION.md`
+- `docs/design/PHASE-6-DEFENSE-ROLL-DESIGN.md`
+- `docs/acceptance/PHASE-6-DEFENSE-ROLL.md`
+- `docs/design/OPTIONS-ENGINE-DESIGN-DECISIONS.md`
+- this handoff
+
+Core Phase 6 V1 decisions:
+
+- one DefenseEvaluation per current open short-call position;
+- immutable `DefenseEvaluation` plus conditional immutable `RollEvaluation`;
+- no final Recommendation lifecycle or trade execution;
+- authoritative opening premium is actual/weighted-average gross executed credit when known;
+- BTC reference price is existing-call Ask;
+- profit-taking thresholds 50% / 70% / 80%;
+- four-component DRS at 40/25/15/20;
+- call Delta remains normalized `[0,1]` and is never repaired with `abs()`;
+- five V1 hard-defense triggers;
+- breakout and dividend/early-assignment triggers deferred;
+- Roll Engine activates on hard trigger or DRS >=50;
+- replacement search is 21–60 DTE, with 21–45 preferred;
+- replacement must expire later, raise strike, remain strictly OTM, and lower Delta;
+- normal replacement Delta max .25; high-tax max .20; preferred .12–.18;
+- reuse Phase 4 liquidity hard gate and 0–10 Liquidity Score, not Phase 4 overall Contract Score/entry eligibility;
+- reject only newly introduced known earnings crossings;
+- conservative roll pricing uses BTC Ask and replacement STO Bid;
+- replacement contract count equals current contract count;
+- configurable absolute maximum debit is the only Phase 6 V1 debit hard limit;
+- campaign-relative debit and assignment-tax-dollar exceptions deferred;
+- projected DRS must improve current DRS and remain below 40;
+- RQS weights 30/20/20/15/10/5;
+- deterministic candidate states: Rejected / Rankable / InsufficientData;
+- deterministic tie-break ranking;
+- dispositions: NO_ACTION, MONITOR, PROFIT_CLOSE, DEFENSE_REVIEW, ROLL, CLOSE_WAIT;
+- CurrentCCOS >=55 selects ROLL when a Rankable candidate exists; lower CCOS selects CLOSE_WAIT;
+- unavailable candidate-critical data leads to DEFENSE_REVIEW rather than fabricated rejection;
+- coherent existing-call observations and per-expiration complete chain selection;
+- no hidden Phase 6 strategy freshness threshold;
+- explicit DefenseStrategyVersion and RollStrategyVersion;
+- Phase 6 is suitable for daily invocation but does not add a scheduler/background worker.
+
+Approved Phase 6 packet sequence:
+
+```text
+6A — Defense foundations and current-position contract
+6B — Profit taking, DRS, and hard triggers
+6C — Roll candidate universe, hard gates, and economics
+6D — RQS, ranking, and DefenseDisposition
+6E — Application orchestration and current-context assembly
+6F — Immutable persistence
+6G — API and merge-gate validation
+```
 
 ## Current Phase Status
 
-Phase 1, Phase 2, Phase 3, and Phase 4 are complete and merged.
+Phase 1 through Phase 5 are complete and merged into `main`.
 
-The Phase 4 merge gate passed with:
+Phase 6A through Phase 6G are complete on the `phase6` branch. The phase now includes the thin immutable Defense/Roll HTTP surface and its final merge-gate validation.
 
-```text
-615 tests passed
-0 failed
-0 skipped
-Release build: 0 warnings / 0 errors
-```
+Phase 3 canonical indicator snapshots remain replaceable.
 
-Phase 5 design is approved and the specification, durable decision register, handoff, and acceptance checklist are reconciled for implementation planning.
+Phase 4 EntryStrategyEvaluation and Phase 5 PositionSizingEvaluation history remain append-only immutable records.
 
-Phase 3 canonical indicator snapshots remain replaceable; Phase 4 evaluations remain append-only immutable historical records.
-
-Phase 5 will introduce a separate append-only immutable `PositionSizingEvaluation` that references its source `EntryStrategyEvaluation`.
+Phase 6F added separate append-only DefenseEvaluation and conditional RollEvaluation history without rewriting Phase 4/5 artifacts.
 
 ## Recommended Next Conversation
 
-Phase 5 is complete through its API and merge gate on the `phase5` branch. Continue with **Phase 6** planning; do not reinterpret or extend Phase 5 behavior.
-
-Read, in order:
-
-1. `AGENTS.md`
-2. `SPECIFICATION.md`
-3. `docs/design/PHASE-5-POSITION-SIZING-DESIGN.md`
-4. `docs/design/OPTIONS-ENGINE-DESIGN-DECISIONS.md`
-5. `docs/acceptance/PHASE-5-POSITION-SIZING.md`
-6. `docs/acceptance/PHASE-4-ENTRY-STRATEGY.md`
-
-Before writing implementation code:
-
-- verify these documents are mutually consistent;
-- inspect the current Phase 4 result/persistence contracts;
-- inspect `Holding`, `Account`, and market-data persistence;
-- preserve Phase 4 immutability;
-- do not pull Phase 7 transaction/campaign accounting into Phase 5;
-- do not implement strike laddering;
-- do not create final Recommendation semantics;
-- do not invent formulas, freshness thresholds, fallback values, or missing-data substitutions.
-
-Implementation should proceed only through the approved 5A–5G packets.
+Merge the completed `phase6` branch after review. Do not begin Phase 7 campaign,
+transaction, execution, or performance-accounting work until its specification,
+design decisions, and acceptance packet are explicitly approved.

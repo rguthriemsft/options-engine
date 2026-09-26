@@ -1807,6 +1807,33 @@ Historical sizing evaluations are append-only. Later changes to holdings, curren
 
 ---
 
+## 16.3 Phase 6 Defense Evaluation
+
+Phase 6 shall not create the final `Recommendation` lifecycle.
+
+Phase 6 produces an analytical:
+
+```text
+DefenseDisposition
+```
+
+with V1 values:
+
+```text
+NO_ACTION
+MONITOR
+PROFIT_CLOSE
+DEFENSE_REVIEW
+ROLL
+CLOSE_WAIT
+```
+
+A DefenseDisposition may reference an immutable DefenseEvaluation and, when roll analysis runs, an immutable RollEvaluation and preferred replacement candidate.
+
+It shall not contain or imply execution state, transaction creation, Campaign creation, or brokerage action. Final cross-phase Recommendation assembly remains downstream.
+
+---
+
 # 17\. Transaction Ledger
 
 ```text
@@ -1933,11 +1960,15 @@ These records are critical for later evaluating defense rules\.
 
 ---
 
+Phase 6 V1 does not implement Daily Position Snapshot persistence. The CampaignId-linked snapshot model and campaign/performance history remain Phase 7 responsibilities. Phase 6 instead persists immutable DefenseEvaluation and RollEvaluation decision records.
+
+---
+
 # 20. Strategy and Calculation Configuration
 
 No important strategy or indicator constants shall be hard-coded.
 
-Configuration shall be strongly typed and versioned.
+Configuration shall be strongly typed, startup/load-time validated, versioned, and persisted with immutable strategy evaluations.
 
 At minimum:
 
@@ -1955,8 +1986,8 @@ CCOS
 ContractScore
 PositionSizing
 DRS
-RollEngine
 ProfitTaking
+RollEngine
 TaxSensitivity
 ```
 
@@ -1993,7 +2024,50 @@ Contract Quality modifiers
 stock concentration modifiers
 ```
 
-IV30 calculation parameters, IV historical lookback, IV Rank parameters, and IV Percentile parameters become required once the V1 implied-volatility methodology is approved. No defaults are approved before that methodology is specified.
+Phase 6 Defense/Roll configuration shall include at least:
+
+```text
+Profit-taking thresholds
+DRS component score bands
+DRS classification thresholds
+hard-defense trigger thresholds
+roll-activation DRS threshold
+replacement DTE window
+preferred replacement DTE window
+preferred replacement Delta window
+normal replacement maximum Delta
+high-tax replacement maximum Delta
+liquidity limits and liquidity scoring reused from Phase 4
+maximum projected DRS
+FullStrikeImprovementRatio
+MaximumRollDebitPerShare
+FullCreditEconomicsRatio
+CurrentCCOS roll threshold
+```
+
+Approved Phase 6 default intent includes:
+
+```text
+Profit monitor       0.50
+Profit close         0.70
+Strong profit close  0.80
+
+Roll activation DRS  50
+CurrentCCOS roll     55
+
+Replacement DTE      21–60
+Preferred DTE        21–45
+Preferred Delta      .12–.18
+Normal max Delta     .25
+High-tax max Delta   .20
+
+Projected DRS max    <40
+
+FullStrikeImprovementRatio  0.10
+FullCreditEconomicsRatio    0.25
+```
+
+`MaximumRollDebitPerShare` is required, non-negative configuration. No product-wide dollar default is approved merely from earlier examples.
 
 Indicator algorithm identity shall be represented separately from configuration values.
 
@@ -2002,31 +2076,19 @@ Conceptually:
 ```text
 IndicatorCalculationVersion
 ConfigurationVersion
-StrategyVersion
+Entry StrategyVersion
+PositionSizingStrategyVersion
+DefenseStrategyVersion
+RollStrategyVersion
 ```
 
-Changing a parameter such as:
+Changing a numeric parameter without changing algorithm meaning is a configuration change.
 
-```text
-RSI period 14 -> 21
-```
+Changing indicator mathematics is an IndicatorCalculationVersion change.
 
-is a configuration change.
+Changing formulas, component composition, hard-gate meaning, missing-data policy, ranking/tie-breaking, or decision flow requires the applicable strategy-version change.
 
-Changing the RSI mathematical implementation from Wilder smoothing to another smoothing algorithm is a calculation-version change.
-
-Changing how RSI contributes to CCOS is a strategy-version change.
-
-For Position Sizing V1, tunable sizing tables and thresholds use the shared `ConfigurationVersion`. Position Sizing algorithmic behavior has explicit strategy-version identity and does not use or overload `IndicatorCalculationVersion`.
-
-Every persisted indicator snapshot shall record or be traceable to:
-
-```text
-IndicatorCalculationVersion
-ConfigurationVersion
-```
-
-Every persisted strategy evaluation/recommendation shall record or be traceable to its applicable configuration and strategy identities.
+Every persisted evaluation shall retain the complete resolved configuration values and applicable identities it consumed.
 
 Historical records shall not be silently reinterpreted using newer configuration, calculation, or strategy versions.
 
@@ -3239,7 +3301,7 @@ Missing required sizing inputs produce `InsufficientData`; missing values never 
 
 DRS answers:
 
-> How urgently does this open call require defensive action?
+> How urgently does this existing short call require defensive action?
 
 Range:
 
@@ -3248,307 +3310,430 @@ Range:
 Higher = greater risk
 ```
 
-Weights:
+Phase 6 V1 uses exactly four components:
 
-|Component        |Weight|
-|-----------------|-----:|
-|Delta            |30    |
-|Strike proximity |20    |
-|Momentum/breakout|15    |
-|DTE              |10    |
-|Premium expansion|10    |
-|Expected move    |10    |
-|Dividend/event   |5     |
+| Component | Weight |
+|---|---:|
+| Delta | 40 |
+| Strike proximity | 25 |
+| DTE | 15 |
+| Premium expansion | 20 |
+
+Momentum/Breakout, Expected Move, and Dividend/Event are deferred from the V1 weighted DRS.
+
+DRS is all-or-nothing. If any required component is unavailable, DRS and DRS classification are unavailable while successfully calculated component results remain preserved.
 
 ---
 
 # 37\. DRS Classification
 
 ```text
-0–19     SAFE
-20–34    NORMAL
-35–49    WATCH
-50–64    DEFEND
-65–79    HIGH RISK
-80–100   CRITICAL
+0  <= DRS < 20    SAFE
+20 <= DRS < 35    NORMAL
+35 <= DRS < 50    WATCH
+50 <= DRS < 65    DEFEND
+65 <= DRS < 80    HIGH_RISK
+80 <= DRS <=100   CRITICAL
 ```
+
+No classification exists when DRS is unavailable.
 
 ---
 
 # 38\. Delta Defense Component
 
-```text
-Delta <.15       0
-.15–.20          3
-.20–.25          7
-.25–.30         12
-.30–.35         18
-.35–.40         23
-.40–.50         27
->.50            30
-```
+Call Delta consumed by Phase 6 must be finite and within `[0,1]`.
 
-Delta velocity:
+Malformed negative Delta shall not be repaired with `abs()`.
 
 ```text
-CurrentDelta - PreviousTradingDayDelta
+Delta < .15             0
+.15 <= Delta < .20      4
+.20 <= Delta < .25      9
+.25 <= Delta < .30     16
+.30 <= Delta < .35     24
+.35 <= Delta < .40     31
+.40 <= Delta <= .50    36
+Delta > .50            40
 ```
 
-Delta increase of at least \.10 in one trading day adds a configurable risk penalty\.
+Delta velocity is calculated separately:
+
+```text
+DeltaVelocity =
+    CurrentDelta - PreviousTradingDayDelta
+```
+
+The previous observation is the latest eligible observation for the same option symbol from the immediately preceding trading date for which that contract has an observation.
+
+Delta velocity does not add numeric DRS points in V1.
 
 ---
 
 # 39\. Strike Proximity Defense
 
 ```text
-Distance >8%       0
-6–8%               2
-4–6%               5
-3–4%               8
-2–3%              12
-1–2%              16
-0–1%              20
-ITM               20
+StrikeDistanceRatio =
+    (Strike - UnderlyingPrice)
+    / UnderlyingPrice
 ```
+
+Positive is OTM, zero is ATM, and negative is ITM.
+
+```text
+distance > 8%                0
+6% < distance <= 8%          3
+4% < distance <= 6%          6
+3% < distance <= 4%         10
+2% < distance <= 3%         15
+1% < distance <= 2%         20
+0% < distance <= 1%         25
+distance <= 0%              25
+```
+
+UnderlyingPrice and Strike must both be strictly positive.
 
 ---
 
 # 40\. DTE Defense
 
 ```text
->21 DTE      0
-15–21        2
-10–14        4
-7–9          6
-4–6          8
-1–3         10
-Expiration  10
+DefenseEvaluationDate =
+America/New_York calendar date corresponding
+to DefenseEvaluationTimestampUtc
+
+DTE =
+ExpirationDate - DefenseEvaluationDate
 ```
 
-Additional risk penalty:
+Score:
 
 ```text
-DTE <= 7 AND Delta >= .30
+DTE > 21      0
+15–21         3
+10–14         6
+7–9           9
+4–6          12
+1–3          15
+0            15
+DTE < 0      invalid open-position state
 ```
+
+No additional DTE/Delta numeric penalty exists in V1.
 
 ---
 
 # 41\. Premium Expansion
 
-Calculate:
+For the existing short call:
 
 ```text
+CurrentBtcReferencePrice = Ask
+
 PremiumMultiple =
-CurrentOptionPrice / OriginalSalePrice
+    CurrentBtcReferencePrice
+    / OpeningPremiumPerShare
 ```
 
 Score:
 
 ```text
-<.50        0
-.50–1.00    1
-1.00–1.25   3
-1.25–1.50   5
-1.50–2.00   7
-2.00–3.00   9
->3.00      10
+< .50             0
+>= .50 < 1.00     2
+>= 1.00 < 1.25    6
+>= 1.25 < 1.50   10
+>= 1.50 < 2.00   14
+>= 2.00 < 3.00   18
+>= 3.00          20
 ```
 
-Premium expansion shall not independently trigger automatic closure\.
+Premium expansion shall not independently prescribe closure.
 
 ---
 
-# 42\. Expected\-Move Defense
+# 42\. Expected-Move Defense
 
-Calculate remaining expected move through expiration\.
+Expected Move and ExpectedMoveRatio are deferred from Phase 6 V1.
 
-Then:
-
-```text
-StrikeDistance / ExpectedMove
-```
-
-Score:
-
-```text
->2.0       0
-1.5–2.0    2
-1.25–1.5   4
-1.0–1.25   6
-.75–1.0    8
-<.75      10
-```
+Phase 6 shall not invent an expected-move formula merely to populate DRS or Roll analysis.
 
 ---
 
 # 43\. Defense Hard Triggers
 
-Mandatory defense evaluation occurs if:
+Hard triggers are independent Boolean/availability evaluations and do not add points to DRS.
+
+V1 trigger codes:
 
 ```text
-Delta >= .40
+HIGH_DELTA
+    Delta >= .40
 
-Underlying within 1% of strike
-AND Delta >= .30
+STRIKE_PROXIMITY_WITH_DELTA
+    0 <= StrikeDistanceRatio <= .01
+    AND Delta >= .30
 
-Call becomes ITM
+IN_THE_MONEY
+    UnderlyingPrice > Strike
 
-DTE <= 3
-AND Delta >= .25
+LOW_DTE_WITH_DELTA
+    0 <= DTE <= 3
+    AND Delta >= .25
 
-Technical breakout toward strike
-
-Material early-assignment condition
-
-Delta increases >= .15 in one trading session
+RAPID_DELTA_INCREASE
+    DeltaVelocity >= .15
 ```
 
-These conditions do not automatically mean BTC\.
+Each trigger records:
 
-They activate the Roll Engine\.
+```text
+Triggered
+NotTriggered
+InsufficientData
+NotApplicable
+```
+
+Aggregate hard-defense status:
+
+```text
+any Triggered
+    -> Triggered
+
+all applicable V1 triggers NotTriggered
+    -> Clear
+
+otherwise
+    -> PartiallyEvaluated
+```
+
+Technical-breakout and dividend/early-assignment triggers are deferred from Phase 6 V1 because no approved defense-specific breakout algorithm or authoritative dividend/ex-dividend input exists.
+
+A hard trigger activates defensive/roll evaluation; it does not automatically prescribe BTC or ROLL.
 
 ---
 
 # 44\. Profit Taking
 
-Profit\-taking shall remain independent from DRS\.
+Profit taking remains independent from DRS.
 
-Default initial thresholds:
+`OpeningPremiumPerShare` is the authoritative gross executed per-share STO credit for the current open position when known. It shall not silently fall back to a Phase 4 reference price.
 
-```text
-50% captured -> Monitor
-70% captured -> Close candidate
-80% captured -> Strong close candidate
-```
-
-Example:
+For the current close estimate:
 
 ```text
-DRS = 5
-Premium captured = 82%
+CurrentBtcReferencePrice = Ask
 ```
 
-Recommended action may still be:
+Gross V1 economics:
 
 ```text
-PROFIT_CLOSE
+GrossOpeningPremium =
+    OpeningPremiumPerShare
+    * 100
+    * Contracts
+
+EstimatedCurrentBtcCost =
+    CurrentBtcReferencePrice
+    * 100
+    * Contracts
+
+GrossPremiumCaptured =
+    GrossOpeningPremium
+    - EstimatedCurrentBtcCost
+
+GrossPremiumCapturedRatio =
+    (OpeningPremiumPerShare - CurrentBtcReferencePrice)
+    / OpeningPremiumPerShare
 ```
 
-because remaining premium does not justify continuing exposure\.
+The ratio is not clamped. Fees are excluded in Phase 6 V1.
+
+Bands:
+
+```text
+ratio < .50
+    None
+
+.50 <= ratio < .70
+    Monitor
+
+.70 <= ratio < .80
+    CloseCandidate
+
+ratio >= .80
+    StrongCloseCandidate
+```
+
+Missing or non-positive required opening premium or current Ask produces explicit insufficient data.
 
 ---
 
 # 45\. Roll Engine
 
-The Roll Engine answers:
-
-> What action best reduces assignment risk while preserving acceptable campaign economics?
-
-When defense is triggered, first calculate current CCOS\.
-
-Initial decision rules:
+Roll Engine evaluation occurs when:
 
 ```text
-Current CCOS >=70
-    Roll candidates favored
-
-Current CCOS 55–69
-    Evaluate Roll vs Close/Wait
-
-Current CCOS <55
-    Close/Wait favored
+HardDefenseStatus == Triggered
+OR
+DRS >= 50
 ```
 
-The system shall not blindly replace a call when the current covered\-call environment is poor\.
+Profit taking alone does not activate Roll Engine.
+
+Current CCOS does not decide whether candidate analysis runs. It is resolved for final disposition when defensive candidate analysis is required.
+
+Final V1 CCOS disposition threshold:
+
+```text
+CurrentCCOS >= 55
+    acceptable environment for ROLL
+```
+
+An unavailable CurrentCCOS produces `DEFENSE_REVIEW` when the defensive disposition requires this choice.
 
 ---
 
 # 46\. Roll Candidate Universe
 
-Initial defensive roll search:
+V1 replacement candidates are calls only.
+
+Expiration:
 
 ```text
-Preferred new DTE: 21–45
-Maximum defensive DTE: 60
+21 <= NewDTE <= 60
+NewExpiration > ExistingExpiration
 
-Preferred Delta: .12–.18
-Normal maximum Delta: .25
-Highly tax-sensitive maximum: .20
+21–45 -> PreferredWindow
+46–60 -> ExtendedWindow
 ```
 
-Preferred defensive action:
+Delta:
 
 ```text
-ROLL UP
-ROLL OUT
-ROLL UP & OUT
+Preferred Delta       .12–.18
+Normal maximum        .25
+TaxSensitivity.High   .20
 ```
 
-For assignment\-sensitive holdings, roll\-up\-and\-out shall generally be favored\.
+There is no minimum hard Delta.
+
+A replacement must also satisfy:
+
+```text
+NewDelta < CurrentDelta
+```
+
+Strike:
+
+```text
+NewStrike > ExistingStrike
+AND
+NewStrike > CurrentUnderlyingPrice
+```
+
+Equivalently:
+
+```text
+NewStrike >
+    max(ExistingStrike, CurrentUnderlyingPrice)
+```
+
+Liquidity reuses the approved Phase 4 liquidity gate:
+
+```text
+Ask > Bid
+OpenInterest >= 100
+BidAskSpreadPercent <= 20%
+```
+
+Missing required liquidity input is insufficient data, not a failed gate.
+
+Earnings gate for an individual stock rejects only a newly introduced known crossing:
+
+```text
+ExistingExpiration < EarningsDate <= NewExpiration
+```
+
+If the existing call already spans the known event, continuing to span it does not newly reject the candidate.
+
+Missing required stock earnings data produces candidate insufficient data. ETF earnings is NotApplicable.
 
 ---
 
 # 47\. Roll Economics
 
+Phase 6 V1 does not resize the current obligation:
+
+```text
+ReplacementContracts = ExistingContracts
+```
+
 For each candidate:
 
 ```text
-BTC = Current call close cost
+BTC = ExistingCallAsk
+STO = ReplacementBid
 
-STO = Replacement call proceeds
+NetRollPerShare =
+    STO - BTC
 
-NetRoll = STO - BTC
+NetRollTotal =
+    NetRollPerShare
+    * 100
+    * ExistingContracts
 ```
 
-Positive:
+Positive is credit. Negative is debit.
 
-```text
-Credit
-```
-
-Negative:
-
-```text
-Debit
-```
-
-Debit rolls shall not automatically be rejected\.
+No Mid or Last fallback is used.
 
 ---
 
 # 48\. Roll Candidate Metrics
 
-Every candidate shall calculate:
+Every candidate preserves, where calculable:
 
 ```text
 NewStrike
 StrikeImprovement
-StrikeImprovementPercent
+StrikeImprovementRatio
 
 NewDelta
 DeltaReduction
-DeltaReductionPercent
+DeltaReductionRatio
 
 NewDTE
 AdditionalDTE
 
-NetRollCreditDebit
+ExistingBtcPerShare
+ReplacementStoPerShare
+NetRollPerShare
+NetRollTotal
 
 ProjectedDRS
 DRSReduction
 
-NewContractScore
+LiquidityScore
 
-IncrementalPremiumPerAdditionalDay
+RollDebitPerShare
+DebitUtilization
+CreditRatio
 
-CampaignPremiumAfterRoll
+RQS component results
+RQS
+CandidateState
+Rank
+rejection reasons
+missing inputs
 ```
+
+`CampaignPremiumAfterRoll` and campaign-accounting metrics remain Phase 7.
 
 ---
 
 # 49\. Roll Quality Score
 
-RQS ranks eligible defensive roll candidates\.
+RQS ranks hard-gate-eligible defensive candidates with complete required data.
 
 Range:
 
@@ -3559,84 +3744,230 @@ Higher = better
 
 Weights:
 
-|Component           |Weight|
-|--------------------|-----:|
-|DRS reduction       |30    |
-|Delta reduction     |20    |
-|Strike improvement  |20    |
-|Roll economics      |15    |
-|New contract quality|10    |
-|Time efficiency     |5     |
+| Component | Weight |
+|---|---:|
+| DRS reduction | 30 |
+| Delta reduction | 20 |
+| Strike improvement | 20 |
+| Roll economics | 15 |
+| Replacement liquidity | 10 |
+| Time efficiency | 5 |
+
+DRS reduction:
+
+```text
+DrsReductionScore =
+    30
+    * max(CurrentDRS - ProjectedDRS, 0)
+    / CurrentDRS
+```
+
+Delta reduction:
+
+```text
+DeltaReductionScore =
+    20
+    * max(CurrentDelta - NewDelta, 0)
+    / CurrentDelta
+```
+
+Strike improvement:
+
+```text
+StrikeImprovementScore =
+    20
+    * min(
+        ((NewStrike - ExistingStrike) / ExistingStrike)
+        / FullStrikeImprovementRatio,
+        1)
+```
+
+Replacement liquidity is the existing Phase 4 0–10 Liquidity Score. Phase 6 does not require Phase 4 Contract Score or Phase 4 entry acceptability.
+
+Time efficiency:
+
+```text
+TimeEfficiencyScore =
+    5 * (60 - NewDTE) / (60 - 21)
+```
+
+All required RQS components must be available. Missing components are not reweighted.
 
 ---
 
-# 50\. Roll Hard Gates
+# 50\. Roll Hard Gates, Projected DRS, and Ranking
 
-Normally reject if:
+Candidate hard gates include:
 
 ```text
-New Delta > .25
-
-Highly tax-sensitive new Delta > .20
-
-Projected DRS >=40
-
-New strike <= existing strike
-    when performing defensive roll
-
-New expiration crosses unacceptable earnings event
-
-Liquidity unacceptable
+21 <= NewDTE <= 60
+NewExpiration > ExistingExpiration
+NewStrike > ExistingStrike
+NewStrike > CurrentUnderlyingPrice
+NewDelta < CurrentDelta
+NewDelta <= .25
+TaxSensitivity.High -> NewDelta <= .20
+Phase 4 liquidity gate passes
+no newly introduced known earnings crossing
+ProjectedDRS < CurrentDRS
+ProjectedDRS < 40
+NetRollPerShare >= -MaximumRollDebitPerShare
 ```
 
-Exceptions shall require explicit override and shall be recorded\.
+Projected DRS uses the same DRS engine.
+
+For the hypothetical instant of opening the replacement:
+
+```text
+ProjectedOpeningPremium = CandidateBid
+ProjectedCurrentPrice = CandidateBid
+ProjectedPremiumMultiple = 1.0
+```
+
+Candidate state distinguishes:
+
+```text
+Rejected
+    one or more known hard gates failed
+
+Rankable
+    all hard gates passed
+    and complete RQS exists
+
+InsufficientData
+    eligibility or RQS could not be established
+```
+
+Only Rankable candidates receive a rank.
+
+Deterministic ordering:
+
+```text
+1. RQS descending
+2. ProjectedDRS ascending
+3. NewDelta ascending
+4. NewStrike descending
+5. NetRollPerShare descending
+6. NewExpiration ascending
+7. OptionSymbol ordinal ascending
+```
+
+There is no minimum RQS threshold in V1.
 
 ---
 
-# 51\. Maximum Roll Debit
+# 51\. Maximum Roll Debit and Economics Score
 
-Configuration shall support three limits\.
-
-## Absolute Debit
-
-Example:
+V1 has one absolute configurable debit hard gate:
 
 ```text
-Maximum = $2/share
+MaximumRollDebitPerShare >= 0
+
+NetRollPerShare >= -MaximumRollDebitPerShare
 ```
 
-## Campaign Income Limit
+`MaximumRollDebitPerShare = 0` is valid and means only even-or-credit rolls are allowed.
 
-Example:
+Campaign-income debit limits and tax-dollar debit exceptions are deferred because Phase 6 has no authoritative campaign accounting or assignment-tax-dollar model.
+
+Debit economics:
 
 ```text
-RollDebit <=
-50% of cumulative campaign premium
+RollDebitPerShare =
+    max(-NetRollPerShare, 0)
+
+DebitUtilization =
+    RollDebitPerShare
+    / MaximumRollDebitPerShare
+
+EconomicsScore =
+    10 * (1 - DebitUtilization)
 ```
 
-## Tax\-Defense Exception
+No division occurs for a debit when `MaximumRollDebitPerShare = 0` because such a candidate fails the hard gate.
 
-If estimated assignment tax exposure materially exceeds the roll debit, the system may recommend exceeding normal debit limits\.
+Even roll:
 
-The recommendation must explicitly explain the tradeoff\.
+```text
+EconomicsScore = 10
+```
+
+Credit economics:
+
+```text
+CreditRatio =
+    NetRollPerShare
+    / ReplacementStoPerShare
+
+EconomicsScore =
+    10
+    + 5 * min(
+        CreditRatio
+        / FullCreditEconomicsRatio,
+        1)
+```
+
+`FullCreditEconomicsRatio` is positive configuration; approved default intent is `0.25`.
+
+`FullStrikeImprovementRatio` is positive configuration; approved default intent is `0.10`.
 
 ---
 
-# 52\. Early Assignment Alert
+# 52\. Defense Disposition and Phase Boundary
 
-For an ITM call:
+Phase 6 analytical dispositions are:
 
 ```text
-IntrinsicValue =
-MAX(UnderlyingPrice - Strike, 0)
-
-ExtrinsicValue =
-OptionPrice - IntrinsicValue
+NO_ACTION
+MONITOR
+PROFIT_CLOSE
+DEFENSE_REVIEW
+ROLL
+CLOSE_WAIT
 ```
 
-When an upcoming ex\-dividend event exists, the system shall evaluate remaining extrinsic value relative to the dividend and generate an early\-assignment warning when warranted\.
+Without defensive activation:
 
-This shall be treated as a hard defense condition rather than merely another weighted score\.
+```text
+StrongCloseCandidate -> PROFIT_CLOSE
+CloseCandidate       -> PROFIT_CLOSE
+Monitor              -> MONITOR
+None                 -> NO_ACTION
+```
+
+Defensive state takes precedence over ordinary profit-taking classification.
+
+When at least one candidate is Rankable:
+
+```text
+CurrentCCOS >= 55
+    -> ROLL
+
+CurrentCCOS < 55
+    -> CLOSE_WAIT
+
+CurrentCCOS unavailable
+    -> DEFENSE_REVIEW
+```
+
+When no candidate is Rankable:
+
+```text
+any candidate InsufficientData
+    -> DEFENSE_REVIEW
+
+all candidates conclusively Rejected
+AND HardDefenseStatus == Triggered
+    -> DEFENSE_REVIEW
+
+all candidates conclusively Rejected
+AND defensive activation is DRS-only
+    -> CLOSE_WAIT
+```
+
+A PartiallyEvaluated hard-defense state must never silently resolve to `NO_ACTION`.
+
+Phase 6 V1 does not implement final Recommendation execution state, campaign accounting, dividend/early-assignment logic, technical-breakout defense logic, or automatic execution.
 
 ---
 
@@ -4211,6 +4542,13 @@ For Phase 5, `PositionSizingService` / Application orchestration owns assembly o
 
 Quantitative Position Sizing formulas remain in Strategy.
 
+
+For Phase 6, `PositionMonitoringService` / Defense Application orchestration owns assembly of mutable current-state inputs, coherent existing-call observations, previous-trading Delta observations, current CCOS/indicator context, earnings context, per-expiration complete replacement-chain snapshots, resolved Defense/Roll configuration, and immutable persistence.
+
+Quantitative profit-taking, DRS, hard-trigger, Roll, RQS, ranking, and DefenseDisposition formulas remain in Strategy.
+
+Phase 6 V1 provides an evaluation capability suitable for daily invocation but does not require a scheduler/background worker.
+
 ---
 
 # 62\. Strategy Interfaces
@@ -4238,6 +4576,20 @@ Strategy implementations shall be deterministic given:
 - strategy version.
 
 The Phase 5 Position Sizing Strategy is pure and synchronous. It receives provider-independent immutable inputs and must not depend on EF Core, SQLite, HTTP, ASP.NET, Tradier/provider DTOs, or current wall-clock time.
+
+
+The Phase 6 Defense and Roll Strategy is pure and synchronous. It receives provider-independent immutable inputs and must not depend on EF Core, SQLite, HTTP, ASP.NET, provider DTOs, or current wall-clock time.
+
+Phase 6 strategy interfaces may be decomposed around:
+
+```text
+IDefenseRiskScorer
+IProfitTakingEvaluator
+IRollEngine
+IRollQualityScorer
+```
+
+provided formulas and decision flow remain those specified in Sections 36–52.
 
 ---
 
@@ -4299,6 +4651,34 @@ Position Sizing history API is deferred beyond Phase 5 V1; no history route is d
 The Phase 5 acceptance document shall lock exact creation, retrieval, history, not-found, not-applicable, insufficient-data, and immutability semantics before API implementation.
 
 There are no Phase 5 PUT/PATCH/DELETE semantics for an immutable PositionSizingEvaluation.
+
+## Phase 6 Defense and Roll API
+
+Phase 6 uses immutable analytical evaluation resources:
+
+```http
+POST /api/holdings/{holdingId}/positions/{positionId}/defense-evaluations
+GET  /api/defense-evaluations/{defenseEvaluationId}
+GET  /api/holdings/{holdingId}/positions/{positionId}/defense-evaluations
+GET  /api/roll-evaluations/{rollEvaluationId}
+```
+
+There is no independent public RollEvaluation POST. RollEvaluation is created only as a consequence of DefenseEvaluation orchestration.
+
+New evaluation semantics:
+
+```text
+Holding missing       -> 404
+Position missing      -> 404
+Holding disabled      -> 409 HOLDING_DISABLED
+Expired open position -> invalid current-position request
+```
+
+Valid analytical outcomes, including InsufficientData, are persisted evaluation results rather than transport errors.
+
+Historical evaluations remain readable after a Holding is disabled.
+
+There are no Phase 6 PUT/PATCH/DELETE semantics for immutable DefenseEvaluation or RollEvaluation.
 
 Representative endpoints:
 
@@ -4415,112 +4795,83 @@ The dashboard shall answer within approximately 30–60 seconds:
 
 # 66\. Recommendation Presentation
 
-Example:
+A future UI may present Phase 4/5 entry information together with a Phase 6 defense plan, but the analytical artifacts remain distinct.
+
+Illustrative defense-plan presentation:
 
 ```text
-MSFT
+PROFIT TAKING
+Monitor:             50%
+Close candidate:     70%
+Strong close:        80%
 
-ACTION: SELL
+HARD DEFENSE
+High Delta:          >= .40
+Near strike + Delta: <=1% OTM and Delta >= .30
+ITM:                 Underlying > Strike
+Low DTE + Delta:     <=3 DTE and Delta >= .25
+Rapid Delta:         increase >= .15
 
-CCOS: 87 / 100
-Contract Score: 93 / 100
-
-Shares: 1,000
-Recommended Contracts: 3
-Coverage: 30%
-
-Strike: $XXX
-Expiration: YYYY-MM-DD
-DTE: 31
-Delta: .16
-
-Estimated Premium:
-$X.XX/share
-
-Estimated Income:
-$X,XXX
-
-DEFENSE PLAN
-
-Profit Close:
-70%
-
-Delta Warning:
-.25
-
-Roll Evaluation:
-.30
-
-Hard Defense:
-.40
-
-Strike Proximity:
-2%
-
-Premium Multiple:
-2.0x
-
-Time Trigger:
-7 DTE
-
-Technical Trigger:
-Breakout
-
-Preferred Roll:
-Up and Out
-Target New Delta <= .20
+ROLL SEARCH
+DTE:                 21–60
+Preferred DTE:       21–45
+Preferred Delta:     .12–.18
+Normal max Delta:    .25
+High-tax max Delta:  .20
+Projected DRS:       <40
 ```
+
+Technical-breakout and dividend/early-assignment defense triggers are not Phase 6 V1 behavior.
 
 ---
 
 # 67\. Roll Recommendation Presentation
 
-Example:
+Illustrative Phase 6 roll analysis:
 
 ```text
-ACTION: ROLL UP & OUT
+DISPOSITION: ROLL
 
 Current DRS:
-68 HIGH RISK
+68 HIGH_RISK
 
 Current:
 $535 strike
 18 DTE
 Delta .36
 
-Replacement:
+Preferred replacement:
 $550 strike
 38 DTE
 Delta .17
 
+BTC reference:
+current Ask
+
+STO reference:
+replacement Bid
+
 Net Roll:
--$0.10/share
+STO - BTC
 
-Strike Improvement:
-+$15/share
-
-Delta:
-.36 -> .17
-
-DRS:
-68 -> 21
-
-DRS Reduction:
-47
+Projected DRS:
+<40 and lower than current
 
 RQS:
-94 / 100
+0–100
 
 Reason:
-Large assignment-risk reduction for minimal debit while
-substantially increasing strike protection.
+Candidate passed every roll hard gate and ranked first
+under the deterministic RQS/tie-break ordering.
 ```
+
+The presentation is analytical decision support only. The user remains responsible for trade execution.
 
 ---
 
 # 68\. Daily Refresh Workflow
 
-Expected V1 workflow:
+Expected V1 workflow may invoke the Phase 6 evaluation capability daily:
 
 ```text
 Start application
@@ -4539,18 +4890,22 @@ Calculate Contract Scores
         |
 Calculate Position Sizes
         |
-Generate new recommendations
+Generate/assemble new-entry decision support
         |
-Refresh open positions
+Evaluate open short-call positions
         |
-Calculate DRS
+Calculate profit taking / DRS / hard triggers
         |
 Run Roll Engine where required
         |
-Update performance
+Persist DefenseEvaluation / RollEvaluation
         |
-Refresh Excel
+Phase 7+ performance workflow
+        |
+Refresh presentation layer
 ```
+
+Phase 6 V1 does not require or implement a scheduler, background worker, or notification service.
 
 ---
 
@@ -4589,21 +4944,30 @@ Rate limit
 Invalid symbol
 Missing option chain
 Missing Greek
-Stale market data
+Stale cache requiring Application/MarketData refresh
 Database error
 Strategy calculation error
 Configuration error
+Invalid current-position state
 ```
 
-A missing data field shall not silently become zero\.
+A missing financial data field shall not silently become zero.
 
-Where critical data is unavailable, the recommendation shall be:
+Phase 6 must also distinguish:
 
 ```text
-INSUFFICIENT_DATA
+known hard-gate failure
 ```
 
-rather than manufacturing a score\.
+from:
+
+```text
+required candidate input unavailable
+```
+
+A candidate whose eligibility or RQS cannot be established is `InsufficientData`, not a conclusively rejected candidate.
+
+Where a critical Phase 6 result cannot be safely determined, the analytical result preserves explicit missing-input codes and uses `DEFENSE_REVIEW` where the approved disposition rules require human review.
 
 ---
 
@@ -4673,58 +5037,58 @@ Calculated ContractScore
 
 # 74\. Golden Strategy Scenarios
 
-Maintain a set of canonical scenarios\.
+Maintain canonical deterministic scenarios that prevent accidental strategy changes during refactoring.
 
-Examples:
+Existing entry scenarios remain, including Strong Entry and Breakout Veto.
 
-## Strong Entry
-
-```text
-High IV
-RSI 65
-Near resistance
-Momentum slowing
-Liquid chain
-```
-
-Expected:
+Phase 6 shall additionally maintain at least:
 
 ```text
-CCOS >=70
+SafeHold
+ProfitClose
+HighDeltaDefense
+ItmDefense
+RapidDeltaDefense
+RollCredit
+RollDebitWithinLimit
+RollDebitRejected
+HighTaxDeltaRejected
+NewEarningsCrossingRejected
+StrictOtmReplacementRequired
+PoorCcosCloseWait
+NoValidRollHardTriggerReview
+CandidateInsufficientDataReview
+DefenseInsufficientData
 ```
 
-## Breakout Veto
+Representative defensive expectations:
 
 ```text
-RSI 76
-Price above upper BB
-Strong volume
-Accelerating momentum
-New high
+Delta exactly .40
+    -> HIGH_DELTA triggered
+
+Gross premium captured >= .70
+with no defense activation
+    -> PROFIT_CLOSE
+
+Rankable replacement
+and CurrentCCOS >=55
+    -> ROLL
+
+Rankable replacement
+and CurrentCCOS <55
+    -> CLOSE_WAIT
+
+No Rankable candidate
+and at least one candidate InsufficientData
+    -> DEFENSE_REVIEW
+
+Higher replacement strike
+that is still ATM/ITM
+    -> rejected
 ```
 
-Expected:
-
-```text
-NO TRADE
-Breakout veto
-```
-
-## Defensive Roll
-
-```text
-Delta .38
-Stock within 1.5% strike
-DRS >65
-```
-
-Expected:
-
-```text
-ROLL evaluation
-```
-
-Golden scenarios shall prevent accidental strategy changes during refactoring\.
+Every numeric threshold must have immediately-below, exact-boundary, and immediately-above coverage where meaningful.
 
 ---
 
@@ -4752,41 +5116,30 @@ Tests shall not require live Tradier access for routine CI execution\.
 
 # 76\. Strategy Versioning
 
-Phase 4 preserves three independent identities:
+The system preserves independent identities for calculation/configuration/strategy semantics.
 
 ```text
 IndicatorCalculationVersion
 ConfigurationVersion
-StrategyVersion
+Entry StrategyVersion
+PositionSizingStrategyVersion
+DefenseStrategyVersion
+RollStrategyVersion
 ```
 
 ### IndicatorCalculationVersion
 
 Changes when Phase 3 fact-calculation algorithms change, such as IV30 interpolation, RSI mathematics, resistance clustering, or regime calculation.
 
-Phase 4 records the indicator calculation version of the facts it consumed.
-
 ### ConfigurationVersion
 
-Owns tunable numeric values and score parameters, including:
-
-```text
-CCOS weights and score bands
-CCOS classification thresholds
-Contract Score weights and score bands
-Contract Score classification thresholds
-maximum/preferred delta settings
-DTE ranges
-liquidity limits and bands
-premium/yield thresholds where server-configured
-other approved numeric strategy parameters
-```
+Owns approved tunable numeric values and score parameters.
 
 Changing a numeric value without changing the algorithm's meaning requires a configuration-version change.
 
-### StrategyVersion
+### Strategy Versions
 
-Owns algorithmic structure and semantics, including:
+Strategy-version identities own algorithmic structure and semantics for their respective phases, including:
 
 ```text
 formulas
@@ -4797,13 +5150,25 @@ ranking/tie-breaking
 decision flow
 ```
 
-Changing those semantics requires a strategy-version change.
+Examples:
 
-Holding-specific values are not ConfigurationVersion values. They are snapshotted in the evaluation's HoldingContext.
+```text
+change DRS numeric threshold only
+    -> ConfigurationVersion
 
-Every immutable Phase 4 evaluation shall persist both `ConfigurationVersion` and the complete resolved strategy-configuration values actually used.
+change DRS component composition/formula
+    -> DefenseStrategyVersion
 
-V1 uses one shared `ConfigurationVersion` identity across Phase 3 and Phase 4. It does not introduce separate indicator and strategy configuration-version systems.
+change RQS formula/ranking semantics
+    -> RollStrategyVersion
+
+change RSI mathematics
+    -> IndicatorCalculationVersion
+```
+
+Holding-specific values are snapshotted evaluation context, not ConfigurationVersion values.
+
+Every immutable strategy evaluation shall persist both the applicable version identities and the complete resolved configuration values actually used.
 
 Historical evaluations retain their original versions and resolved configuration and shall never be silently reinterpreted using newer logic or values.
 
@@ -4896,7 +5261,7 @@ V1 is successful when the user can:
 11. Receive strike\-ladder recommendations\.
 12. Receive a complete defense plan before opening\.
 13. Record an actual Fidelity/Schwab fill\.
-14. Automatically begin monitoring the resulting position\.
+14. Make the resulting open position available for repeatable defense evaluation.
 15. View current DRS\.
 16. Receive profit\-close alerts\.
 17. Receive defense alerts\.
@@ -5212,20 +5577,47 @@ No Phase 5 packet may introduce a new formula, threshold, allocation rule, round
 
 ## Phase 6 — Defense and Roll Engine
 
-Implement:
+Phase 6 consumes one current open short-call position and produces immutable analytical Defense/Roll evaluations.
+
+It implements:
 
 ```text
-Daily position monitoring
-DRS
+current-position defense context
+profit-taking evaluation
+four-component DRS
 DRS classification
-Defense hard triggers
-Profit-taking evaluation
-Roll candidate generation
-Roll economics
-RQS
-Roll hard gates
-Maximum roll debit
+five V1 hard-defense triggers
+hard-trigger aggregation
+roll-engine activation
+21–60 DTE replacement universe
+strict higher-strike / strict-OTM defensive replacements
+normal/high-tax Delta limits
+Phase 4 liquidity gate/score reuse
+new-earnings-crossing gate
+Ask/Bid conservative roll economics
+absolute maximum roll debit
+projected DRS
+six-component RQS
+deterministic candidate ranking
+DefenseDisposition
+immutable DefenseEvaluation
+conditional immutable RollEvaluation
+Phase 6 API
 ```
+
+Implementation packets:
+
+```text
+6A — Defense foundations and current-position contract
+6B — Profit taking, DRS, and hard triggers
+6C — Roll candidate universe, hard gates, and economics
+6D — RQS, ranking, and DefenseDisposition
+6E — Application orchestration and current-context assembly
+6F — Immutable persistence
+6G — API and merge-gate validation
+```
+
+Phase 6 does not implement scheduled background monitoring, technical-breakout defense, dividend/early-assignment logic, transaction/campaign accounting, campaign-relative debit limits, tax-dollar debit overrides, final Recommendation execution state, brokerage synchronization, or automatic execution.
 
 ## Phase 7 — Campaign Accounting and Performance
 

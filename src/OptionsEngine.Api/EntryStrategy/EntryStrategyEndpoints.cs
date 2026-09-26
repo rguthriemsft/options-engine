@@ -196,6 +196,7 @@ public sealed record EntryStrategyEvaluationHistoryResponse(
 internal static class ApiErrors
 {
     public static IResult NotFound(string code, string title) => Error(StatusCodes.Status404NotFound, code, title);
+    public static IResult BadRequest(string code, string title) => Error(StatusCodes.Status400BadRequest, code, title);
     public static IResult Conflict(string code, string title) => Error(StatusCodes.Status409Conflict, code, title);
 
     public static IResult Error(int status, string code, string title) =>

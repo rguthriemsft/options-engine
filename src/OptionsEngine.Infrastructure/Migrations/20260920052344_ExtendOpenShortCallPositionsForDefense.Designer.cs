@@ -2,6 +2,7 @@
 using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using OptionsEngine.Infrastructure.Persistence;
 
@@ -10,9 +11,11 @@ using OptionsEngine.Infrastructure.Persistence;
 namespace OptionsEngine.Infrastructure.Migrations
 {
     [DbContext(typeof(OptionsEngineDbContext))]
-    partial class OptionsEngineDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260920052344_ExtendOpenShortCallPositionsForDefense")]
+    partial class ExtendOpenShortCallPositionsForDefense
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder.HasAnnotation("ProductVersion", "10.0.12");
@@ -155,96 +158,6 @@ namespace OptionsEngine.Infrastructure.Migrations
                     b.HasIndex("HoldingId");
 
                     b.ToTable("TaxLots", (string)null);
-                });
-
-            modelBuilder.Entity("OptionsEngine.Infrastructure.Persistence.DefenseEvaluationEntity", b =>
-                {
-                    b.Property<long>("DefenseEvaluationEntityId")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("INTEGER");
-
-                    b.Property<DateTimeOffset>("CalculatedAtUtc")
-                        .HasColumnType("TEXT");
-
-                    b.Property<int>("ConfigurationVersion")
-                        .HasColumnType("INTEGER");
-
-                    b.Property<double?>("CurrentCcos")
-                        .HasColumnType("REAL");
-
-                    b.Property<Guid>("DefenseEvaluationId")
-                        .HasColumnType("TEXT");
-
-                    b.Property<DateTimeOffset>("DefenseEvaluationTimestampUtc")
-                        .HasColumnType("TEXT");
-
-                    b.Property<string>("DefenseStrategyVersion")
-                        .IsRequired()
-                        .HasMaxLength(64)
-                        .HasColumnType("TEXT");
-
-                    b.Property<string>("Disposition")
-                        .IsRequired()
-                        .HasMaxLength(32)
-                        .HasColumnType("TEXT");
-
-                    b.Property<double?>("Drs")
-                        .HasColumnType("REAL");
-
-                    b.Property<string>("DrsClassification")
-                        .HasMaxLength(32)
-                        .HasColumnType("TEXT");
-
-                    b.Property<string>("EvaluationJson")
-                        .IsRequired()
-                        .HasColumnType("TEXT");
-
-                    b.Property<string>("HardDefenseStatus")
-                        .IsRequired()
-                        .HasMaxLength(32)
-                        .HasColumnType("TEXT");
-
-                    b.Property<Guid>("HoldingId")
-                        .HasColumnType("TEXT");
-
-                    b.Property<long>("OpenShortCallPositionId")
-                        .HasColumnType("INTEGER");
-
-                    b.Property<string>("OptionSymbol")
-                        .IsRequired()
-                        .HasMaxLength(64)
-                        .HasColumnType("TEXT");
-
-                    b.Property<string>("ProfitTakingSignal")
-                        .IsRequired()
-                        .HasMaxLength(32)
-                        .HasColumnType("TEXT");
-
-                    b.Property<bool>("RollEngineRequired")
-                        .HasColumnType("INTEGER");
-
-                    b.Property<Guid?>("RollEvaluationId")
-                        .HasColumnType("TEXT");
-
-                    b.Property<string>("RollStrategyVersion")
-                        .IsRequired()
-                        .HasMaxLength(64)
-                        .HasColumnType("TEXT");
-
-                    b.Property<string>("Symbol")
-                        .IsRequired()
-                        .HasMaxLength(32)
-                        .HasColumnType("TEXT");
-
-                    b.HasKey("DefenseEvaluationEntityId");
-
-                    b.HasIndex("RollEvaluationId")
-                        .IsUnique();
-
-                    b.HasIndex("HoldingId", "OpenShortCallPositionId", "CalculatedAtUtc", "DefenseEvaluationEntityId")
-                        .IsDescending(false, false, true, true);
-
-                    b.ToTable("DefenseEvaluations", (string)null);
                 });
 
             modelBuilder.Entity("OptionsEngine.Infrastructure.Persistence.EmptyOptionChainSnapshotEntity", b =>
@@ -770,70 +683,6 @@ namespace OptionsEngine.Infrastructure.Migrations
                     b.ToTable("PositionSizingEvaluations", (string)null);
                 });
 
-            modelBuilder.Entity("OptionsEngine.Infrastructure.Persistence.RollEvaluationEntity", b =>
-                {
-                    b.Property<long>("RollEvaluationEntityId")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("INTEGER");
-
-                    b.Property<DateTimeOffset>("CalculatedAtUtc")
-                        .HasColumnType("TEXT");
-
-                    b.Property<int>("ConfigurationVersion")
-                        .HasColumnType("INTEGER");
-
-                    b.Property<double?>("CurrentCcos")
-                        .HasColumnType("REAL");
-
-                    b.Property<Guid>("DefenseEvaluationId")
-                        .HasColumnType("TEXT");
-
-                    b.Property<DateTimeOffset>("DefenseEvaluationTimestampUtc")
-                        .HasColumnType("TEXT");
-
-                    b.Property<string>("EvaluationJson")
-                        .IsRequired()
-                        .HasColumnType("TEXT");
-
-                    b.Property<int>("InsufficientCandidateCount")
-                        .HasColumnType("INTEGER");
-
-                    b.Property<DateOnly?>("PreferredExpiration")
-                        .HasColumnType("TEXT");
-
-                    b.Property<string>("PreferredOptionSymbol")
-                        .HasMaxLength(64)
-                        .HasColumnType("TEXT");
-
-                    b.Property<double?>("PreferredRqs")
-                        .HasColumnType("REAL");
-
-                    b.Property<decimal?>("PreferredStrike")
-                        .HasPrecision(18, 6)
-                        .HasColumnType("TEXT");
-
-                    b.Property<int>("RankableCandidateCount")
-                        .HasColumnType("INTEGER");
-
-                    b.Property<Guid>("RollEvaluationId")
-                        .HasColumnType("TEXT");
-
-                    b.Property<string>("RollStrategyVersion")
-                        .IsRequired()
-                        .HasMaxLength(64)
-                        .HasColumnType("TEXT");
-
-                    b.HasKey("RollEvaluationEntityId");
-
-                    b.HasIndex("DefenseEvaluationId")
-                        .IsUnique();
-
-                    b.HasIndex("RollEvaluationId")
-                        .IsUnique();
-
-                    b.ToTable("RollEvaluations", (string)null);
-                });
-
             modelBuilder.Entity("OptionsEngine.Domain.Accounts.Holding", b =>
                 {
                     b.HasOne("OptionsEngine.Domain.Accounts.Account", "Account")
@@ -861,16 +710,6 @@ namespace OptionsEngine.Infrastructure.Migrations
                     b.HasOne("OptionsEngine.Infrastructure.Persistence.EntryStrategyEvaluationEntity", null)
                         .WithMany()
                         .HasForeignKey("EntryStrategyEvaluationId")
-                        .OnDelete(DeleteBehavior.Restrict)
-                        .IsRequired();
-                });
-
-            modelBuilder.Entity("OptionsEngine.Infrastructure.Persistence.RollEvaluationEntity", b =>
-                {
-                    b.HasOne("OptionsEngine.Infrastructure.Persistence.DefenseEvaluationEntity", null)
-                        .WithOne()
-                        .HasForeignKey("OptionsEngine.Infrastructure.Persistence.RollEvaluationEntity", "DefenseEvaluationId")
-                        .HasPrincipalKey("OptionsEngine.Infrastructure.Persistence.DefenseEvaluationEntity", "DefenseEvaluationId")
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
                 });

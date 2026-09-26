@@ -13,6 +13,9 @@ using OptionsEngine.MarketData.Tradier;
 using OptionsEngine.Strategy.Indicators;
 using OptionsEngine.Strategy.PositionSizing;
 using OptionsEngine.Application.PositionSizing;
+using OptionsEngine.Api.Defense;
+using OptionsEngine.Application.Defense;
+using System.Text.Json.Serialization;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -47,6 +50,9 @@ builder.Services.AddSingleton(earningsCalendar);
 builder.Services.AddSingleton<IEarningsDateSource, ConfiguredEarningsDateSource>();
 var positionSizingConfiguration = PositionSizingApiConfiguration.Load(builder.Configuration, indicatorConfiguration);
 builder.Services.AddSingleton(positionSizingConfiguration);
+var defenseRollConfiguration = DefenseApiConfiguration.Load(builder.Configuration, indicatorConfiguration.Version,
+    entryStrategyConfiguration.StrategyConfiguration);
+builder.Services.AddSingleton(defenseRollConfiguration);
 builder.Services.AddScoped<SqliteHoldingRepository>();
 builder.Services.AddScoped<IHoldingRepository>(sp => sp.GetRequiredService<SqliteHoldingRepository>());
 builder.Services.AddScoped<IPositionSizingHoldingRepository>(sp => sp.GetRequiredService<SqliteHoldingRepository>());
@@ -58,6 +64,16 @@ builder.Services.AddScoped<IEntryStrategyEvaluationWriter>(sp =>
     sp.GetRequiredService<EntryStrategyEvaluationPersistenceService>());
 builder.Services.AddScoped<IPositionSizingMarketDataRepository, SqlitePositionSizingMarketDataRepository>();
 builder.Services.AddScoped<IOpenShortCallPositionRepository, SqliteOpenShortCallPositionRepository>();
+builder.Services.AddScoped<ICurrentOpenShortCallPositionRepository, SqliteOpenShortCallPositionRepository>();
+builder.Services.AddScoped<IDefenseMarketDataRepository, SqliteDefenseMarketDataRepository>();
+builder.Services.AddScoped<ICurrentCcosResolver, CurrentCcosResolver>();
+builder.Services.AddScoped<DefenseEvaluationOrchestrator>();
+builder.Services.AddScoped<IDefenseEvaluationOrchestrator>(sp =>
+    sp.GetRequiredService<DefenseEvaluationOrchestrator>());
+builder.Services.AddScoped<IDefenseEvaluationRepository, SqliteDefenseEvaluationRepository>();
+builder.Services.AddScoped<DefenseEvaluationPersistenceService>();
+builder.Services.AddScoped<IDefenseEvaluationWriter>(sp =>
+    sp.GetRequiredService<DefenseEvaluationPersistenceService>());
 builder.Services.AddScoped<IPositionSizingEngine, PositionSizingEngine>();
 builder.Services.AddScoped<PositionSizingEvaluationOrchestrator>();
 builder.Services.AddScoped<IPositionSizingEvaluationOrchestrator>(sp =>
@@ -67,6 +83,11 @@ builder.Services.AddScoped<PositionSizingEvaluationPersistenceService>();
 builder.Services.AddScoped<IPositionSizingEvaluationWriter>(sp =>
     sp.GetRequiredService<PositionSizingEvaluationPersistenceService>());
 builder.Services.AddSingleton(TimeProvider.System);
+builder.Services.ConfigureHttpJsonOptions(options =>
+{
+    options.SerializerOptions.NumberHandling = JsonNumberHandling.AllowNamedFloatingPointLiterals;
+    options.SerializerOptions.Converters.Add(new JsonStringEnumConverter(null, allowIntegerValues: false));
+});
 builder.Services.AddHealthChecks().AddCheck<DatabaseHealthCheck>("database");
 
 var app = builder.Build();
@@ -83,6 +104,7 @@ app.MapHealthChecks("/health", new HealthCheckOptions { ResponseWriter = HealthR
 app.MapIndicatorEndpoints();
 app.MapEntryStrategyEndpoints();
 app.MapPositionSizingEndpoints();
+app.MapDefenseEndpoints();
 var market = app.MapGroup("/api/market").AddEndpointFilter(async (context, next) =>
 {
     try { return await next(context); }

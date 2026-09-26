@@ -29,7 +29,7 @@ public sealed class EntryStrategyEvaluationOrchestrator(
             ?? throw new HoldingNotFoundException(holdingId);
         if (!holding.IsEnabled) throw new HoldingDisabledException(holdingId);
 
-        var holdingContext = MapHolding(holding);
+        var holdingContext = EntryStrategyContextMapper.MapHolding(holding);
         var requestBoundary = DateOnly.FromDateTime(TimeZoneInfo.ConvertTime(evaluationTimestampUtc,
             TimeZoneInfo.FindSystemTimeZoneById("America/New_York")).DateTime);
         var provider = marketDataProvider.ProviderName;
@@ -44,8 +44,9 @@ public sealed class EntryStrategyEvaluationOrchestrator(
         if (snapshot.ConfigurationVersion != configuration.StrategyConfiguration.Version)
             throw new InvalidOperationException("The Phase 3 indicator snapshot configuration version does not match the Phase 4 configuration version.");
 
-        var indicatorContext = MapIndicators(snapshot);
-        var earnings = await ResolveEarningsAsync(holding, evaluationTimestampUtc, cancellationToken);
+        var indicatorContext = EntryStrategyContextMapper.MapIndicators(snapshot);
+        var earnings = await EntryStrategyContextMapper.ResolveEarningsAsync(holding, evaluationTimestampUtc,
+            earningsDateSource, cancellationToken);
         var context = new EvaluationContext(holdingContext, indicatorContext, earnings, indicatorAsOfDate,
             evaluationTimestampUtc, configuration.StrategyConfiguration, configuration.StrategyVersion);
         var minimumExpiration = requestBoundary.AddDays(configuration.StrategyConfiguration.ContractEligibility.MinimumDte);
@@ -57,35 +58,6 @@ public sealed class EntryStrategyEvaluationOrchestrator(
         var strategyResult = _strategy.Evaluate(context, contracts);
         return new EntryStrategyEvaluationBundle(context, selectedChains, contracts, strategyResult);
     }
-
-    private async Task<EarningsContext> ResolveEarningsAsync(Holding holding, DateTimeOffset evaluationTimestampUtc,
-        CancellationToken cancellationToken)
-    {
-        if (holding.AssetType == AssetType.ExchangeTradedFund)
-            return new EarningsContext(AvailabilityStatus.NotApplicable, null);
-
-        var date = await earningsDateSource.GetNextEarningsDateAsync(holding.Symbol, evaluationTimestampUtc, cancellationToken);
-        var evaluationDate = DateOnly.FromDateTime(TimeZoneInfo.ConvertTime(evaluationTimestampUtc,
-            TimeZoneInfo.FindSystemTimeZoneById("America/New_York")).DateTime);
-        return date is not null && date >= evaluationDate
-            ? new EarningsContext(AvailabilityStatus.Available, date)
-            : new EarningsContext(AvailabilityStatus.Unavailable, null);
-    }
-
-    private static HoldingContext MapHolding(Holding holding) => new(holding.HoldingId, holding.Symbol, holding.AssetType,
-        holding.AssignmentSensitivity, holding.TaxSensitivity, holding.MaximumInitialDelta, holding.PreferredDeltaMinimum,
-        holding.PreferredDeltaMaximum, holding.MinimumCcos, holding.MinimumContractScore, holding.MinimumPremium,
-        holding.MinimumAnnualizedYield);
-
-    private static IndicatorContext MapIndicators(IndicatorSnapshot snapshot) => new(snapshot.Symbol, snapshot.AsOfDate,
-        snapshot.Iv30, snapshot.IvPercentile, snapshot.RealizedVolatility30, snapshot.Rsi14, snapshot.BollingerPercentB,
-        snapshot.BollingerBandwidth, snapshot.Sma20, snapshot.Sma50, snapshot.Sma200, snapshot.MacdHistogram,
-        snapshot.ResistancePrice, snapshot.DistanceToResistancePercent, snapshot.ResistanceTouchCount,
-        snapshot.ResistanceAgeTradingDays, snapshot.ResistanceUnavailableReason, snapshot.MarketRegime, snapshot.SectorRegime,
-        snapshot.IndicatorCalculationVersion, snapshot.ConfigurationVersion, snapshot.CalculatedAt)
-    {
-        IvRank = snapshot.IvRank
-    };
 
     private static OptionContractContext MapContract(OptionContractSnapshot contract) => new(contract.OptionSymbol,
         contract.UnderlyingSymbol, contract.Timestamp, contract.Expiration, contract.Strike,

@@ -21,7 +21,7 @@ public sealed class PositionSizingEvaluationEntity
     public required string EvaluationJson { get; set; }
 }
 
-/// <summary>Current-state open short-call position used only to assemble a future Position Sizing evaluation.</summary>
+/// <summary>Narrow mutable current-state open short-call position; not a transaction or campaign ledger.</summary>
 public sealed class OpenShortCallPositionEntity
 {
     public long OpenShortCallPositionId { get; set; }
@@ -30,4 +30,6 @@ public sealed class OpenShortCallPositionEntity
     public int Contracts { get; set; }
     public decimal Strike { get; set; }
     public DateOnly Expiration { get; set; }
+    public decimal? OpeningPremiumPerShare { get; set; }
+    public DateTimeOffset? OpenedAtUtc { get; set; }
 }
