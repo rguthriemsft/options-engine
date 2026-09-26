@@ -72,13 +72,13 @@ immutable persistence / API
 
 Acceptance criteria:
 
-- [ ] Strategy is deterministic for fixed inputs, configuration, and strategy versions.
-- [ ] Strategy is provider-independent.
-- [ ] Strategy does not fetch provider data.
-- [ ] Application owns current-state, market-data, and persistence orchestration.
-- [ ] Phase 4/5 immutable evaluations are never modified by Phase 6.
-- [ ] No Phase 7 ledger/campaign model is introduced.
-- [ ] No automatic trade execution is introduced.
+- [x] Strategy is deterministic for fixed inputs, configuration, and strategy versions.
+- [x] Strategy is provider-independent.
+- [x] Strategy does not fetch provider data.
+- [x] Application owns current-state, market-data, and persistence orchestration.
+- [x] Phase 4/5 immutable evaluations are never modified by Phase 6.
+- [x] No Phase 7 ledger/campaign model is introduced.
+- [x] No automatic trade execution is introduced.
 
 ---
 
@@ -780,18 +780,18 @@ GET  /api/roll-evaluations/{rollEvaluationId}
 
 Acceptance criteria:
 
-- [ ] POST creates one immutable DefenseEvaluation and returns 201 on successful analytical outcomes.
-- [ ] RollEvaluation is created only as part of DefenseEvaluation orchestration.
-- [ ] There is no independent public Roll POST.
-- [ ] GET by ID is passive historical retrieval.
-- [ ] Position history is newest first and lightweight.
-- [ ] Missing Holding returns 404.
-- [ ] Missing position returns 404.
-- [ ] Disabled Holding rejects new evaluation with 409 HOLDING_DISABLED.
-- [ ] Historical evaluation remains readable after Holding is disabled.
-- [ ] Expired row still represented as open is rejected as invalid current-position state.
-- [ ] Analytical InsufficientData results remain successful persisted evaluations where current-state request itself is valid.
-- [ ] No PUT/PATCH/DELETE exists for immutable Phase 6 evaluations.
+- [x] POST creates one immutable DefenseEvaluation and returns 201 on successful analytical outcomes.
+- [x] RollEvaluation is created only as part of DefenseEvaluation orchestration.
+- [x] There is no independent public Roll POST.
+- [x] GET by ID is passive historical retrieval.
+- [x] Position history is newest first and lightweight.
+- [x] Missing Holding returns 404.
+- [x] Missing position returns 404.
+- [x] Disabled Holding rejects new evaluation with 409 HOLDING_DISABLED.
+- [x] Historical evaluation remains readable after Holding is disabled.
+- [x] Expired row still represented as open is rejected as invalid current-position state.
+- [x] Analytical InsufficientData results remain successful persisted evaluations where current-state request itself is valid.
+- [x] No PUT/PATCH/DELETE exists for immutable Phase 6 evaluations.
 
 ---
 
@@ -821,8 +821,8 @@ Acceptance criteria:
 - [x] Shared ConfigurationVersion is persisted.
 - [x] DefenseStrategyVersion is persisted.
 - [x] RollStrategyVersion is persisted.
-- [ ] Numeric-only approved parameter changes are configuration-version changes.
-- [ ] Formula/component/gate/missing-data/ranking/decision-flow changes require strategy-version change.
+- [x] Numeric-only approved parameter changes are configuration-version changes.
+- [x] Formula/component/gate/missing-data/ranking/decision-flow changes require strategy-version change.
 - [x] Historical evaluations retain original versions and resolved configuration.
 - [x] Invalid configuration fails clearly rather than clamping.
 
@@ -854,19 +854,19 @@ Acceptance criteria:
 
 - [x] SafeHold yields no defensive activation and NO_ACTION or MONITOR according to profit-taking state.
 - [x] ProfitClose demonstrates low defense risk with >=70% gross capture.
-- [ ] HighDeltaDefense demonstrates exact .40 trigger semantics.
-- [ ] ItmDefense triggers regardless of Delta availability where ITM can be established.
-- [ ] RapidDeltaDefense uses previous trading observation, not 24-hour subtraction.
-- [ ] RollCredit produces deterministic positive economics.
-- [ ] RollDebitWithinLimit passes at the exact maximum.
-- [ ] RollDebitRejected fails immediately beyond the maximum.
-- [ ] HighTaxDeltaRejected proves .20 cap.
-- [ ] NewEarningsCrossingRejected proves only newly introduced crossing rejects.
-- [ ] StrictOtmReplacementRequired rejects a higher strike that is still ATM/ITM.
+- [x] HighDeltaDefense demonstrates exact .40 trigger semantics.
+- [x] ItmDefense triggers regardless of Delta availability where ITM can be established.
+- [x] RapidDeltaDefense uses previous trading observation, not 24-hour subtraction.
+- [x] RollCredit produces deterministic positive economics.
+- [x] RollDebitWithinLimit passes at the exact maximum.
+- [x] RollDebitRejected fails immediately beyond the maximum.
+- [x] HighTaxDeltaRejected proves .20 cap.
+- [x] NewEarningsCrossingRejected proves only newly introduced crossing rejects.
+- [x] StrictOtmReplacementRequired rejects a higher strike that is still ATM/ITM.
 - [x] PoorCcosCloseWait uses a Rankable candidate but CurrentCCOS <55.
 - [x] NoValidRollHardTriggerReview yields DEFENSE_REVIEW.
 - [x] CandidateInsufficientDataReview does not misclassify unknown candidate eligibility as rejection.
-- [ ] DefenseInsufficientData preserves partial components/triggers without fabricated zero values.
+- [x] DefenseInsufficientData preserves partial components/triggers without fabricated zero values.
 
 ---
 
@@ -874,19 +874,19 @@ Acceptance criteria:
 
 Before Phase 6 merge:
 
-- [ ] Release build passes with 0 warnings and 0 errors.
-- [ ] Entire test suite passes with 0 failures and 0 skips unless a skip is explicitly justified.
-- [ ] Every numeric strategy threshold has below/exact/above tests.
-- [ ] All five hard triggers have deterministic boundary/missing-data tests.
-- [ ] Profit-taking thresholds have deterministic boundary tests.
-- [ ] Roll candidate DTE/Delta/debit/CCOS boundaries have deterministic tests.
-- [ ] DRS and RQS maximum/minimum behavior is validated.
-- [ ] Candidate ranking/tie-breaking is deterministic.
+- [x] Release build passes with 0 warnings and 0 errors.
+- [x] Entire test suite passes with 0 failures and 0 skips unless a skip is explicitly justified.
+- [x] Every numeric strategy threshold has below/exact/above tests.
+- [x] All five hard triggers have deterministic boundary/missing-data tests.
+- [x] Profit-taking thresholds have deterministic boundary tests.
+- [x] Roll candidate DTE/Delta/debit/CCOS boundaries have deterministic tests.
+- [x] DRS and RQS maximum/minimum behavior is validated.
+- [x] Candidate ranking/tie-breaking is deterministic.
 - [x] Persistence is append-only and historically stable.
 - [x] Migration from the Phase 5 database lineage succeeds.
 - [x] No pending migrations remain after upgrade.
-- [ ] Existing Phase 1–5 API behavior remains unchanged.
-- [ ] No Phase 7 Campaign/Transaction implementation is introduced.
-- [ ] No automatic execution exists.
-- [ ] `git diff --check` passes.
-- [ ] Working tree is clean after final commit.
+- [x] Existing Phase 1–5 API behavior remains unchanged.
+- [x] No Phase 7 Campaign/Transaction implementation is introduced.
+- [x] No automatic execution exists.
+- [x] `git diff --check` passes.
+- [x] Working tree is clean after final commit.

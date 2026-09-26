@@ -15,8 +15,11 @@ public sealed class RollCandidateEvaluatorTests
     [Theory]
     [InlineData(20, RollCandidateEvaluationState.Rejected, null)]
     [InlineData(21, RollCandidateEvaluationState.Rankable, ReplacementDteWindow.Preferred)]
+    [InlineData(22, RollCandidateEvaluationState.Rankable, ReplacementDteWindow.Preferred)]
+    [InlineData(44, RollCandidateEvaluationState.Rankable, ReplacementDteWindow.Preferred)]
     [InlineData(45, RollCandidateEvaluationState.Rankable, ReplacementDteWindow.Preferred)]
     [InlineData(46, RollCandidateEvaluationState.Rankable, ReplacementDteWindow.Extended)]
+    [InlineData(59, RollCandidateEvaluationState.Rankable, ReplacementDteWindow.Extended)]
     [InlineData(60, RollCandidateEvaluationState.Rankable, ReplacementDteWindow.Extended)]
     [InlineData(61, RollCandidateEvaluationState.Rejected, null)]
     public void ReplacementDteUsesInclusiveRangeAndRecordsWindow(int dte,
@@ -94,6 +97,7 @@ public sealed class RollCandidateEvaluatorTests
     }
 
     [Theory]
+    [InlineData(.249999, false)]
     [InlineData(.25, false)]
     [InlineData(.250001, true)]
     public void NormalMaximumDeltaIsInclusive(double delta, bool rejected)
@@ -104,6 +108,7 @@ public sealed class RollCandidateEvaluatorTests
     }
 
     [Theory]
+    [InlineData(.199999, false)]
     [InlineData(.20, false)]
     [InlineData(.200001, true)]
     public void HighTaxMaximumDeltaIsInclusive(double delta, bool rejected)
@@ -175,8 +180,9 @@ public sealed class RollCandidateEvaluatorTests
     }
 
     [Theory]
-    [InlineData(100, false)]
     [InlineData(99, true)]
+    [InlineData(100, false)]
+    [InlineData(101, false)]
     public void OpenInterestMinimumIsInclusive(long openInterest, bool rejected)
     {
         var result = Evaluate(Candidate(openInterest: openInterest));
@@ -185,6 +191,7 @@ public sealed class RollCandidateEvaluatorTests
     }
 
     [Theory]
+    [InlineData(.9001, 1.0999, false)]
     [InlineData(.9, 1.1, false)]
     [InlineData(.8999, 1.1001, true)]
     public void LiquiditySpreadMaximumIsInclusive(decimal bid, decimal ask, bool rejected)
@@ -287,6 +294,7 @@ public sealed class RollCandidateEvaluatorTests
     }
 
     [Theory]
+    [InlineData(1.7501, .25, false)]
     [InlineData(1.75, .25, false)]
     [InlineData(1.7499, .25, true)]
     [InlineData(1.99, 0, true)]

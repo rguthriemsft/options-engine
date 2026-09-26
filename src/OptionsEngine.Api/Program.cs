@@ -15,6 +15,7 @@ using OptionsEngine.Strategy.PositionSizing;
 using OptionsEngine.Application.PositionSizing;
 using OptionsEngine.Api.Defense;
 using OptionsEngine.Application.Defense;
+using System.Text.Json.Serialization;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -82,6 +83,11 @@ builder.Services.AddScoped<PositionSizingEvaluationPersistenceService>();
 builder.Services.AddScoped<IPositionSizingEvaluationWriter>(sp =>
     sp.GetRequiredService<PositionSizingEvaluationPersistenceService>());
 builder.Services.AddSingleton(TimeProvider.System);
+builder.Services.ConfigureHttpJsonOptions(options =>
+{
+    options.SerializerOptions.NumberHandling = JsonNumberHandling.AllowNamedFloatingPointLiterals;
+    options.SerializerOptions.Converters.Add(new JsonStringEnumConverter(null, allowIntegerValues: false));
+});
 builder.Services.AddHealthChecks().AddCheck<DatabaseHealthCheck>("database");
 
 var app = builder.Build();
@@ -98,6 +104,7 @@ app.MapHealthChecks("/health", new HealthCheckOptions { ResponseWriter = HealthR
 app.MapIndicatorEndpoints();
 app.MapEntryStrategyEndpoints();
 app.MapPositionSizingEndpoints();
+app.MapDefenseEndpoints();
 var market = app.MapGroup("/api/market").AddEndpointFilter(async (context, next) =>
 {
     try { return await next(context); }

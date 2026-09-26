@@ -1221,6 +1221,7 @@ CurrentCCOS roll threshold
 ```
 
 The system continues to persist the shared `ConfigurationVersion` and complete resolved values consumed by the evaluation.
+Changing only an approved numeric configuration value increments `ConfigurationVersion` and does not by itself change an algorithm identity.
 
 Algorithm identities are distinct:
 

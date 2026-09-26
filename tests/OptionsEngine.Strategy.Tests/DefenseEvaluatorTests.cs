@@ -297,11 +297,15 @@ public sealed class DefenseEvaluatorTests
             result.Drs.Components.Select(component => component.Code));
     }
 
-    [Fact]
-    public void ExactHighDeltaThresholdTriggers()
+    [Theory]
+    [InlineData(.399999, HardTriggerStatus.NotTriggered)]
+    [InlineData(.40, HardTriggerStatus.Triggered)]
+    [InlineData(.400001, HardTriggerStatus.Triggered)]
+    public void HighDeltaThresholdHasExplicitBelowExactAndAboveSemantics(
+        double delta, HardTriggerStatus expected)
     {
-        Assert.Equal(HardTriggerStatus.Triggered,
-            Trigger(evaluator.Evaluate(Input(delta: .40)), HardTriggerCode.HighDelta).Status);
+        Assert.Equal(expected,
+            Trigger(evaluator.Evaluate(Input(delta: delta)), HardTriggerCode.HighDelta).Status);
     }
 
     [Theory]
@@ -315,25 +319,45 @@ public sealed class DefenseEvaluatorTests
             Trigger(result, HardTriggerCode.StrikeProximityWithDelta).Status);
     }
 
+    [Theory]
+    [InlineData(.299999, 101, HardTriggerStatus.NotTriggered)]
+    [InlineData(.30, 101, HardTriggerStatus.Triggered)]
+    [InlineData(.300001, 101, HardTriggerStatus.Triggered)]
+    [InlineData(.30, 101.0001, HardTriggerStatus.NotTriggered)]
+    public void StrikeProximityTriggerCoversDeltaAndDistanceBoundarySides(
+        double delta, decimal strike, HardTriggerStatus expected)
+    {
+        var result = evaluator.Evaluate(Input(delta: delta, strike: strike, underlyingPrice: 100m));
+
+        Assert.Equal(expected, Trigger(result, HardTriggerCode.StrikeProximityWithDelta).Status);
+    }
+
     [Fact]
     public void ItmTriggerUsesStrictInequality()
     {
+        var otm = evaluator.Evaluate(Input(strike: 100m, underlyingPrice: 99.99m));
         var atm = evaluator.Evaluate(Input(strike: 100m, underlyingPrice: 100m));
         var itm = evaluator.Evaluate(Input(strike: 100m, underlyingPrice: 100.01m));
 
+        Assert.Equal(HardTriggerStatus.NotTriggered, Trigger(otm, HardTriggerCode.InTheMoney).Status);
         Assert.Equal(HardTriggerStatus.NotTriggered, Trigger(atm, HardTriggerCode.InTheMoney).Status);
         Assert.Equal(HardTriggerStatus.Triggered, Trigger(itm, HardTriggerCode.InTheMoney).Status);
         Assert.Equal(HardTriggerStatus.NotApplicable,
             Trigger(itm, HardTriggerCode.StrikeProximityWithDelta).Status);
     }
 
-    [Fact]
-    public void ExactLowDteAndDeltaThresholdsTrigger()
+    [Theory]
+    [InlineData(4, .25, HardTriggerStatus.NotTriggered)]
+    [InlineData(3, .25, HardTriggerStatus.Triggered)]
+    [InlineData(2, .25, HardTriggerStatus.Triggered)]
+    [InlineData(3, .249999, HardTriggerStatus.NotTriggered)]
+    [InlineData(3, .250001, HardTriggerStatus.Triggered)]
+    public void LowDteTriggerCoversBothThresholdBoundarySides(
+        int dte, double delta, HardTriggerStatus expected)
     {
-        var result = evaluator.Evaluate(Input(dte: 3, delta: .25));
+        var result = evaluator.Evaluate(Input(dte: dte, delta: delta));
 
-        Assert.Equal(HardTriggerStatus.Triggered,
-            Trigger(result, HardTriggerCode.LowDteWithDelta).Status);
+        Assert.Equal(expected, Trigger(result, HardTriggerCode.LowDteWithDelta).Status);
     }
 
     [Fact]
@@ -341,6 +365,7 @@ public sealed class DefenseEvaluatorTests
     {
         var exact = evaluator.Evaluate(Input(delta: .35, previousDelta: .20));
         var below = evaluator.Evaluate(Input(delta: .349999, previousDelta: .20));
+        var above = evaluator.Evaluate(Input(delta: .350001, previousDelta: .20));
         var decrease = evaluator.Evaluate(Input(delta: .20, previousDelta: .40));
 
         Assert.Equal(.15, exact.DeltaVelocity!.Value, 10);
@@ -348,6 +373,8 @@ public sealed class DefenseEvaluatorTests
             Trigger(exact, HardTriggerCode.RapidDeltaIncrease).Status);
         Assert.Equal(HardTriggerStatus.NotTriggered,
             Trigger(below, HardTriggerCode.RapidDeltaIncrease).Status);
+        Assert.Equal(HardTriggerStatus.Triggered,
+            Trigger(above, HardTriggerCode.RapidDeltaIncrease).Status);
         Assert.Equal(-.20, decrease.DeltaVelocity);
         Assert.Equal(HardTriggerStatus.NotTriggered,
             Trigger(decrease, HardTriggerCode.RapidDeltaIncrease).Status);
@@ -436,9 +463,11 @@ public sealed class DefenseEvaluatorTests
         var configuration = Roll();
         var below = AvailableDrs(49.999999);
         var exact = AvailableDrs(50);
+        var above = AvailableDrs(50.000001);
 
         Assert.False(DefenseEvaluator.RequiresRollEngine(below, HardDefenseStatus.Clear, configuration));
         Assert.True(DefenseEvaluator.RequiresRollEngine(exact, HardDefenseStatus.Clear, configuration));
+        Assert.True(DefenseEvaluator.RequiresRollEngine(above, HardDefenseStatus.Clear, configuration));
     }
 
     [Fact]

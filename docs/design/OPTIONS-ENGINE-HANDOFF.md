@@ -8,7 +8,7 @@ System (CCDSS) in a fresh ChatGPT conversation.
 
 Repository: `rguthriemsft/options-engine`
 
-Current working branch: `phase5`
+Current working branch: `phase6`
 
 At the original design handoff, `phase3` was 3 commits ahead of `main`
 and 0 behind. At that time, the only branch changes relative to `main`
@@ -635,7 +635,7 @@ Expiration
 
 Phase 6 extends that narrow current-state record only with the additional opening economics/timestamp required for defense analysis; this remains distinct from the Phase 7 transaction ledger.
 
-### Phase 6 --- Design and Acceptance Ready
+### Phase 6 --- Complete
 
 Phase 6 Defense and Roll design is approved and reconciled.
 
@@ -697,7 +697,7 @@ Approved Phase 6 packet sequence:
 
 Phase 1 through Phase 5 are complete and merged into `main`.
 
-Phase 6A through Phase 6F are complete on the `phase6` branch. No Phase 6 implementation code should be written outside the approved 6A–6G packet boundaries.
+Phase 6A through Phase 6G are complete on the `phase6` branch. The phase now includes the thin immutable Defense/Roll HTTP surface and its final merge-gate validation.
 
 Phase 3 canonical indicator snapshots remain replaceable.
 
@@ -707,28 +707,6 @@ Phase 6F added separate append-only DefenseEvaluation and conditional RollEvalua
 
 ## Recommended Next Conversation
 
-Begin **Phase 6G — API and merge-gate validation**.
-
-Read, in order:
-
-1. `AGENTS.md`
-2. `SPECIFICATION.md`, especially Sections 16.3, 20, 36–52, 61–63, 70, 74, 76, and 81
-3. `docs/design/PHASE-6-DEFENSE-ROLL-DESIGN.md`
-4. `docs/acceptance/PHASE-6-DEFENSE-ROLL.md`
-5. `docs/design/OPTIONS-ENGINE-DESIGN-DECISIONS.md`
-6. existing Phase 4/5/6 API and persistence tests
-
-Before implementation:
-
-- reuse the Phase 6F immutable persistence writer and passive read repository;
-- preserve `OpenShortCallPositionId` across new Phase 6 boundaries;
-- do not alter existing Phase 5 migration history;
-- preserve Phase 4/5 immutable evaluation contracts;
-- keep endpoint handlers thin and all orchestration/persistence in Application/Infrastructure;
-- do not introduce Phase 7 transactions/campaigns;
-- do not add breakout/dividend/expected-move rules;
-- do not invent a Phase 6 freshness threshold;
-- do not import Phase 4 entry eligibility wholesale into Roll analysis;
-- do not create execution side effects.
-
-Implementation should proceed only through the approved Phase 6 packets and their acceptance criteria.
+Merge the completed `phase6` branch after review. Do not begin Phase 7 campaign,
+transaction, execution, or performance-accounting work until its specification,
+design decisions, and acceptance packet are explicitly approved.

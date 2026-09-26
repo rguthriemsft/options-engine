@@ -49,6 +49,7 @@ public sealed class DefenseDispositionEvaluatorTests
     }
 
     [Theory]
+    [InlineData(55.000001, DefenseDisposition.Roll)]
     [InlineData(55, DefenseDisposition.Roll)]
     [InlineData(54.999999, DefenseDisposition.CloseWait)]
     public void RankableCandidateUsesInclusiveCurrentCcosThreshold(double ccos,
