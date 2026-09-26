@@ -19,6 +19,8 @@ public sealed class OptionsEngineDbContext(DbContextOptions<OptionsEngineDbConte
     public DbSet<EntryStrategyEvaluationEntity> EntryStrategyEvaluations => Set<EntryStrategyEvaluationEntity>();
     public DbSet<PositionSizingEvaluationEntity> PositionSizingEvaluations => Set<PositionSizingEvaluationEntity>();
     public DbSet<OpenShortCallPositionEntity> OpenShortCallPositions => Set<OpenShortCallPositionEntity>();
+    public DbSet<DefenseEvaluationEntity> DefenseEvaluations => Set<DefenseEvaluationEntity>();
+    public DbSet<RollEvaluationEntity> RollEvaluations => Set<RollEvaluationEntity>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -124,6 +126,44 @@ public sealed class OptionsEngineDbContext(DbContextOptions<OptionsEngineDbConte
             entity.Property(x => x.Strike).HasPrecision(18, 6);
             entity.Property(x => x.OpeningPremiumPerShare).HasPrecision(18, 6);
             entity.HasIndex(x => new { x.HoldingId, x.OptionSymbol });
+        });
+        modelBuilder.Entity<DefenseEvaluationEntity>(entity =>
+        {
+            entity.ToTable("DefenseEvaluations");
+            entity.HasKey(x => x.DefenseEvaluationEntityId);
+            entity.HasAlternateKey(x => x.DefenseEvaluationId);
+            entity.Property(x => x.Symbol).HasMaxLength(32).IsRequired();
+            entity.Property(x => x.OptionSymbol).HasMaxLength(64).IsRequired();
+            entity.Property(x => x.DrsClassification).HasMaxLength(32);
+            entity.Property(x => x.ProfitTakingSignal).HasMaxLength(32).IsRequired();
+            entity.Property(x => x.HardDefenseStatus).HasMaxLength(32).IsRequired();
+            entity.Property(x => x.Disposition).HasMaxLength(32).IsRequired();
+            entity.Property(x => x.DefenseStrategyVersion).HasMaxLength(64).IsRequired();
+            entity.Property(x => x.RollStrategyVersion).HasMaxLength(64).IsRequired();
+            entity.Property(x => x.EvaluationJson).IsRequired();
+            entity.HasIndex(x => x.RollEvaluationId).IsUnique();
+            entity.HasIndex(x => new
+            {
+                x.HoldingId,
+                x.OpenShortCallPositionId,
+                x.CalculatedAtUtc,
+                x.DefenseEvaluationEntityId
+            }).IsDescending(false, false, true, true);
+        });
+        modelBuilder.Entity<RollEvaluationEntity>(entity =>
+        {
+            entity.ToTable("RollEvaluations");
+            entity.HasKey(x => x.RollEvaluationEntityId);
+            entity.HasIndex(x => x.RollEvaluationId).IsUnique();
+            entity.Property(x => x.PreferredOptionSymbol).HasMaxLength(64);
+            entity.Property(x => x.PreferredStrike).HasPrecision(18, 6);
+            entity.Property(x => x.RollStrategyVersion).HasMaxLength(64).IsRequired();
+            entity.Property(x => x.EvaluationJson).IsRequired();
+            entity.HasOne<DefenseEvaluationEntity>()
+                .WithOne()
+                .HasForeignKey<RollEvaluationEntity>(x => x.DefenseEvaluationId)
+                .HasPrincipalKey<DefenseEvaluationEntity>(x => x.DefenseEvaluationId)
+                .OnDelete(DeleteBehavior.Restrict);
         });
     }
 }

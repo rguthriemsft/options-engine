@@ -69,6 +69,10 @@ builder.Services.AddScoped<ICurrentCcosResolver, CurrentCcosResolver>();
 builder.Services.AddScoped<DefenseEvaluationOrchestrator>();
 builder.Services.AddScoped<IDefenseEvaluationOrchestrator>(sp =>
     sp.GetRequiredService<DefenseEvaluationOrchestrator>());
+builder.Services.AddScoped<IDefenseEvaluationRepository, SqliteDefenseEvaluationRepository>();
+builder.Services.AddScoped<DefenseEvaluationPersistenceService>();
+builder.Services.AddScoped<IDefenseEvaluationWriter>(sp =>
+    sp.GetRequiredService<DefenseEvaluationPersistenceService>());
 builder.Services.AddScoped<IPositionSizingEngine, PositionSizingEngine>();
 builder.Services.AddScoped<PositionSizingEvaluationOrchestrator>();
 builder.Services.AddScoped<IPositionSizingEvaluationOrchestrator>(sp =>

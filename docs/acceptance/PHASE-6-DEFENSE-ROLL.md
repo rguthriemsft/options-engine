@@ -752,18 +752,18 @@ RollEvaluation when activated
 
 Acceptance criteria:
 
-- [ ] DefenseEvaluation has a permanent Guid ID.
-- [ ] RollEvaluation has a permanent Guid ID.
-- [ ] RollEvaluation references exactly one DefenseEvaluation.
-- [ ] DefenseEvaluation references exactly one current open-position identity.
-- [ ] No empty RollEvaluation is persisted when Roll Engine does not run.
-- [ ] Complete structured payload preserves all consumed inputs/results/configuration/version data.
-- [ ] Rejected and insufficient roll candidates remain persisted.
-- [ ] Relational summaries support efficient history/read queries.
-- [ ] Historical retrieval never recalculates current data.
-- [ ] Mutating Holding, current position, market data, or configuration cannot change historical payloads.
-- [ ] Schema changes use EF Core migrations.
-- [ ] Existing migrations remain unchanged.
+- [x] DefenseEvaluation has a permanent Guid ID.
+- [x] RollEvaluation has a permanent Guid ID.
+- [x] RollEvaluation references exactly one DefenseEvaluation.
+- [x] DefenseEvaluation references exactly one current open-position identity.
+- [x] No empty RollEvaluation is persisted when Roll Engine does not run.
+- [x] Complete structured payload preserves all consumed inputs/results/configuration/version data.
+- [x] Rejected and insufficient roll candidates remain persisted.
+- [x] Relational summaries support efficient history/read queries.
+- [x] Historical retrieval never recalculates current data.
+- [x] Mutating Holding, current position, market data, or configuration cannot change historical payloads.
+- [x] Schema changes use EF Core migrations.
+- [x] Existing migrations remain unchanged.
 
 ---
 
@@ -817,14 +817,14 @@ Acceptance criteria:
 
 Acceptance criteria:
 
-- [ ] Complete resolved Defense/Roll configuration is persisted.
-- [ ] Shared ConfigurationVersion is persisted.
-- [ ] DefenseStrategyVersion is persisted.
-- [ ] RollStrategyVersion is persisted.
+- [x] Complete resolved Defense/Roll configuration is persisted.
+- [x] Shared ConfigurationVersion is persisted.
+- [x] DefenseStrategyVersion is persisted.
+- [x] RollStrategyVersion is persisted.
 - [ ] Numeric-only approved parameter changes are configuration-version changes.
 - [ ] Formula/component/gate/missing-data/ranking/decision-flow changes require strategy-version change.
-- [ ] Historical evaluations retain original versions and resolved configuration.
-- [ ] Invalid configuration fails clearly rather than clamping.
+- [x] Historical evaluations retain original versions and resolved configuration.
+- [x] Invalid configuration fails clearly rather than clamping.
 
 ---
 
@@ -882,9 +882,9 @@ Before Phase 6 merge:
 - [ ] Roll candidate DTE/Delta/debit/CCOS boundaries have deterministic tests.
 - [ ] DRS and RQS maximum/minimum behavior is validated.
 - [ ] Candidate ranking/tie-breaking is deterministic.
-- [ ] Persistence is append-only and historically stable.
-- [ ] Migration from the Phase 5 database lineage succeeds.
-- [ ] No pending migrations remain after upgrade.
+- [x] Persistence is append-only and historically stable.
+- [x] Migration from the Phase 5 database lineage succeeds.
+- [x] No pending migrations remain after upgrade.
 - [ ] Existing Phase 1–5 API behavior remains unchanged.
 - [ ] No Phase 7 Campaign/Transaction implementation is introduced.
 - [ ] No automatic execution exists.

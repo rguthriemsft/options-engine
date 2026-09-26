@@ -697,17 +697,17 @@ Approved Phase 6 packet sequence:
 
 Phase 1 through Phase 5 are complete and merged into `main`.
 
-Phase 6 design is complete on the `phase6` branch. No Phase 6 implementation code should be written outside the approved 6A–6G packet boundaries.
+Phase 6A through Phase 6F are complete on the `phase6` branch. No Phase 6 implementation code should be written outside the approved 6A–6G packet boundaries.
 
 Phase 3 canonical indicator snapshots remain replaceable.
 
 Phase 4 EntryStrategyEvaluation and Phase 5 PositionSizingEvaluation history remain append-only immutable records.
 
-Phase 6 will add separate append-only DefenseEvaluation and RollEvaluation history without rewriting Phase 4/5 artifacts.
+Phase 6F added separate append-only DefenseEvaluation and conditional RollEvaluation history without rewriting Phase 4/5 artifacts.
 
 ## Recommended Next Conversation
 
-Begin **Phase 6A — Defense foundations and current-position contract**.
+Begin **Phase 6G — API and merge-gate validation**.
 
 Read, in order:
 
@@ -716,17 +716,15 @@ Read, in order:
 3. `docs/design/PHASE-6-DEFENSE-ROLL-DESIGN.md`
 4. `docs/acceptance/PHASE-6-DEFENSE-ROLL.md`
 5. `docs/design/OPTIONS-ENGINE-DESIGN-DECISIONS.md`
-6. `docs/design/PHASE-5-POSITION-SIZING-DESIGN.md`
-7. `docs/acceptance/PHASE-5-POSITION-SIZING.md`
+6. existing Phase 4/5/6 API and persistence tests
 
 Before implementation:
 
-- inspect the existing `OpenShortCallPositionEntity` and repository projection;
+- reuse the Phase 6F immutable persistence writer and passive read repository;
 - preserve `OpenShortCallPositionId` across new Phase 6 boundaries;
 - do not alter existing Phase 5 migration history;
 - preserve Phase 4/5 immutable evaluation contracts;
-- keep all quantitative formulas in Strategy;
-- keep provider/persistence/current-state assembly in Application/Infrastructure;
+- keep endpoint handlers thin and all orchestration/persistence in Application/Infrastructure;
 - do not introduce Phase 7 transactions/campaigns;
 - do not add breakout/dividend/expected-move rules;
 - do not invent a Phase 6 freshness threshold;
