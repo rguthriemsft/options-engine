@@ -4,7 +4,7 @@
 
 This repository implements a quantitative covered-call decision-support system.
 
-The system is designed to:
+The system implements or is planned to implement:
 
 1. Identify favorable covered-call opportunities.
 2. Rank option contracts.
@@ -19,6 +19,17 @@ The system provides decision support only.
 
 Automatic trade execution is explicitly outside the V1 scope.
 
+The governing product objective is lexicographic:
+
+1. Avoid assignment and preserve the underlying shares.
+2. Subject to that assignment protection, maximize cumulative net covered-call profit.
+
+Assignment protection wins when the objectives conflict. Do not introduce a premium tradeoff against assignment protection unless `SPECIFICATION.md` explicitly approves it. This priority does not guarantee assignment will never occur.
+
+Profit means net campaign economics: STO premium credits, BTC costs, roll credits or debits, fees, and other explicitly approved strategy costs. Do not use gross premium as a substitute for net profit. `TaxSensitivity` and `AssignmentSensitivity` are context for approved rules, not an after-tax-dollar model.
+
+Phases 1–6 are complete. The authoritative post-Phase-6 sequence is documented in `docs/design/POST-PHASE-6-ROADMAP.md`; do not infer the next phase from older historical phase documents.
+
 ---
 
 # 2. Authoritative Specification
@@ -32,7 +43,7 @@ Before implementing any feature that affects:
 - scoring;
 - market data;
 - persistence;
-- recommendations;
+- analytical evaluations and composed decisions;
 - position management;
 - roll logic;
 - performance measurement;
@@ -153,7 +164,7 @@ Domain must remain infrastructure-independent.
 
 ## OptionsEngine.Strategy
 
-Contains pure strategy and quantitative calculations, including eventually:
+Contains pure strategy and quantitative calculations, including:
 
 - CCOS;
 - Contract Score;
@@ -211,7 +222,7 @@ Examples:
 - persist snapshots;
 - calculate indicators;
 - run strategy engines;
-- generate recommendations;
+- generate analytical evaluations and composed decisions;
 - monitor positions;
 - analyze rolls.
 
@@ -356,7 +367,7 @@ SQLite is the V1 persistence technology.
 
 EF Core is the V1 ORM.
 
-Persistence models must preserve sufficient information to reproduce historical recommendations.
+Persistence models must preserve sufficient information to reproduce historical evaluations and composed decisions.
 
 Never overwrite historical observations merely because newer market data exists.
 
@@ -380,7 +391,7 @@ Do not mutate the original transaction to represent a roll.
 
 # 11. Strategy Reproducibility
 
-Every recommendation must eventually be reproducible from:
+Every persisted analytical evaluation and composed decision must be reproducible from:
 
 - stored market inputs;
 - stored calculated indicators;
@@ -398,7 +409,7 @@ CCOS = 84
 
 without its inputs and component scores is insufficient.
 
-Historical recommendations must not silently change when current configuration changes.
+Historical evaluations and decisions must not silently change when current configuration changes.
 
 ---
 
@@ -417,7 +428,7 @@ Changing a threshold or weight through configuration does not necessarily requir
 
 Changing algorithmic behavior requires consideration of a strategy-version change.
 
-Never silently reinterpret historical recommendations using newer strategy logic.
+Never silently reinterpret historical evaluations or decisions using newer strategy logic.
 
 ---
 
@@ -425,7 +436,7 @@ Never silently reinterpret historical recommendations using newer strategy logic
 
 Scores must not be opaque.
 
-Strategy result objects should expose component-level information.
+Strategy result objects expose component-level information.
 
 Prefer designs similar to:
 
@@ -438,7 +449,7 @@ public sealed record ScoreComponent(
     string Explanation);
 ```
 
-A strategy result should eventually communicate:
+A strategy result should communicate:
 
 ```text
 overall score
@@ -513,7 +524,7 @@ or an equivalent explicit state.
 
 Important strategy constants must not be buried inside formulas.
 
-Configuration shall eventually include:
+Configuration includes or, for not-yet-implemented phases, shall include:
 
 - CCOS weights;
 - CCOS thresholds;
@@ -635,7 +646,7 @@ Inject or explicitly supply time where current time affects behavior.
 
 # 21. Strategy Boundary Tests
 
-Every threshold must eventually have tests immediately below, at, and immediately above the boundary.
+Every threshold must have tests immediately below, at, and immediately above the boundary.
 
 Example:
 

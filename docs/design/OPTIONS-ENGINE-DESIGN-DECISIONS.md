@@ -6,15 +6,60 @@ implementation agent.
 
 ## Product / Risk
 
--   Primary objective: sustainable covered-call income with very low
-    assignment probability.
--   Preserving highly appreciated shares takes priority over maximizing
-    option premium.
+-   The objective is lexicographic: first avoid assignment and preserve
+    the underlying shares; subject to that protection, maximize cumulative
+    net covered-call profit.
+-   Assignment protection wins a conflict. This does not guarantee that
+    assignment will never occur.
+-   Net profit includes STO credits, BTC costs, roll credits/debits, fees,
+    and other explicitly approved strategy costs. Gross premium is not the
+    optimization target.
 -   Assignment risk is treated as a hard constraint.
+-   Separately measure whether the strategy adds economic value relative to
+    simply holding the underlying shares; this does not outrank assignment
+    protection.
 -   Initial covered-call sale horizon: 14--45 DTE.
 -   Rolling is supported.
--   Every sell recommendation should eventually include a defense plan.
+-   A proposed sale should be presented with an applicable defense plan in the
+    future composed decision workflow.
 -   Automatic execution is out of V1.
+
+## Post-Phase-6 Product and Roadmap Decisions
+
+- Phases 1–6 are complete and merged into `main`.
+- `AssignmentSensitivity` and `TaxSensitivity` remain holding context for
+  approved rules; there is no after-tax-dollar objective or tax model.
+- The highest-priority operational gap is the inability to publicly record
+  STO, BTC, roll, expiration, or assignment outcomes and thereby create,
+  update, or close current open short-call positions.
+- Phase 7 owns the immutable transaction ledger, manual execution recording,
+  current-position lifecycle, campaign core, actual fills/fees/times, and
+  links to the analytical artifacts that informed execution.
+- Campaign and performance measurement follows authoritative lifecycle data;
+  it must not be inferred from quoted analytical prices.
+- Phase 6 roll economics remain the approved local candidate calculation
+  (replacement Bid minus existing-call Ask). Cumulative campaign economics may
+  inform later approved analysis, but no campaign-relative roll rule is added.
+- Phase 8 must add authoritative dividend/ex-dividend inputs and an explicitly
+  approved early-assignment-risk rule integrated with defense. This decision
+  approves no formula or threshold.
+- Phase 9 introduces a composed `CoveredCallDecision` read model over canonical
+  Entry Strategy, Position Sizing, current-position, Defense, and Roll artifacts.
+  It is not another quantitative engine or duplicate persistence payload.
+- Phase 10 delivers the Excel decision dashboard MVP. C# remains authoritative;
+  Excel is presentation, approved configuration/manual input, and audit.
+- Phase 11 owns net campaign profit and performance measurement. Phase 12 owns
+  research and optimization.
+- Immutable `EntryStrategyEvaluation`, `PositionSizingEvaluation`,
+  `DefenseEvaluation`, and `RollEvaluation` records remain canonical.
+- `DefenseEvaluation` history is the MVP analytical monitoring history. Do not
+  add a redundant `DailyPositionSnapshot` or general Recommendation store
+  without a distinct, approved requirement.
+- Strike laddering is not an MVP requirement. Alerts are attention states on
+  manual/daily refresh; scheduled and push notification infrastructure is not
+  required.
+- `docs/design/POST-PHASE-6-ROADMAP.md` is the authoritative phase sequence
+  until superseded by an approved design.
 
 ## Data / Provider
 
@@ -1317,7 +1362,17 @@ Phase 5 owns sizing and coverage allocation.
 
 Phase 6 owns existing-position defense/profit-taking analysis and defensive roll candidate evaluation.
 
-Phase 7 owns transaction/campaign accounting and performance measurement.
+Phase 7 owns the operational transaction, current-position, and campaign lifecycle.
+
+Phase 8 owns authoritative dividend/ex-dividend input and early-assignment-risk hardening.
+
+Phase 9 owns cross-phase daily-decision composition.
+
+Phase 10 owns the Excel decision dashboard MVP.
+
+Phase 11 owns profit and performance measurement.
+
+Phase 12 owns research and optimization.
 
 Phase 3 must not calculate CCOS, Contract Score, trade eligibility, or entry selection.
 
@@ -1329,7 +1384,7 @@ Phase 6 must not create transactions/campaign accounting, final execution state,
 
 ## Explicitly Deferred
 
-- Dividend/ex-dividend/generic material-event defense inputs until an authoritative source is approved.
+- The exact Phase 8 early-assignment formula and threshold; authoritative dividend/ex-dividend input and early-assignment protection are required Phase 8 work.
 - ExpectedMove and ExpectedMoveRatio.
 - Technical-breakout defense trigger.
 - Momentum/Breakout and Dividend/Event weighted DRS components.
@@ -1341,7 +1396,8 @@ Phase 6 must not create transactions/campaign accounting, final execution state,
 - Defensive roll resizing.
 - Campaign-relative roll debit limits.
 - Assignment-tax-dollar debit overrides.
-- Fees/net campaign P&L in Phase 6.
+- Fees/net campaign P&L in Phase 6; actual transaction capture begins in Phase 7 and reporting belongs to Phase 11.
 - Scheduled background defense monitoring and notifications.
 - Arbitrary historical replay/version selection through public V1 evaluation APIs.
-- Final Recommendation execution lifecycle and automatic trading.
+- A redundant final Recommendation persistence model; Phase 9 composes `CoveredCallDecision` references.
+- Automatic trading.
