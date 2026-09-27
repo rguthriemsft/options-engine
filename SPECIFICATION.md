@@ -2,13 +2,13 @@
 
 ## V1 Engineering Specification
 
-**Status:** Approved for implementation planning
+**Status:** Phases 1–6 implemented; post-Phase-6 roadmap approved for design planning
 **Strategy Version:** 1\.0\.0
 **Target Platform:** \.NET 10 / C\# / SQLite / Excel
 **Primary Market Data Provider:** Tradier
 **Initial Execution Brokers:** Fidelity and Charles Schwab
 **Trade Execution:** Manual
-**Primary Objective:** Generate sustainable covered\-call income while maintaining a very low probability of assignment and preserving long\-term appreciated positions\.
+**Primary Objective:** Avoid assignment and preserve the underlying shares; subject to that assignment protection, maximize cumulative net covered-call profit.
 
 ---
 
@@ -28,21 +28,22 @@ The system shall not execute trades automatically in V1\.
 
 # 2\. Strategy Objective
 
-The strategy optimization hierarchy is:
+The strategy objective is lexicographic:
 
-1. Preserve underlying shares and minimize assignment risk\.
-2. Generate sustainable option income\.
-3. Maximize risk\-adjusted premium\.
-4. Minimize unnecessary rolling and transaction costs\.
-5. Measure whether the strategy adds value relative to simply holding the underlying securities\.
+1. Avoid assignment and preserve the underlying shares.
+2. Subject to that assignment protection, maximize cumulative net covered-call profit.
 
-Assignment risk is a **hard constraint**, not simply another weighted optimization variable\.
+Assignment protection wins whenever these objectives conflict. This priority does not guarantee that assignment will never occur.
 
-The system is specifically designed to support holdings with substantial embedded capital gains where assignment may have significant tax consequences\.
+Net campaign profit is the sum of STO premium credits minus the sum of BTC costs, fees, and other strategy costs explicitly approved by this specification. A roll remains linked BTC and replacement STO transaction legs. Its net credit or debit is derived from those legs and shall never be added to campaign profit again. Gross premium shall not be optimized or reported as though it were net profit.
+
+`AssignmentSensitivity` and `TaxSensitivity` provide holding context for approved strategy rules. They do not constitute an after-tax-dollar model, tax advice, or authority to trade assignment protection for additional premium.
+
+The system shall separately measure whether the covered-call strategy adds economic value relative to simply holding the underlying shares. Current Phases 1–6 provide analytical evaluations but do not yet calculate complete campaign profit or performance; those require authoritative Phase 7 transactions and Phase 11 measurement.
 
 ---
 
-# 3\. V1 Scope
+# 3\. V1 Scope and Delivery Status
 
 V1 shall support:
 
@@ -69,8 +70,12 @@ V1 shall support:
 - SQLite historical database\.
 - Strategy configuration\.
 - Strategy versioning\.
-- Recommendation history\.
-- Counterfactual recommendation history\.
+- Canonical analytical evaluation history\.
+- Future composed-decision and counterfactual research history where approved\.
+
+Phases 1–6 have delivered the market-data, indicator, entry-strategy, position-sizing, defense, and roll-analysis capabilities. Operational execution recording, campaign lifecycle, assignment-protection hardening, the daily decision API, Excel MVP, performance measurement, and research follow the approved Phase 7–12 sequence in Section 81 and `docs/design/POST-PHASE-6-ROADMAP.md`.
+
+Strike laddering is not required for the operational spreadsheet MVP. Alerts in that MVP are attention states shown during a daily/manual refresh; a scheduler or push-notification service is not required.
 
 ---
 
@@ -151,7 +156,7 @@ Excel shall primarily provide:
 - visualization;
 - filtering;
 - reporting;
-- recommendations;
+- composed decisions and attention states;
 - manual transaction entry;
 - analytical exploration\.
 
@@ -180,7 +185,7 @@ without modifying strategy engines\.
 
 ## 6.2 Strategy and Calculation Reproducibility
 
-Every recommendation shall record or be traceable to:
+Every immutable strategy evaluation and composed decision shall record or be traceable to:
 
 - the normalized market observations used;
 - calculated indicators;
@@ -188,9 +193,9 @@ Every recommendation shall record or be traceable to:
 - configuration values or configuration version;
 - indicator calculation version;
 - strategy version;
-- recommendation timestamp.
+- evaluation or decision timestamp.
 
-Historical recommendations shall never silently change because:
+Historical artifacts shall never silently change because:
 
 - current market data changed;
 - current strategy configuration changed;
@@ -247,7 +252,7 @@ ConfigurationVersion
     strategy engines.
 
 StrategyVersion
-    Strategy and recommendation logic consuming
+    Strategy and decision logic consuming
     those calculated values.
 ```
 
@@ -265,9 +270,9 @@ Market-regime algorithm
 Sector-regime algorithm
 ```
 
-Stored historical recommendations and indicator snapshots shall retain sufficient version information to reproduce and explain their original results.
+Stored historical evaluations, composed decisions, and indicator snapshots shall retain sufficient version information to reproduce and explain their original results.
 
-Recalculating a canonical indicator snapshot from corrected historical inputs may change that canonical snapshot under the same calculation and configuration versions, as specified in Section 12.15. This shall not silently mutate an already recorded historical recommendation or erase the inputs and calculated values needed to explain its original decision.
+Recalculating a canonical indicator snapshot from corrected historical inputs may change that canonical snapshot under the same calculation and configuration versions, as specified in Section 12.15. This shall not silently mutate an already recorded historical evaluation or decision or erase the inputs and calculated values needed to explain it.
 
 ## 6\.3 Immutable Transactions
 
@@ -290,7 +295,7 @@ Derived scores alone are insufficient for historical analysis\.
 
 ## 6\.5 Explainability
 
-Every recommendation shall include both:
+Every user-facing decision shall include both:
 
 - numerical score;
 - human\-readable reasons\.
@@ -624,7 +629,7 @@ Automated tests shall explicitly verify that appending observations after the as
 Look-ahead protection is a hard requirement because historical indicator data will later support:
 
 ```text
-Recommendation reconstruction
+Evaluation and decision reconstruction
 Backtesting
 Parameter analysis
 Counterfactual analysis
@@ -1558,64 +1563,44 @@ authoritative provider contract or sanitized captured fixture is approved.
 
 Dividend, ex-dividend, and generic material-event entry rules are deferred from Phase 4 V1. Ex-dividend information may be used by later defense/early-assignment logic.
 
-# 16\. Recommendation
+# 16\. Canonical Evaluations and Composed Decisions
 
-Every generated recommendation shall receive a permanent `RecommendationId`.
+The immutable phase evaluations are the canonical analytical artifacts. A future daily-decision application layer may compose them into a spreadsheet-friendly `CoveredCallDecision` read model.
+
+The composed decision shall reference, as applicable:
 
 ```text
-RecommendationId
-Timestamp
-HoldingId
-Symbol
-
-RecommendationType
-RecommendationStatus
-
-CCOS
-ContractScore
-DRS
-RQS
-
-RecommendedContracts
-RecommendedStrike
-RecommendedExpiration
-RecommendedPremium
-
-EstimatedGrossIncome
-
-AssignmentSensitivity
-TaxSensitivity
-
-StrategyVersion
-ConfigurationVersion
-
-Executed
-ExecutionTransactionId
-
-HumanReadableReason
+EntryStrategyEvaluation
+PositionSizingEvaluation
+Current OpenShortCallPosition
+DefenseEvaluation
+RollEvaluation
+Warnings and Missing-Data States
+Action Summary
 ```
 
-Possible recommendation types:
+Its action vocabulary is:
 
 ```text
 NO_TRADE
-WATCH
 SELL
-HOLD
+NO_ACTION
+MONITOR
 PROFIT_CLOSE
 DEFENSE_REVIEW
 ROLL
 CLOSE_WAIT
-URGENT_DEFENSE
 ```
 
-Recommendations shall be retained whether or not they are executed.
+`CoveredCallDecision` shall not duplicate the quantitative engines or persist copies of their complete payloads. Execution truth belongs to the immutable transaction ledger and current-position/campaign lifecycle, linked to the analytical artifacts that informed the action.
+
+No separate general-purpose `Recommendation` entity is required for the spreadsheet MVP. If a later requirement needs a permanently issued decision envelope, its identity, retention, and execution linkage must be designed without replacing or mutating the canonical phase evaluations.
 
 ---
 
 ## 16.1 Phase 4 Entry Strategy Evaluation
 
-Phase 4 shall not create the final `Recommendation`. Position sizing belongs to Phase 5.
+Phase 4 shall not create a composed `CoveredCallDecision`. Position sizing belongs to Phase 5.
 
 Every Phase 4 calculation that is persisted shall receive a permanent:
 
@@ -1720,9 +1705,9 @@ There are no Phase 4 V1 PUT, PATCH, or DELETE endpoints for an EntryStrategyEval
 
 ## 16.2 Phase 5 Position Sizing Evaluation
 
-Phase 5 creates a separate immutable `PositionSizingEvaluation`. It does not rewrite the source `EntryStrategyEvaluation` and does not create the final `Recommendation`.
+Phase 5 creates a separate immutable `PositionSizingEvaluation`. It does not rewrite the source `EntryStrategyEvaluation` and does not create the composed `CoveredCallDecision`.
 
-A later recommendation-assembly layer may combine:
+A later daily-decision layer may reference:
 
 ```text
 EntryStrategyEvaluation
@@ -1730,7 +1715,7 @@ EntryStrategyEvaluation
 PositionSizingEvaluation
 ```
 
-into final SELL/recommended-contract semantics.
+to present SELL/recommended-contract semantics without recalculating either artifact.
 
 Every persisted Phase 5 sizing calculation shall receive a permanent:
 
@@ -1809,7 +1794,7 @@ Historical sizing evaluations are append-only. Later changes to holdings, curren
 
 ## 16.3 Phase 6 Defense Evaluation
 
-Phase 6 shall not create the final `Recommendation` lifecycle.
+Phase 6 shall not create the composed `CoveredCallDecision` or an execution lifecycle.
 
 Phase 6 produces an analytical:
 
@@ -1830,16 +1815,18 @@ CLOSE_WAIT
 
 A DefenseDisposition may reference an immutable DefenseEvaluation and, when roll analysis runs, an immutable RollEvaluation and preferred replacement candidate.
 
-It shall not contain or imply execution state, transaction creation, Campaign creation, or brokerage action. Final cross-phase Recommendation assembly remains downstream.
+It shall not contain or imply execution state, transaction creation, Campaign creation, or brokerage action. Cross-phase decision composition remains downstream.
 
 ---
 
 # 17\. Transaction Ledger
 
+The following is a conceptual requirement outline, not an approved Phase 7 schema. Exact identifiers, linkage, commands, and invariants require the Phase 7 design.
+
 ```text
 TransactionId
 CampaignId
-RecommendationId
+SourceAnalyticalArtifactLinks when applicable
 AccountId
 HoldingId
 
@@ -1868,11 +1855,15 @@ EXPIRE
 ASSIGN
 ```
 
+The Phase 7 manual workflow shall accept STO, BTC, ROLL, EXPIRE, and ASSIGN outcomes. A roll is represented in the immutable ledger as linked BTC and STO transaction legs in the same campaign; `ROLL` is the user operation, not a substitute for those two economic legs.
+
 ---
 
 # 18\. Campaign
 
 A Campaign represents an entire sequence of covered\-call activity originating from an initial STO\.
+
+The following fields are conceptual. Phase 7 must approve the lifecycle and source-artifact relationship before implementation, and Phase 11 must approve performance/accounting projections before they are treated as report contracts.
 
 ```text
 CampaignId
@@ -1883,7 +1874,7 @@ Symbol
 StartDate
 EndDate
 
-InitialRecommendationId
+SourceEntryArtifactLinks when applicable
 
 InitialContracts
 InitialStrike
@@ -1896,7 +1887,7 @@ BuyToCloseCost
 RollCredits
 RollDebits
 Fees
-NetOptionIncome
+NetOptionProfit
 
 RollCount
 MaximumDRS
@@ -1919,48 +1910,11 @@ ASSIGNED
 
 ---
 
-# 19\. Daily Position Snapshot
+# 19\. Position Monitoring History
 
-Every active short\-call position shall receive periodic snapshots\.
+Immutable `DefenseEvaluation` history is the primary analytical monitoring history for the spreadsheet MVP. It preserves the consumed current-position context, market observations, calculations, gates, versions, missing inputs, explanations, and any linked `RollEvaluation`.
 
-```text
-PositionSnapshotId
-CampaignId
-Timestamp
-
-UnderlyingPrice
-OptionPrice
-
-Strike
-Expiration
-DTE
-
-Delta
-Gamma
-Theta
-Vega
-IV
-
-StrikeDistance
-ExpectedMoveRatio
-
-UnrealizedPnL
-PremiumCapturedPercent
-
-DRS
-DRSChange
-DeltaVelocity
-
-RecommendedAction
-
-StrategyVersion
-```
-
-These records are critical for later evaluating defense rules\.
-
----
-
-Phase 6 V1 does not implement Daily Position Snapshot persistence. The CampaignId-linked snapshot model and campaign/performance history remain Phase 7 responsibilities. Phase 6 instead persists immutable DefenseEvaluation and RollEvaluation decision records.
+A separate general-purpose `DailyPositionSnapshot` store is not required for the MVP. It may be introduced later only when an approved design identifies a unique non-decision time-series requirement that cannot be met by the transaction ledger, current position state, retained market observations, and immutable defense history. Redundant persistence of the same analytical facts shall be avoided.
 
 ---
 
@@ -3973,14 +3927,17 @@ Phase 6 V1 does not implement final Recommendation execution state, campaign acc
 
 # 53\. Campaign Accounting
 
-Campaign P&L:
+Campaign profit is net campaign economics, not gross premium:
 
 ```text
-NetCampaignIncome =
-STO Premiums
-- BTC Costs
-- Fees
+NetCampaignProfit =
+Sum(STO Premium Credits)
+- Sum(BTC Costs)
+- Sum(Fees)
+- Sum(Other Explicitly Approved Strategy Costs)
 ```
+
+A roll contributes its linked BTC cost and replacement STO credit to the same campaign. `NetRollCreditOrDebit = Replacement STO Credit - Existing BTC Cost` is a derived presentation metric only, not an additional amount to count again. No after-tax-dollar calculation is implied.
 
 Example:
 
@@ -4035,6 +3992,8 @@ Maximum DRS
 Average DRS
 ```
 
+Roll Credits and Roll Debits in reporting are derived from their linked BTC/STO legs and are not separately added to Net Campaign Profit.
+
 ---
 
 # 55\. Buy\-and\-Hold Benchmark
@@ -4067,7 +4026,7 @@ The system shall expose cases where the covered\-call strategy reduced total ret
 
 # 56\. Research Dataset
 
-All recommendations shall be retained, including recommendations the user does not execute\.
+Canonical analytical evaluations and their source inputs shall be retained. When a composed decision is issued or acted upon, its references and the associated execution outcome shall also be retained.
 
 This creates both:
 
@@ -4236,11 +4195,11 @@ Cache freshness shall be configurable by data type\.
 
 The system shall persist sufficient historical market data to:
 
-- reproduce historical recommendations;
+- reproduce historical evaluations and composed decisions;
 - analyze strategy decisions;
 - evaluate strategy performance;
 - perform future backtesting;
-- compare executed and unexecuted recommendations;
+- compare executed and unexecuted decision opportunities;
 - perform parameter sensitivity analysis;
 - evaluate alternative contract-selection rules.
 
@@ -4382,9 +4341,9 @@ This dataset is considered a long-term system asset.
 Option snapshots shall therefore be retained even after:
 
 - an option expires;
-- the underlying recommendation is no longer active;
+- the associated analytical decision is no longer active;
 - a campaign closes;
-- a recommendation was never executed.
+- an evaluated opportunity was never executed.
 
 Historical option observations shall not depend upon the continued availability of the same historical information from the external provider.
 
@@ -4465,11 +4424,11 @@ Time cached data was retrieved by the application
 
 where that distinction affects reproducibility or data freshness.
 
-## 60.8 Recommendation Reproducibility
+## 60.8 Decision Reproducibility
 
-Historical market-data retention shall support reconstruction of the market context used to generate a recommendation.
+Historical market-data retention shall support reconstruction of the market context used to generate each canonical evaluation and composed decision.
 
-A recommendation shall eventually be traceable to the relevant:
+An evaluation or composed decision shall be traceable to the relevant:
 
 ```text
 Underlying market observation
@@ -4478,10 +4437,10 @@ Option contract observations
 Calculated indicators
 Strategy version
 Configuration version
-Recommendation timestamp
+Evaluation or decision timestamp
 ```
 
-The persistence design shall not require historical recommendations to be recalculated using current market observations.
+The persistence design shall not require historical artifacts to be recalculated using current market observations.
 
 ## 60.9 Retention
 
@@ -4490,9 +4449,11 @@ The following records shall be treated as long-term historical data:
 ```text
 Daily Historical Price Bars
 Option Contract Snapshots
-Recommendation Inputs
-Recommendations
-Daily Position Snapshots
+Indicator and Evaluation Inputs
+Entry Strategy Evaluations
+Position Sizing Evaluations
+Defense and Roll Evaluations
+Issued Composed-Decision References when applicable
 Transactions
 Campaigns
 Configuration Versions
@@ -4535,7 +4496,7 @@ RollAnalysisService
 CampaignService
 TransactionService
 PerformanceService
-RecommendationService
+DailyDecisionService
 ```
 
 For Phase 5, `PositionSizingService` / Application orchestration owns assembly of mutable current-state inputs such as Holding share/settings snapshots, same-account concentration inputs, and existing short-call exposure/Delta observations.
@@ -4548,6 +4509,8 @@ For Phase 6, `PositionMonitoringService` / Defense Application orchestration own
 Quantitative profit-taking, DRS, hard-trigger, Roll, RQS, ranking, and DefenseDisposition formulas remain in Strategy.
 
 Phase 6 V1 provides an evaluation capability suitable for daily invocation but does not require a scheduler/background worker.
+
+Phase 7 shall add manual transaction and campaign lifecycle orchestration. Phase 9 shall add `DailyDecisionService` as a composition layer over canonical artifacts and current state; it shall not contain duplicate scoring formulas.
 
 ---
 
@@ -4680,7 +4643,7 @@ Historical evaluations remain readable after a Holding is disabled.
 
 There are no Phase 6 PUT/PATCH/DELETE semantics for immutable DefenseEvaluation or RollEvaluation.
 
-Representative endpoints:
+Future capability areas may include:
 
 ```text
 GET /api/indicators/{symbol}
@@ -4692,8 +4655,6 @@ GET /api/opportunities
 GET /api/opportunities/{symbol}
 
 GET /api/options/{symbol}
-
-GET /api/recommendations
 
 GET /api/positions
 
@@ -4717,18 +4678,20 @@ POST /api/holdings
 
 POST /api/transactions
 
-POST /api/recommendations/{id}/execute
-
 PUT /api/configuration
 ```
 
-The exact REST surface may evolve during implementation\.
+These are capability illustrations, not approved route contracts. Exact REST paths require the design for their owning phase.
+
+## Future Daily Decision API
+
+Phase 9 shall expose a spreadsheet-friendly use case that composes portfolio refresh state, holdings, open calls, entry/sizing/defense/roll artifacts, warnings, missing-data states, and an action summary. Route paths and DTO shapes are provisional until the Phase 9 design is approved. The API shall reference canonical artifacts rather than recalculate or duplicate them.
 
 ---
 
 # 64\. Excel Workbook
 
-The initial workbook shall contain these user\-facing areas:
+The Phase 10 spreadsheet MVP shall contain these user-facing areas:
 
 ## Dashboard
 
@@ -4742,11 +4705,7 @@ Portfolio configuration\.
 
 CCOS and new\-call opportunities\.
 
-## Contract Analysis
-
-Ranked contracts\.
-
-## Positions
+## Current Positions
 
 Current covered calls and DRS\.
 
@@ -4754,25 +4713,15 @@ Current covered calls and DRS\.
 
 Ranked roll candidates\.
 
-## Campaigns
+## Trade Entry
 
-Campaign history\.
-
-## Transactions
-
-Trade ledger\.
-
-## Performance
-
-Strategy reporting\.
+Manual STO, BTC, roll, expiration, and assignment recording with actual fills and fees\.
 
 ## Configuration
 
 Strategy parameters\.
 
-## Research
-
-Historical analytical data\.
+Performance and research presentation follows in Phases 11 and 12 and is not required for the Phase 10 MVP.
 
 ---
 
@@ -4788,8 +4737,8 @@ The dashboard shall answer within approximately 30–60 seconds:
 6. Which calls should be closed for profit?
 7. Which positions should be rolled?
 8. What is the best roll candidate?
-9. How much income is the strategy generating?
-10. Is the strategy outperforming buy\-and\-hold?
+9. Which warnings or missing-data states require attention?
+10. What manual lifecycle update should be recorded after execution?
 
 ---
 
@@ -4900,7 +4849,9 @@ Run Roll Engine where required
         |
 Persist DefenseEvaluation / RollEvaluation
         |
-Phase 7+ performance workflow
+Record any manual lifecycle outcome (Phase 7)
+        |
+Phase 11 performance workflow
         |
 Refresh presentation layer
 ```
@@ -4912,7 +4863,7 @@ Phase 6 V1 does not require or implement a scheduler, background worker, or noti
 # 69\. Manual Trade Workflow
 
 ```text
-System recommendation
+System analytical decision
         |
 User reviews Fidelity/Schwab live quote
         |
@@ -4927,7 +4878,7 @@ Campaign created/updated
 Position monitoring begins
 ```
 
-The recommendation price and actual fill price shall both be retained\.
+The analytical reference price and actual fill price shall both be retained\.
 
 This permits execution\-quality analysis later\.
 
@@ -5174,7 +5125,7 @@ Historical evaluations retain their original versions and resolved configuration
 
 # 77\. Auditability
 
-For any historical recommendation, the system shall be able to answer:
+For any historical evaluation, composed decision, or linked execution, the system shall be able to answer:
 
 ```text
 What did the system recommend?
@@ -5232,8 +5183,9 @@ Unless storage becomes problematic:
 
 - Transactions: permanent\.
 - Campaigns: permanent\.
-- Recommendations: permanent\.
-- Daily position snapshots: permanent\.
+- Canonical strategy evaluations: permanent\.
+- Issued composed-decision references, when persisted: permanent\.
+- Defense evaluation history: permanent\.
 - Daily underlying bars: permanent\.
 - Option\-chain snapshots: retained for research\.
 - Strategy/configuration versions: permanent\.
@@ -5246,33 +5198,21 @@ The repository abstraction shall permit migration to PostgreSQL or another relat
 
 # 80\. V1 Acceptance Criteria
 
-V1 is successful when the user can:
+The operational spreadsheet/API MVP is successful after Phase 10 when the user can:
 
-1. Configure Fidelity and Schwab holdings\.
-2. Configure assignment/tax sensitivity per holding\.
-3. Refresh Tradier data\.
-4. View technical and volatility indicators\.
-5. Receive a CCOS for each holding\.
-6. See why the CCOS was generated\.
-7. View eligible option contracts\.
-8. See rejected contracts and rejection reasons\.
-9. Receive ranked Contract Scores\.
-10. Receive a recommended number of contracts\.
-11. Receive strike\-ladder recommendations\.
-12. Receive a complete defense plan before opening\.
-13. Record an actual Fidelity/Schwab fill\.
-14. Make the resulting open position available for repeatable defense evaluation.
-15. View current DRS\.
-16. Receive profit\-close alerts\.
-17. Receive defense alerts\.
-18. Generate ranked roll alternatives\.
-19. Compare current and projected DRS\.
-20. Record rolls as linked campaign transactions\.
-21. Calculate complete campaign P&L\.
-22. View portfolio covered\-call income\.
-23. Compare results with buy\-and\-hold\.
-24. Analyze results by CCOS, delta, DTE, IV, RSI and other factors\.
-25. Reproduce every historical recommendation from its stored inputs and strategy/configuration version\.
+1. Open the workbook.
+2. Refresh current portfolio and market decision data.
+3. See every enabled holding.
+4. For uncovered shares, see whether a call should be sold and the selected contract, strike, expiration, Delta, premium/reference economics, Contract Score, recommended contracts, and explanation.
+5. For open calls, see opening premium, current BTC reference, captured premium percentage, DRS, DRS classification, hard triggers, and disposition.
+6. When rolling, see the preferred replacement, strike, expiration, Delta, net debit/credit, projected DRS, and RQS.
+7. See missing-data and warning states.
+8. Execute manually at the broker.
+9. Record the actual fill.
+10. Have the system update campaign and current-position state.
+11. Have the next refresh use the new state.
+
+Strike laddering and performance reporting are not required for this MVP. Profit-close and defense alerts mean visible attention states during refresh; they do not require scheduled monitoring or push notifications.
 
 ---
 
@@ -5619,43 +5559,64 @@ Implementation packets:
 
 Phase 6 does not implement scheduled background monitoring, technical-breakout defense, dividend/early-assignment logic, transaction/campaign accounting, campaign-relative debit limits, tax-dollar debit overrides, final Recommendation execution state, brokerage synchronization, or automatic execution.
 
-## Phase 7 — Campaign Accounting and Performance
+## Phase 7 — Operational Trade and Position Lifecycle
 
 Implement:
 
 ```text
-Transaction ledger
-Campaign lifecycle
-Roll-linked campaign accounting
-Premium accounting
-Daily position snapshots
-Performance measurement
-Buy-and-hold benchmark
-Counterfactual history
-Research outputs
+Immutable transaction ledger
+Manual STO/BTC/ROLL/EXPIRE/ASSIGN recording
+Rolls as linked BTC and STO legs
+Current open-position create/update/close lifecycle
+Campaign core and lifecycle
+Actual fills, fees, and execution timestamps
+Links to source analytical artifacts
 ```
 
-## Phase 8 — Excel Dashboard
+Phase 7 is manual only and does not implement brokerage synchronization or automatic execution. Its detailed invariants require an approved Phase 7 design and acceptance packet.
+
+## Phase 8 — Assignment Protection Hardening
 
 Implement:
 
 ```text
-Portfolio view
-Market-data refresh
-Indicator display
-Opportunity display
-Contract candidates
-Defense monitoring
-Roll candidates
-Campaign history
-Performance reporting
-Manual transaction entry
-Configuration interface
+Authoritative provider-independent dividend/ex-dividend input
+Reproducible event-data persistence
+Approved early-assignment-risk calculation and trigger/rule
+Defense integration and explanations
+Explicit missing/stale/unavailable semantics
 ```
 
-Excel shall remain a presentation, configuration, and analytical layer.
+This phase does not define a formula or threshold in advance. Technical-breakout and expected-move defense rules remain separately deferred.
+
+## Phase 9 — Daily Decision API
+
+Implement a spreadsheet-friendly composed use case for portfolio refresh, holdings, open calls, canonical entry/sizing/defense/roll artifacts, warnings, missing-data states, and action summaries. `CoveredCallDecision` is a read model referencing canonical artifacts, not a duplicate engine or persistence model. Exact routes remain provisional until design approval.
+
+## Phase 10 — Excel Decision Dashboard MVP
+
+Implement:
+
+```text
+Dashboard
+Holdings
+Opportunities
+Current Positions
+Roll Analyzer
+Trade Entry
+```
+
+Excel shall remain a presentation, approved configuration/input, manual-entry, and audit layer.
 
 Authoritative strategy and indicator calculations shall remain in C#.
+
+## Phase 11 — Profit and Performance Measurement
+
+Implement campaign P&L, fees, net option profit, covered-call income, cumulative roll economics, assignment/expiration/close rates, campaign and portfolio performance, and buy-and-hold comparison from authoritative actual transactions.
+
+## Phase 12 — Research and Optimization
+
+Implement approved research datasets, counterfactual studies, backtesting, walk-forward analysis, and parameter optimization only after authoritative lifecycle and performance data exist.
 
 ---
 
@@ -5668,7 +5629,6 @@ Potential post\-V1 capabilities:
 - Automated Fidelity/Schwab position synchronization\.
 - Additional market\-data provider\.
 - Better historical options dataset\.
-- Automated corporate\-event ingestion\.
 - Intraday monitoring\.
 - Notifications\.
 
@@ -5724,12 +5684,12 @@ The final V1 strategy pipeline is:
           PositionSizingEvaluation
                        |
                        v
-                RECOMMENDATION
+           COVERED CALL DECISION
                        |
-                 User executes
+              User executes manually
                        |
                        v
-                   CAMPAIGN
+       TRANSACTION / POSITION / CAMPAIGN
                        |
                        v
                       DRS
@@ -5763,9 +5723,11 @@ The final V1 strategy pipeline is:
 
 # 84\. Governing Design Principle
 
-The system shall optimize for:
+The system shall apply this lexicographic objective:
 
-> **Sustainable covered-call income subject to strict preservation-of-shares constraints.**
+> **Avoid assignment and preserve the underlying shares; subject to that assignment protection, maximize cumulative net covered-call profit.**
+
+Assignment protection wins a conflict. No strategy rule or presentation may imply that assignment can be guaranteed never to occur.
 
 Premium generation shall never be optimized independently of:
 
@@ -5777,24 +5739,14 @@ Premium generation shall never be optimized independently of:
 - roll economics;
 - campaign performance\.
 
-The ultimate measure of success is not premium collected\.
+The ultimate measure of success is not gross premium collected\.
 
 It is:
 
-> **Whether the complete covered-call strategy improves risk-adjusted economic results relative to holding the underlying shares while maintaining the user’s desired level of assignment protection.**
+> **Whether the complete covered-call strategy preserves the requested assignment protection and, subject to it, improves cumulative net economic results relative to holding the underlying shares.**
 
 ---
 
-# 85\. Definition of Ready for Implementation
+# 85\. Post-Phase-6 Next Step
 
-The project is ready for repository scaffolding when:
-
-- Tradier developer credentials are available\.
-- Strategy V1\.0 rules in this specification are accepted\.
-- The normalized domain model is accepted\.
-- SQLite is accepted as V1 persistence\.
-- Excel is accepted as V1 presentation\.
-- Manual Fidelity/Schwab execution is accepted\.
-- Automatic trading remains explicitly out of scope\.
-
-Once these conditions are satisfied, implementation should begin with **Phase 1 — Repository/Foundation**, followed immediately by the Tradier integration\.
+Phases 1–6 are complete and merged into `main`. The next implementation work is Phase 7 design and acceptance definition for the operational trade, position, and campaign lifecycle. No Phase 7 implementation should begin until that packet resolves lifecycle invariants, command semantics, idempotency, audit linkage, and accounting boundaries.

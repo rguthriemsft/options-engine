@@ -8,14 +8,8 @@ System (CCDSS) in a fresh ChatGPT conversation.
 
 Repository: `rguthriemsft/options-engine`
 
-Current working branch: `phase6`
-
-At the original design handoff, `phase3` was 3 commits ahead of `main`
-and 0 behind. At that time, the only branch changes relative to `main`
-were:
-
--   `SPECIFICATION.md`
--   `docs/acceptance/PHASE-3-INDICATORS.md`
+Baseline: Phases 1–6 are complete and merged into `main`. A working branch
+used for later documentation or design does not change that product baseline.
 
 The repository files are authoritative. This handoff explains the
 reasoning, decisions, boundaries, unresolved questions, and recommended
@@ -24,20 +18,18 @@ chat history.
 
 ## Product Objective
 
-Build a Covered Call Decision Support System whose primary objective is
-sustainable covered-call income while maintaining a very strong
-preference against assignment of appreciated long-term holdings.
+Build a Covered Call Decision Support System with this lexicographic objective:
 
 Optimization hierarchy:
 
-1.  Preserve shares / minimize assignment.
-2.  Generate sustainable income.
-3.  Maximize risk-adjusted premium.
-4.  Minimize unnecessary rolling and transaction costs.
-5.  Measure whether the strategy adds value versus buy-and-hold.
+1.  Avoid assignment and preserve the underlying shares.
+2.  Subject to that assignment protection, maximize cumulative net covered-call profit.
 
-Assignment risk is a hard constraint rather than merely another score
-component.
+Assignment protection wins a conflict, but the system cannot guarantee that
+assignment never occurs. Net campaign profit is the sum of STO premium credits
+minus the sum of BTC costs, fees, and other explicitly approved strategy costs.
+A roll's net credit/debit is derived from its linked BTC and replacement STO
+legs and is never counted again. This is not an after-tax-dollar objective.
 
 Initial covered-call sale horizon: 14--45 DTE.
 
@@ -125,9 +117,9 @@ Holding
   -> CCOS
   -> Contract Score
   -> Position Sizing
-  -> Recommendation
-  -> User Executes
-  -> Campaign
+  -> CoveredCallDecision composition
+  -> User Executes Manually
+  -> Transaction / Open Position / Campaign
   -> DRS
   -> Roll Engine / RQS when required
   -> Campaign Accounting
@@ -658,7 +650,7 @@ Core Phase 6 V1 decisions:
 - four-component DRS at 40/25/15/20;
 - call Delta remains normalized `[0,1]` and is never repaired with `abs()`;
 - five V1 hard-defense triggers;
-- breakout and dividend/early-assignment triggers deferred;
+- breakout and dividend/early-assignment triggers were deferred from Phase 6;
 - Roll Engine activates on hard trigger or DRS >=50;
 - replacement search is 21–60 DTE, with 21–45 preferred;
 - replacement must expire later, raise strike, remain strictly OTM, and lower Delta;
@@ -681,6 +673,10 @@ Core Phase 6 V1 decisions:
 - explicit DefenseStrategyVersion and RollStrategyVersion;
 - Phase 6 is suitable for daily invocation but does not add a scheduler/background worker.
 
+Post-Phase-6 reconciliation makes authoritative dividend/ex-dividend data and an
+approved early-assignment-risk rule required Phase 8 work. Technical-breakout
+and expected-move rules remain deferred.
+
 Approved Phase 6 packet sequence:
 
 ```text
@@ -695,9 +691,8 @@ Approved Phase 6 packet sequence:
 
 ## Current Phase Status
 
-Phase 1 through Phase 5 are complete and merged into `main`.
-
-Phase 6A through Phase 6G are complete on the `phase6` branch. The phase now includes the thin immutable Defense/Roll HTTP surface and its final merge-gate validation.
+Phases 1 through 6 are complete and merged into `main`. Post-Phase-6 product
+and roadmap reconciliation is complete.
 
 Phase 3 canonical indicator snapshots remain replaceable.
 
@@ -705,8 +700,24 @@ Phase 4 EntryStrategyEvaluation and Phase 5 PositionSizingEvaluation history rem
 
 Phase 6F added separate append-only DefenseEvaluation and conditional RollEvaluation history without rewriting Phase 4/5 artifacts.
 
+The current operational gap is explicit: the public application cannot record
+STO, BTC, roll, expiration, or assignment outcomes and cannot create, update,
+or close the `OpenShortCallPosition` state consumed by defense analysis.
+
+Authoritative continuation documents:
+
+- `SPECIFICATION.md`
+- `docs/design/POST-PHASE-6-ROADMAP.md`
+- `docs/product/COVERED-CALL-DECISION-WORKFLOW.md`
+- `docs/design/OPTIONS-ENGINE-DESIGN-DECISIONS.md`
+
 ## Recommended Next Conversation
 
-Merge the completed `phase6` branch after review. Do not begin Phase 7 campaign,
-transaction, execution, or performance-accounting work until its specification,
-design decisions, and acceptance packet are explicitly approved.
+Design Phase 7 — Operational Trade and Position Lifecycle. The design must lock
+transaction immutability, manual STO/BTC/ROLL/EXPIRE/ASSIGN command semantics,
+roll leg linkage, current-position transitions, campaign lifecycle, actual
+fills/fees/timestamps, analytical-artifact links, idempotency, and audit rules.
+
+Do not implement Phase 7 code, migrations, entities, or endpoints until its
+design and acceptance packet are explicitly approved. Performance reporting
+belongs to Phase 11, after authoritative lifecycle data exists.
