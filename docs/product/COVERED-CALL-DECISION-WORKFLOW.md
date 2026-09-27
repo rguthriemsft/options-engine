@@ -11,7 +11,7 @@ Its governing objective is lexicographic:
 
 When those goals conflict, assignment protection wins. `AssignmentSensitivity` and `TaxSensitivity` describe holding context; they are not an after-tax optimization model or a calculation of tax dollars.
 
-Profit means net campaign economics: STO premium credits, BTC costs, roll credits or debits, fees, and any other strategy cost explicitly approved in the specification. A large gross premium is not, by itself, success.
+Net campaign profit is the sum of STO premium credits minus the sum of BTC costs, fees, and other explicitly approved strategy costs. A roll remains linked BTC and replacement STO legs; its net credit or debit is derived from those legs and is never counted again. A large gross premium is not, by itself, success.
 
 ## What Works Today
 

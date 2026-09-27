@@ -26,9 +26,10 @@ Optimization hierarchy:
 2.  Subject to that assignment protection, maximize cumulative net covered-call profit.
 
 Assignment protection wins a conflict, but the system cannot guarantee that
-assignment never occurs. Net profit includes campaign-wide STO credits, BTC
-costs, roll credits/debits, fees, and other approved costs. It is not gross
-premium and not an after-tax-dollar objective.
+assignment never occurs. Net campaign profit is the sum of STO premium credits
+minus the sum of BTC costs, fees, and other explicitly approved strategy costs.
+A roll's net credit/debit is derived from its linked BTC and replacement STO
+legs and is never counted again. This is not an after-tax-dollar objective.
 
 Initial covered-call sale horizon: 14--45 DTE.
 

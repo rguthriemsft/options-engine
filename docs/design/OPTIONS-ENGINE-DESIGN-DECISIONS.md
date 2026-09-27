@@ -11,9 +11,10 @@ implementation agent.
     net covered-call profit.
 -   Assignment protection wins a conflict. This does not guarantee that
     assignment will never occur.
--   Net profit includes STO credits, BTC costs, roll credits/debits, fees,
-    and other explicitly approved strategy costs. Gross premium is not the
-    optimization target.
+-   Net campaign profit is the sum of STO premium credits minus the sum of BTC
+    costs, fees, and other explicitly approved strategy costs. A roll remains
+    linked BTC and replacement STO legs; net roll credit/debit is derived from
+    those legs and is never counted again. Gross premium is not the target.
 -   Assignment risk is treated as a hard constraint.
 -   Separately measure whether the strategy adds economic value relative to
     simply holding the underlying shares; this does not outrank assignment

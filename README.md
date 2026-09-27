@@ -2,7 +2,7 @@
 
 Options Engine is a .NET 10 covered-call decision-support system for analyzing holdings, selecting and sizing covered calls, and monitoring open calls for defensive action. The product and strategy source of truth is [SPECIFICATION.md](SPECIFICATION.md).
 
-Its governing objective is to avoid assignment and preserve the underlying shares and, subject to that assignment protection, maximize cumulative net covered-call profit. Assignment protection wins a conflict; the system cannot guarantee assignment will never occur. Profit means campaign-wide STO premium credits, BTC costs, roll credits or debits, fees, and other approved strategy costs—not gross premium or an estimated after-tax result.
+Its governing objective is to avoid assignment and preserve the underlying shares and, subject to that assignment protection, maximize cumulative net covered-call profit. Assignment protection wins a conflict; the system cannot guarantee assignment will never occur. Net campaign profit is the sum of STO premium credits minus the sum of BTC costs, fees, and other explicitly approved strategy costs—not gross premium or an estimated after-tax result. A roll's net credit or debit is derived from its linked BTC and replacement STO legs and is never counted again.
 
 A separate measurement objective is to determine whether the strategy adds economic value relative to simply holding the shares. The current Phase 1–6 implementation does not yet calculate complete campaign profit or performance.
 

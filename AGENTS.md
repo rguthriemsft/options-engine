@@ -26,7 +26,7 @@ The governing product objective is lexicographic:
 
 Assignment protection wins when the objectives conflict. Do not introduce a premium tradeoff against assignment protection unless `SPECIFICATION.md` explicitly approves it. This priority does not guarantee assignment will never occur.
 
-Profit means net campaign economics: STO premium credits, BTC costs, roll credits or debits, fees, and other explicitly approved strategy costs. Do not use gross premium as a substitute for net profit. `TaxSensitivity` and `AssignmentSensitivity` are context for approved rules, not an after-tax-dollar model.
+Net campaign profit is the sum of STO premium credits minus the sum of BTC costs, fees, and other explicitly approved strategy costs. A roll remains linked BTC and replacement STO transaction legs; its net credit or debit is a derived presentation of those legs and must not be added to campaign profit again. Do not use gross premium as a substitute for net profit. `TaxSensitivity` and `AssignmentSensitivity` are context for approved rules, not an after-tax-dollar model.
 
 Phases 1–6 are complete. The authoritative post-Phase-6 sequence is documented in `docs/design/POST-PHASE-6-ROADMAP.md`; do not infer the next phase from older historical phase documents.
 
@@ -345,8 +345,11 @@ Prefer strongly meaningful identifier properties such as:
 
 ```text
 HoldingId
+EntryStrategyEvaluationId
+PositionSizingEvaluationId
+DefenseEvaluationId
+RollEvaluationId
 CampaignId
-RecommendationId
 TransactionId
 ```
 

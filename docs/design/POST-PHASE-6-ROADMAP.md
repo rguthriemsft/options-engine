@@ -11,11 +11,11 @@ The governing objective is:
 1. Avoid assignment and preserve the underlying shares.
 2. Subject to that assignment protection, maximize cumulative net covered-call profit.
 
-Assignment protection wins any conflict. This is a priority ordering, not a promise that assignment can never occur. Profit is cumulative net campaign economics, not gross premium and not an after-tax-dollar objective.
+Assignment protection wins any conflict. This is a priority ordering, not a promise that assignment can never occur. Net campaign profit is the sum of STO premium credits minus the sum of BTC costs, fees, and other explicitly approved strategy costs. It is not gross premium or an after-tax-dollar objective.
 
 A separate measurement objective is to determine whether the covered-call strategy adds economic value relative to simply holding the underlying shares. That measurement belongs to Phase 11 and must use authoritative actual lifecycle data.
 
-Phase 6 roll economics intentionally remain local to one candidate: replacement Bid minus existing-call Ask. Phase 6 has no cumulative campaign economics. Future profit-aware analysis may use authoritative cumulative STO credits, BTC costs, roll credits/debits, and fees, but no campaign-relative roll rule is approved here.
+Phase 6 roll economics intentionally remain local to one candidate: replacement Bid minus existing-call Ask. Phase 6 has no cumulative campaign economics. A roll remains linked BTC and replacement STO transaction legs; its net credit/debit is derived from those legs and is never counted again. No campaign-relative roll rule is approved here.
 
 ## Current Operational Gap
 

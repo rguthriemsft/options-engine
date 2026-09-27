@@ -35,7 +35,7 @@ The strategy objective is lexicographic:
 
 Assignment protection wins whenever these objectives conflict. This priority does not guarantee that assignment will never occur.
 
-Profit means net campaign economics, including STO premium credits, BTC costs, roll credits or debits, fees, and any other strategy costs explicitly approved by this specification. Gross premium shall not be optimized or reported as though it were net profit.
+Net campaign profit is the sum of STO premium credits minus the sum of BTC costs, fees, and other strategy costs explicitly approved by this specification. A roll remains linked BTC and replacement STO transaction legs. Its net credit or debit is derived from those legs and shall never be added to campaign profit again. Gross premium shall not be optimized or reported as though it were net profit.
 
 `AssignmentSensitivity` and `TaxSensitivity` provide holding context for approved strategy rules. They do not constitute an after-tax-dollar model, tax advice, or authority to trade assignment protection for additional premium.
 
@@ -3931,13 +3931,13 @@ Campaign profit is net campaign economics, not gross premium:
 
 ```text
 NetCampaignProfit =
-STO Premiums
-- BTC Costs
-- Fees
-- Other Approved Strategy Costs
+Sum(STO Premium Credits)
+- Sum(BTC Costs)
+- Sum(Fees)
+- Sum(Other Explicitly Approved Strategy Costs)
 ```
 
-A roll contributes its linked BTC cost and replacement STO credit to the same campaign. A net roll credit or debit is a convenient presentation of those two legs, not an additional amount to count again. No after-tax-dollar calculation is implied.
+A roll contributes its linked BTC cost and replacement STO credit to the same campaign. `NetRollCreditOrDebit = Replacement STO Credit - Existing BTC Cost` is a derived presentation metric only, not an additional amount to count again. No after-tax-dollar calculation is implied.
 
 Example:
 
@@ -3991,6 +3991,8 @@ Worst Campaign
 Maximum DRS
 Average DRS
 ```
+
+Roll Credits and Roll Debits in reporting are derived from their linked BTC/STO legs and are not separately added to Net Campaign Profit.
 
 ---
 
