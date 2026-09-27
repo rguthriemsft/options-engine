@@ -1353,6 +1353,87 @@ CLOSE_WAIT
 
 See `docs/design/PHASE-6-DEFENSE-ROLL-DESIGN.md` and `docs/acceptance/PHASE-6-DEFENSE-ROLL.md`.
 
+## Phase 7 Operational Lifecycle
+
+### Boundary and Vocabulary
+
+- Phase 7 is an operational truth layer, not a Strategy engine.
+- Execution remains manual; no brokerage order behavior is introduced.
+- Application commands are `RecordSto`, `ImportOpenPosition`, `RecordBtc`, `RecordRoll`, `RecordExpiration`, `RecordAssignment`, and `CorrectOperation`.
+- Immutable economic actions are `STO`, `BTC`, `EXPIRE`, and `ASSIGN`.
+- `ROLL` is an operation containing one old-option BTC leg and one replacement-option STO leg, never a third economic transaction.
+
+### Identity, Immutability, and Fills
+
+- Campaign, operation, transaction, and fill identities are `Guid`.
+- Existing `long OpenShortCallPositionId` remains stable for Phase 5/6 compatibility.
+- LifecycleOperation, OptionTransaction, and ExecutionFill records are append-only.
+- Quantities are positive; transaction action supplies economic direction.
+- STO/BTC retain one or more actual fills; transaction quantity and weighted-average price reconcile to them.
+- EXPIRE/ASSIGN have null fill price and no execution fills.
+- Unknown fees remain null; known zero remains explicit zero.
+- Actual fills are authoritative and never replaced by analytical reference prices.
+
+### Campaign and Current Position
+
+- Campaign has `Open`/`Closed` state plus terminal outcome `BoughtToClose`, `Expired`, `Assigned`, or `Mixed`.
+- `Rolled` is not a Campaign state; roll history is derived from operations.
+- A Campaign cannot reopen after closure.
+- A roll preserves CampaignId.
+- Partial or quantity-mismatched rolls may leave multiple current positions in one Campaign.
+- A Holding may have multiple independent Campaigns.
+- Current positions add CampaignId and remain narrow mutable projections; one row remains one Phase 6 evaluation unit.
+- Active position rows are consolidated by Campaign and option identity, never across Campaigns.
+- Zero-contract rows are removed while immutable history remains.
+- Campaign financial totals are derived later from effective immutable history and are not mutable Campaign columns.
+
+### STO and Import
+
+- A standalone executed STO atomically creates its operation, STO transaction/fills, executed Campaign, and current position.
+- Entry/Sizing links are optional and do not constrain actual execution to the analytical result.
+- `ImportOpenPosition` creates an incomplete imported Campaign and current position without fabricating a historical STO.
+- Existing pre-Phase-7 current-position rows each backfill to their own incomplete imported Campaign; no grouping, transaction, fill, or execution time is invented.
+
+### Closing, Roll, and Assignment
+
+- Partial BTC, expiration, and assignment are supported up to current quantity.
+- RecordRoll atomically persists both executed legs and all projection changes.
+- Roll leg quantities may differ if resulting aggregate short calls remain physically covered.
+- Phase 6 hypothetical quantity, option, strike, delta, rank, and disposition do not constrain actual execution recording.
+- Incomplete broker roll execution is recorded only as the leg that actually completed; no missing leg is fabricated.
+- STO, BTC, roll, and expiration do not change Holding shares.
+- Assignment reduces Holding shares by contracts times 100 atomically and requires remaining calls to stay covered.
+- Phase 7 does not change TaxLots or calculate tax; assignment persists `TAX_LOT_RECONCILIATION_REQUIRED`.
+
+### Idempotency, Corrections, and Links
+
+- Every command requires unique client-supplied ClientOperationId and a deterministic request fingerprint.
+- Identical replay returns the original result; different payload under the same identity conflicts.
+- Correction never edits/deletes history and never adds an artificial reversal cash-flow leg.
+- Correction appends a same-type replacement and supersession metadata, then validates/replays effective history and atomically rebuilds projections.
+- Analytical artifact links are optional and validated for identity/relationship consistency when present.
+- Reality may differ from analysis and remains recordable; source evaluations never mutate.
+
+### API and Packets
+
+- Phase 7 API exposes use-case commands and minimal lifecycle/audit reads, not generic table CRUD.
+- Exact routes are deferred to the API implementation packet.
+- Phase 7 does not add general Holding management or Phase 9 CoveredCallDecision composition.
+
+Approved packet sequence:
+
+```text
+7A — lifecycle contracts, validation codes, and persistence model design
+7B — migration, immutable ledger/campaign persistence, and idempotent unit of work
+7C — initial STO and imported-position lifecycle
+7D — BTC, expiration, assignment, and Holding-share projection
+7E — atomic roll lifecycle and multi-position campaign behavior
+7F — correction/replay and audit semantics
+7G — command/read API and merge-gate validation
+```
+
+See `docs/design/PHASE-7-OPERATIONAL-LIFECYCLE-DESIGN.md` and `docs/acceptance/PHASE-7-OPERATIONAL-LIFECYCLE.md`.
+
 ## Phase Boundaries
 
 Phase 3 calculates facts/classifications.

@@ -8,8 +8,9 @@ System (CCDSS) in a fresh ChatGPT conversation.
 
 Repository: `rguthriemsft/options-engine`
 
-Baseline: Phases 1–6 are complete and merged into `main`. A working branch
-used for later documentation or design does not change that product baseline.
+Baseline: Phases 1–6 are complete and merged into `main`. Phase 7 operational
+lifecycle design and acceptance criteria are approved on the current design
+branch. No Phase 7 implementation has begun.
 
 The repository files are authoritative. This handoff explains the
 reasoning, decisions, boundaries, unresolved questions, and recommended
@@ -689,10 +690,48 @@ Approved Phase 6 packet sequence:
 6G — API and merge-gate validation
 ```
 
+### Phase 7 — Design Approved, Not Implemented
+
+Authoritative Phase 7 documents:
+
+- `SPECIFICATION.md`
+- `docs/design/PHASE-7-OPERATIONAL-LIFECYCLE-DESIGN.md`
+- `docs/acceptance/PHASE-7-OPERATIONAL-LIFECYCLE.md`
+- `docs/design/OPTIONS-ENGINE-DESIGN-DECISIONS.md`
+
+Locked Phase 7 direction:
+
+- operational truth layer only; no new Strategy rules;
+- immutable LifecycleOperation, OptionTransaction, and ExecutionFill history;
+- user commands for STO, import, BTC, roll, expiration, assignment, and correction;
+- Roll is one operation with BTC + replacement STO economic legs;
+- actual fills are authoritative and may differ from analysis;
+- Campaign uses Open/Closed plus terminal outcome; Rolled is not a state;
+- current positions gain CampaignId and remain one-row-per-Phase-6-evaluation-unit projections;
+- partial BTC/expiration/assignment and partial or quantity-mismatched rolls are supported within physical capacity;
+- imported positions create incomplete imported Campaigns without fabricated transactions;
+- assignment reduces Holding shares and emits tax-lot reconciliation warning without tax accounting;
+- commands are atomic and idempotent;
+- corrections append superseding history and replay projections rather than mutating transactions;
+- analytical links are optional and never force the user to follow a recommendation;
+- Campaign totals and performance remain Phase 11 derived reporting.
+
+Approved Phase 7 packet sequence:
+
+```text
+7A — lifecycle contracts, validation codes, and persistence model design
+7B — migration, immutable ledger/campaign persistence, and idempotent unit of work
+7C — initial STO and imported-position lifecycle
+7D — BTC, expiration, assignment, and Holding-share projection
+7E — atomic roll lifecycle and multi-position campaign behavior
+7F — correction/replay and audit semantics
+7G — command/read API and merge-gate validation
+```
+
 ## Current Phase Status
 
 Phases 1 through 6 are complete and merged into `main`. Post-Phase-6 product
-and roadmap reconciliation is complete.
+reconciliation and Phase 7 design are complete.
 
 Phase 3 canonical indicator snapshots remain replaceable.
 
@@ -710,14 +749,15 @@ Authoritative continuation documents:
 - `docs/design/POST-PHASE-6-ROADMAP.md`
 - `docs/product/COVERED-CALL-DECISION-WORKFLOW.md`
 - `docs/design/OPTIONS-ENGINE-DESIGN-DECISIONS.md`
+- `docs/design/PHASE-7-OPERATIONAL-LIFECYCLE-DESIGN.md`
+- `docs/acceptance/PHASE-7-OPERATIONAL-LIFECYCLE.md`
 
 ## Recommended Next Conversation
 
-Design Phase 7 — Operational Trade and Position Lifecycle. The design must lock
-transaction immutability, manual STO/BTC/ROLL/EXPIRE/ASSIGN command semantics,
-roll leg linkage, current-position transitions, campaign lifecycle, actual
-fills/fees/timestamps, analytical-artifact links, idempotency, and audit rules.
+Implement Phase 7A only: lifecycle contracts, validation/error codes, and the
+persistence-model design required by the approved Phase 7 documents. Preserve
+the 7A boundary; do not add a migration, repository, command endpoint, or later
+packet behavior until its owning packet.
 
-Do not implement Phase 7 code, migrations, entities, or endpoints until its
-design and acceptance packet are explicitly approved. Performance reporting
-belongs to Phase 11, after authoritative lifecycle data exists.
+Performance reporting remains Phase 11, after authoritative lifecycle data
+exists. Phase 8+ behavior remains out of scope.

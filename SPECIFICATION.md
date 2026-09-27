@@ -2,7 +2,7 @@
 
 ## V1 Engineering Specification
 
-**Status:** Phases 1–6 implemented; post-Phase-6 roadmap approved for design planning
+**Status:** Phases 1–6 implemented; Phase 7 operational-lifecycle design approved
 **Strategy Version:** 1\.0\.0
 **Target Platform:** \.NET 10 / C\# / SQLite / Excel
 **Primary Market Data Provider:** Tradier
@@ -451,6 +451,13 @@ For Position Sizing V1:
 - `MaximumDeltaExposureRatio` is represented as a fractional ratio in the inclusive range `[0,1]`; for example, `0.15 = 15%`.
 - Both values must be finite and validated within `[0,1]`.
 - The existing `MaximumCoveragePercent` property name is retained in V1; no naming-only schema migration is required.
+
+For Phase 7 operational lifecycle:
+
+- STO, BTC, roll, and expiration do not change `Holding.Shares`.
+- Assignment atomically reduces `Holding.Shares` by `AssignedContracts * 100`.
+- Phase 7 does not select or dispose TaxLots; assignment persists an explicit `TAX_LOT_RECONCILIATION_REQUIRED` warning.
+- Holding/Account enabled flags control analytical eligibility and do not prevent recording actual lifecycle events.
 
 ---
 
@@ -1819,34 +1826,40 @@ It shall not contain or imply execution state, transaction creation, Campaign cr
 
 ---
 
-# 17\. Transaction Ledger
+# 17\. Operational Lifecycle and Transaction Ledger
 
-The following is a conceptual requirement outline, not an approved Phase 7 schema. Exact identifiers, linkage, commands, and invariants require the Phase 7 design.
+Phase 7 separates command intent, economic legs, and actual fills:
 
 ```text
-TransactionId
-CampaignId
-SourceAnalyticalArtifactLinks when applicable
-AccountId
-HoldingId
-
-Timestamp
-
-Action
-Contracts
-OptionSymbol
-Strike
-Expiration
-
-FillPrice
-Fees
-
-UnderlyingPriceAtExecution
-
-Notes
+LifecycleOperation
+    -> OptionTransaction
+        -> ExecutionFill(s), for STO/BTC
 ```
 
-Actions:
+Stable identities:
+
+```text
+LifecycleOperationId   Guid
+ClientOperationId      Guid, client supplied and unique
+TransactionId          Guid
+ExecutionFillId        Guid
+CampaignId             Guid
+OpenShortCallPositionId long (existing Phase 5/6 identity retained)
+```
+
+Application command vocabulary:
+
+```text
+RecordSto
+ImportOpenPosition
+RecordBtc
+RecordRoll
+RecordExpiration
+RecordAssignment
+CorrectOperation
+```
+
+Persisted economic action vocabulary:
 
 ```text
 STO
@@ -1855,58 +1868,77 @@ EXPIRE
 ASSIGN
 ```
 
-The Phase 7 manual workflow shall accept STO, BTC, ROLL, EXPIRE, and ASSIGN outcomes. A roll is represented in the immutable ledger as linked BTC and STO transaction legs in the same campaign; `ROLL` is the user operation, not a substitute for those two economic legs.
+`ROLL` is not an economic transaction action. One `RecordRoll` operation creates exactly one BTC transaction for the old option and one STO transaction for the replacement option.
+
+Each immutable OptionTransaction preserves:
+
+```text
+TransactionId
+LifecycleOperationId
+CampaignId
+HoldingId
+AccountId
+Action
+OptionSymbol
+Contracts (positive; Action supplies direction)
+Strike
+Expiration
+EffectiveTimestampUtc
+WeightedAverageFillPricePerShare?
+Fees?
+UnderlyingPriceAtExecution?
+```
+
+STO/BTC require one or more immutable fills containing positive contract quantity, non-negative per-share price, and UTC execution timestamp. Transaction quantity and weighted-average price reconcile exactly to those fills. EXPIRE/ASSIGN have no fills and retain null fill price; null must not become zero. Known zero fees remain explicit zero while unavailable fees remain null.
+
+Transactions, fills, and lifecycle operations are never edited or deleted.
+
+Every lifecycle command is atomic and requires ClientOperationId:
+
+```text
+same ID + identical canonical request -> original result, no new writes
+same ID + different request          -> conflict
+```
+
+Correction appends immutable correction metadata and a replacement operation of the same lifecycle type. Original history remains visible as superseded. Effective campaign history is replayed and projections are rebuilt atomically. No artificial reversal cash-flow transaction is introduced.
 
 ---
 
 # 18\. Campaign
 
-A Campaign represents an entire sequence of covered\-call activity originating from an initial STO\.
-
-The following fields are conceptual. Phase 7 must approve the lifecycle and source-artifact relationship before implementation, and Phase 11 must approve performance/accounting projections before they are treated as report contracts.
+A Campaign groups one initial STO exposure and all later lifecycle activity connected through rolls.
 
 ```text
 CampaignId
 HoldingId
 AccountId
 Symbol
-
-StartDate
-EndDate
-
-SourceEntryArtifactLinks when applicable
-
-InitialContracts
-InitialStrike
-InitialExpiration
-
-Status
-
-GrossPremium
-BuyToCloseCost
-RollCredits
-RollDebits
-Fees
-NetOptionProfit
-
-RollCount
-MaximumDRS
-
-Assigned
-Expired
-
-StrategyVersion
+Origin: Executed | Imported
+State: Open | Closed
+TerminalOutcome?: BoughtToClose | Expired | Assigned | Mixed
+StartedAtUtc?
+ImportedAtUtc?
+ClosedAtUtc?
+EconomicsCompleteness: Complete | Incomplete
 ```
 
-Campaign states:
+Rules:
 
-```text
-OPEN
-ROLLED
-CLOSED
-EXPIRED
-ASSIGNED
-```
+- a standalone STO creates a new executed Campaign;
+- importing an already-open position creates an imported Campaign without fabricating a transaction;
+- a roll preserves CampaignId;
+- `Rolled` is not a Campaign state;
+- a Campaign remains Open while any current position exists;
+- a Closed Campaign cannot reopen;
+- partial/quantity-mismatched rolls may leave multiple current positions in one Campaign;
+- a Holding may have multiple independent Campaigns;
+- terminal outcome describes how the final obligations ended and is Mixed when terminal outcomes differ;
+- imported or otherwise incomplete historical economics remain explicitly incomplete;
+- roll count and all financial totals are derived from effective immutable history rather than stored as mutable Campaign totals.
+
+Economics is Complete only when an authoritative initial STO and all required Phase 7 fees/facts are known. Within a roll, paired BTC/STO quantity continues the Campaign; excess BTC is terminal BoughtToClose quantity and excess STO is added exposure. Correction/replay recomputes both lifecycle and completeness projections.
+
+Each pre-Phase-7 current-position row is preserved during upgrade and assigned its own Imported Campaign because no reliable grouping exists. Upgrade creates no transaction, fill, or execution time and does not alter existing nullable opening premium/time.
 
 ---
 
@@ -1915,6 +1947,22 @@ ASSIGNED
 Immutable `DefenseEvaluation` history is the primary analytical monitoring history for the spreadsheet MVP. It preserves the consumed current-position context, market observations, calculations, gates, versions, missing inputs, explanations, and any linked `RollEvaluation`.
 
 A separate general-purpose `DailyPositionSnapshot` store is not required for the MVP. It may be introduced later only when an approved design identifies a unique non-decision time-series requirement that cannot be met by the transaction ledger, current position state, retained market observations, and immutable defense history. Redundant persistence of the same analytical facts shall be avoided.
+
+Phase 7 maintains `OpenShortCallPosition` as a narrow mutable projection:
+
+```text
+OpenShortCallPositionId
+CampaignId
+HoldingId
+OptionSymbol
+Contracts
+Strike
+Expiration
+OpeningPremiumPerShare?
+OpenedAtUtc?
+```
+
+One row remains one Phase 6 evaluation unit. Active exposure is consolidated by Campaign and option identity; different Campaigns are never merged. Zero-contract rows are removed. Historical DefenseEvaluations retain their captured identity/payload. Every effective current position must reconcile to lifecycle history and aggregate current calls must remain physically covered by Holding shares.
 
 ---
 
@@ -3939,6 +3987,8 @@ Sum(STO Premium Credits)
 
 A roll contributes its linked BTC cost and replacement STO credit to the same campaign. `NetRollCreditOrDebit = Replacement STO Credit - Existing BTC Cost` is a derived presentation metric only, not an additional amount to count again. No after-tax-dollar calculation is implied.
 
+Phase 7 stores the effective immutable fills, fees, and correction relationships required for this future calculation but does not persist mutable Campaign profit totals. Unknown fees and imported history remain explicit completeness limitations. Phase 11 owns calculation and reporting.
+
 Example:
 
 ```text
@@ -4512,6 +4562,8 @@ Phase 6 V1 provides an evaluation capability suitable for daily invocation but d
 
 Phase 7 shall add manual transaction and campaign lifecycle orchestration. Phase 9 shall add `DailyDecisionService` as a composition layer over canonical artifacts and current state; it shall not contain duplicate scoring formulas.
 
+Phase 7 orchestration owns command validation, idempotency, analytical-link validation, transaction boundaries, Campaign transitions, current-position projection updates, assignment share reduction, and correction replay. These are operational rules, not Strategy calculations.
+
 ---
 
 # 62\. Strategy Interfaces
@@ -4642,6 +4694,36 @@ Valid analytical outcomes, including InsufficientData, are persisted evaluation 
 Historical evaluations remain readable after a Holding is disabled.
 
 There are no Phase 6 PUT/PATCH/DELETE semantics for immutable DefenseEvaluation or RollEvaluation.
+
+## Phase 7 Operational Lifecycle API
+
+Phase 7 exposes thin use-case commands for:
+
+```text
+record STO
+import already-open position
+record BTC
+record roll
+record expiration
+record assignment
+correct lifecycle operation
+```
+
+Exact paths are approved in the Phase 7 API implementation packet rather than invented in this specification. The API shall not expose generic ledger-table CRUD.
+
+Minimal reads cover:
+
+```text
+current open positions, optionally by Holding
+Campaign by CampaignId
+Campaign operation/transaction/fill history
+Transaction by TransactionId
+LifecycleOperation by lifecycle or client operation identity
+```
+
+Analytical links are optional. When present, Entry/Sizing links must resolve to the same Holding and each other; Defense/Roll links must resolve to the targeted Holding/position and each other. Actual option, quantity, price, and timing may differ from the linked analysis and remain recordable.
+
+Lifecycle transport semantics distinguish not found, malformed input, invalid/stale transition, physical coverage conflict, analytical-link mismatch, and idempotency conflict. Immutable history has no PUT/PATCH/DELETE mutation surface.
 
 Future capability areas may include:
 
@@ -4871,11 +4953,13 @@ User places trade manually
         |
 User records actual fill
         |
-Transaction created
+Lifecycle operation / transaction / fill history created
         |
 Campaign created/updated
         |
-Position monitoring begins
+Current position updated
+        |
+Position monitoring begins/continues
 ```
 
 The analytical reference price and actual fill price shall both be retained\.
@@ -5182,6 +5266,7 @@ Correctness and reproducibility take priority over latency\.
 Unless storage becomes problematic:
 
 - Transactions: permanent\.
+- Lifecycle operations and fills: permanent\.
 - Campaigns: permanent\.
 - Canonical strategy evaluations: permanent\.
 - Issued composed-decision references, when persisted: permanent\.
@@ -5573,7 +5658,26 @@ Actual fills, fees, and execution timestamps
 Links to source analytical artifacts
 ```
 
-Phase 7 is manual only and does not implement brokerage synchronization or automatic execution. Its detailed invariants require an approved Phase 7 design and acceptance packet.
+Phase 7 is manual only and does not implement brokerage synchronization or automatic execution. Its detailed invariants are locked in the approved Phase 7 design and acceptance documents below.
+
+Approved implementation packets:
+
+```text
+7A — lifecycle contracts, validation codes, and persistence model design
+7B — migration, immutable ledger/campaign persistence, and idempotent unit of work
+7C — initial STO and imported-position lifecycle
+7D — BTC, expiration, assignment, and Holding-share projection
+7E — atomic roll lifecycle and multi-position campaign behavior
+7F — correction/replay and audit semantics
+7G — command/read API and merge-gate validation
+```
+
+The authoritative design and acceptance criteria are:
+
+```text
+docs/design/PHASE-7-OPERATIONAL-LIFECYCLE-DESIGN.md
+docs/acceptance/PHASE-7-OPERATIONAL-LIFECYCLE.md
+```
 
 ## Phase 8 — Assignment Protection Hardening
 
@@ -5747,6 +5851,6 @@ It is:
 
 ---
 
-# 85\. Post-Phase-6 Next Step
+# 85\. Phase 7 Next Step
 
-Phases 1–6 are complete and merged into `main`. The next implementation work is Phase 7 design and acceptance definition for the operational trade, position, and campaign lifecycle. No Phase 7 implementation should begin until that packet resolves lifecycle invariants, command semantics, idempotency, audit linkage, and accounting boundaries.
+Phases 1–6 are complete and merged into `main`. Phase 7 operational lifecycle design and acceptance criteria are approved. The next implementation work begins with Phase 7A and must follow the packet sequence and merge gates without introducing Phase 8+ behavior.
