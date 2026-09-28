@@ -42,7 +42,10 @@ Authoritative design: `docs/design/PHASE-7-OPERATIONAL-LIFECYCLE-DESIGN.md`.
 
 - [ ] Zero and negative contract quantities are rejected.
 - [ ] Negative prices and fees are rejected.
-- [ ] Non-UTC timestamps are rejected or normalized only under an explicitly approved API rule.
+- [ ] Every client-supplied lifecycle timestamp uses DateTimeOffset and has `Offset == TimeSpan.Zero`.
+- [ ] Non-UTC lifecycle timestamps are rejected as validation errors and are never normalized by the command layer.
+- [ ] Local, Eastern, other offset, and unspecified timestamps are rejected.
+- [ ] Server-owned RecordedAtUtc comes from the injected time source and has `Offset == TimeSpan.Zero`.
 - [ ] Required option identity, strike, and expiration are validated.
 - [ ] Stable machine-readable lifecycle error codes are returned.
 
@@ -76,7 +79,7 @@ Authoritative design: `docs/design/PHASE-7-OPERATIONAL-LIFECYCLE-DESIGN.md`.
 - [ ] Imported Campaign economics are explicitly incomplete.
 - [ ] Unknown required fees/economic facts make Campaign economics incomplete rather than becoming zero.
 - [ ] Correction/replay recomputes economics completeness.
-- [ ] Roll-paired BTC/STO quantity is continuation, excess BTC is terminal BoughtToClose quantity, and excess STO is added exposure.
+- [ ] All quantity in a valid one-for-one roll continues the Campaign and is not a terminal outcome.
 
 ### Idempotency
 
@@ -170,7 +173,9 @@ Authoritative design: `docs/design/PHASE-7-OPERATIONAL-LIFECYCLE-DESIGN.md`.
 - [ ] The replacement position is created or updated.
 - [ ] Both ledger legs and projection changes commit together or not at all.
 - [ ] BTC quantity cannot exceed current old-option quantity.
-- [ ] Replacement quantity may differ from BTC quantity.
+- [ ] BTC and replacement STO contract quantities are equal.
+- [ ] A roll may replace fewer contracts than the old position currently contains.
+- [ ] Added or closed exposure beyond the one-for-one roll is rejected and must use a separate lifecycle operation.
 - [ ] Resulting aggregate exposure must remain physically covered.
 - [ ] Replacement option identity differs from old option identity.
 - [ ] Actual execution is not forced to match Phase 6 quantity, option, strike, expiration, delta, or rank.
@@ -184,7 +189,7 @@ Authoritative design: `docs/design/PHASE-7-OPERATIONAL-LIFECYCLE-DESIGN.md`.
 ### Multi-Position Campaign Behavior
 
 - [ ] Partial roll may leave old and replacement position rows in one Campaign.
-- [ ] Quantity-mismatched roll may produce more or less replacement exposure, subject to capacity.
+- [ ] Unrolled old contracts remain in the same Campaign alongside the replacement position.
 - [ ] One current-position row remains one Phase 6 evaluation unit.
 - [ ] Active exposure is consolidated by Campaign and option identity.
 - [ ] Same option identity in different Campaigns remains separate.
@@ -260,7 +265,9 @@ Authoritative design: `docs/design/PHASE-7-OPERATIONAL-LIFECYCLE-DESIGN.md`.
 - [ ] PartialBtc
 - [ ] FullBtcClosesCampaign
 - [ ] PartialRollCreatesTwoCurrentPositions
-- [ ] QuantityMismatchRollWithinCapacity
+- [ ] RollRejectsUnequalLegQuantities
+- [ ] PartialRollPreservesUnrolledOldContracts
+- [ ] NonUtcLifecycleTimestampRejected
 - [ ] RollWouldExceedCoveredShares
 - [ ] ExpirationWithNullFillPrice
 - [ ] PartialAssignmentReducesHoldingShares

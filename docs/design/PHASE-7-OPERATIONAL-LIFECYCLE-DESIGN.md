@@ -138,6 +138,18 @@ same ClientOperationId + different canonical request
 
 The uniqueness rule applies across every lifecycle command type.
 
+### 5.1 Lifecycle Timestamps
+
+All client-supplied Phase 7 lifecycle timestamps use `DateTimeOffset` and must
+have `Offset == TimeSpan.Zero`. This includes fill execution timestamps,
+effective timestamps for assignment and expiration, and a reported historical
+opening timestamp when one is supplied during import. A non-UTC value is a
+validation error; the command layer does not convert local, Eastern, offset, or
+unspecified timestamps to UTC.
+
+`RecordedAtUtc` is server-owned, comes from the injected time source, and must
+also have a zero offset.
+
 ## 6. OptionTransaction
 
 `OptionTransaction` is one immutable covered-call economic leg or terminal option event.
@@ -237,12 +249,12 @@ Campaign rules:
 
 Terminal outcome is assigned when the campaign closes:
 
-- `BoughtToClose` when all terminal contract quantities ended by standalone BTC or unmatched excess BTC in a quantity-reducing roll;
+- `BoughtToClose` when all terminal contract quantities ended by standalone BTC;
 - `Expired` when all terminal contract quantities ended by expiration;
 - `Assigned` when all terminal contract quantities ended by assignment;
 - `Mixed` when terminal outcomes differ.
 
-Within a roll, `min(BTC Contracts, STO Contracts)` continues the Campaign and is not a terminal outcome. Any excess BTC quantity is a BoughtToClose terminal quantity; excess STO quantity is added open exposure.
+All quantity in a valid roll continues the Campaign and is not a terminal outcome.
 
 ## 9. Current Open-Position Projection
 
@@ -274,7 +286,7 @@ Rules:
 - when exposure becomes zero, the projection row is removed while immutable history remains;
 - historical DefenseEvaluation records retain their captured position identity and payload after projection removal.
 
-A Holding may have multiple current positions and multiple campaigns. A campaign may have multiple current positions after a partial or quantity-mismatched roll.
+A Holding may have multiple current positions and multiple campaigns. A campaign may have multiple current positions after a partial roll because unrolled old contracts may remain alongside replacement contracts.
 
 After every command:
 
@@ -375,7 +387,9 @@ Rules:
 
 - the BTC quantity must not exceed the old current quantity;
 - both leg quantities are positive;
-- replacement quantity may differ from BTC quantity;
+- BTC contracts must equal replacement STO contracts;
+- a partial roll is valid and need not replace the whole old position;
+- exposure added or closed beyond the one-for-one replacement is recorded through separate lifecycle operations, not embedded in `RecordRoll`;
 - the resulting Holding exposure must satisfy physical covered-share capacity;
 - replacement option identity must differ from the old option identity;
 - leg fills retain their own execution timestamps and fees;
@@ -579,17 +593,19 @@ Human messages accompany codes but are not logic contracts.
 2. Actual fills are authoritative.
 3. Missing financial data is never zero.
 4. A roll has one BTC economic leg and one replacement STO economic leg.
-5. Roll credit/debit is derived and never a third cash-flow item.
-6. Executed current-position quantity cannot exceed effective ledger-backed quantity; imported quantity must match its effective import operation.
-7. Closed, expired, or assigned quantity cannot remain active.
-8. Every current position is traceable to one Campaign.
-9. A roll preserves CampaignId.
-10. One current-position row remains one Phase 6 evaluation unit.
-11. Historical Phase 4–6 evaluations never mutate because execution was recorded.
-12. Lifecycle commands are atomic and idempotent.
-13. Reality may differ from analysis and remains recordable.
-14. Campaign totals are derived, not mutable financial truth.
-15. Superseded history remains auditable but is excluded from effective projections.
+5. A roll's BTC and replacement STO contract quantities are equal.
+6. Roll credit/debit is derived and never a third cash-flow item.
+7. Every client-supplied lifecycle timestamp and server-owned `RecordedAtUtc` has a zero UTC offset.
+8. Executed current-position quantity cannot exceed effective ledger-backed quantity; imported quantity must match its effective import operation.
+9. Closed, expired, or assigned quantity cannot remain active.
+10. Every current position is traceable to one Campaign.
+11. A roll preserves CampaignId.
+12. One current-position row remains one Phase 6 evaluation unit.
+13. Historical Phase 4–6 evaluations never mutate because execution was recorded.
+14. Lifecycle commands are atomic and idempotent.
+15. Reality may differ from analysis and remains recordable.
+16. Campaign totals are derived, not mutable financial truth.
+17. Superseded history remains auditable but is excluded from effective projections.
 
 ## 24. Implementation Packets
 

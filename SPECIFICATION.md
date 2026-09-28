@@ -1870,6 +1870,12 @@ ASSIGN
 
 `ROLL` is not an economic transaction action. One `RecordRoll` operation creates exactly one BTC transaction for the old option and one STO transaction for the replacement option.
 
+The BTC and replacement STO contract quantities in one `RecordRoll` operation
+must be equal. A partial roll may replace fewer contracts than the old position
+contains; the unrolled old contracts remain open in the same Campaign. Any
+additional opening or closing intent is recorded as a separate lifecycle
+operation rather than changing exposure inside the roll.
+
 Each immutable OptionTransaction preserves:
 
 ```text
@@ -1890,6 +1896,12 @@ UnderlyingPriceAtExecution?
 ```
 
 STO/BTC require one or more immutable fills containing positive contract quantity, non-negative per-share price, and UTC execution timestamp. Transaction quantity and weighted-average price reconcile exactly to those fills. EXPIRE/ASSIGN have no fills and retain null fill price; null must not become zero. Known zero fees remain explicit zero while unavailable fees remain null.
+
+All client-supplied Phase 7 lifecycle timestamps use `DateTimeOffset` and must
+have `Offset == TimeSpan.Zero`. Non-UTC lifecycle timestamps are rejected; the
+command layer does not normalize local, Eastern, other offset, or unspecified
+timestamps. Server-owned `RecordedAtUtc` comes from the injected time source
+and must also have a zero offset.
 
 Transactions, fills, and lifecycle operations are never edited or deleted.
 
@@ -1930,13 +1942,13 @@ Rules:
 - `Rolled` is not a Campaign state;
 - a Campaign remains Open while any current position exists;
 - a Closed Campaign cannot reopen;
-- partial/quantity-mismatched rolls may leave multiple current positions in one Campaign;
+- partial rolls may leave unrolled old contracts and replacement contracts as multiple current positions in one Campaign;
 - a Holding may have multiple independent Campaigns;
 - terminal outcome describes how the final obligations ended and is Mixed when terminal outcomes differ;
 - imported or otherwise incomplete historical economics remain explicitly incomplete;
 - roll count and all financial totals are derived from effective immutable history rather than stored as mutable Campaign totals.
 
-Economics is Complete only when an authoritative initial STO and all required Phase 7 fees/facts are known. Within a roll, paired BTC/STO quantity continues the Campaign; excess BTC is terminal BoughtToClose quantity and excess STO is added exposure. Correction/replay recomputes both lifecycle and completeness projections.
+Economics is Complete only when an authoritative initial STO and all required Phase 7 fees/facts are known. All quantity in a valid one-for-one roll continues the Campaign. Correction/replay recomputes both lifecycle and completeness projections.
 
 Each pre-Phase-7 current-position row is preserved during upgrade and assigned its own Imported Campaign because no reliable grouping exists. Upgrade creates no transaction, fill, or execution time and does not alter existing nullable opening premium/time.
 

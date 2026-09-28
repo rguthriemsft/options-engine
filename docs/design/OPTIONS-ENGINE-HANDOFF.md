@@ -708,7 +708,9 @@ Locked Phase 7 direction:
 - actual fills are authoritative and may differ from analysis;
 - Campaign uses Open/Closed plus terminal outcome; Rolled is not a state;
 - current positions gain CampaignId and remain one-row-per-Phase-6-evaluation-unit projections;
-- partial BTC/expiration/assignment and partial or quantity-mismatched rolls are supported within physical capacity;
+- partial BTC/expiration/assignment and partial one-for-one rolls are supported within physical capacity;
+- each roll requires equal BTC and replacement STO contract quantities; unmatched opening or closing intent uses separate lifecycle operations;
+- all client-supplied lifecycle timestamps must be explicit UTC DateTimeOffset values and non-UTC values are rejected rather than normalized;
 - imported positions create incomplete imported Campaigns without fabricated transactions;
 - assignment reduces Holding shares and emits tax-lot reconciliation warning without tax accounting;
 - commands are atomic and idempotent;

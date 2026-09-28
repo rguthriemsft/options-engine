@@ -1380,7 +1380,8 @@ See `docs/design/PHASE-6-DEFENSE-ROLL-DESIGN.md` and `docs/acceptance/PHASE-6-DE
 - `Rolled` is not a Campaign state; roll history is derived from operations.
 - A Campaign cannot reopen after closure.
 - A roll preserves CampaignId.
-- Partial or quantity-mismatched rolls may leave multiple current positions in one Campaign.
+- RecordRoll requires equal BTC and replacement STO contract quantities; additional opening or closing intent uses separate lifecycle operations.
+- A partial roll may leave unrolled old contracts and replacement contracts as multiple current positions in one Campaign.
 - A Holding may have multiple independent Campaigns.
 - Current positions add CampaignId and remain narrow mutable projections; one row remains one Phase 6 evaluation unit.
 - Active position rows are consolidated by Campaign and option identity, never across Campaigns.
@@ -1398,7 +1399,7 @@ See `docs/design/PHASE-6-DEFENSE-ROLL-DESIGN.md` and `docs/acceptance/PHASE-6-DE
 
 - Partial BTC, expiration, and assignment are supported up to current quantity.
 - RecordRoll atomically persists both executed legs and all projection changes.
-- Roll leg quantities may differ if resulting aggregate short calls remain physically covered.
+- Roll leg contract quantities must be equal; the command layer rejects unequal quantities.
 - Phase 6 hypothetical quantity, option, strike, delta, rank, and disposition do not constrain actual execution recording.
 - Incomplete broker roll execution is recorded only as the leg that actually completed; no missing leg is fabricated.
 - STO, BTC, roll, and expiration do not change Holding shares.
@@ -1413,6 +1414,8 @@ See `docs/design/PHASE-6-DEFENSE-ROLL-DESIGN.md` and `docs/acceptance/PHASE-6-DE
 - Correction appends a same-type replacement and supersession metadata, then validates/replays effective history and atomically rebuilds projections.
 - Analytical artifact links are optional and validated for identity/relationship consistency when present.
 - Reality may differ from analysis and remains recordable; source evaluations never mutate.
+- All client-supplied Phase 7 lifecycle timestamps use DateTimeOffset with zero offset; non-UTC values are rejected rather than normalized.
+- Server-owned RecordedAtUtc comes from the injected time source and also has zero offset.
 
 ### API and Packets
 
